@@ -12,16 +12,20 @@ DocType: index
 Intent: long-term
 Owners: []
 RelatedFiles:
+    - Path: cmd/loupe-svg-buttons/main.go
+      Note: Root command for rendering the animated SVG-backed button grid on hardware
+    - Path: svg_icons.go
+      Note: Core loader and rasterization path for the imported icon library
     - Path: ttmp/2026/04/11/LOUPE-004--animated-svg-icon-buttons-for-loupedeck-live/design-doc/01-animated-svg-icon-button-rendering-plan.md
       Note: Primary design plan for the SVG extraction and animation work
     - Path: ttmp/2026/04/11/LOUPE-004--animated-svg-icon-buttons-for-loupedeck-live/reference/01-implementation-diary.md
       Note: Chronological implementation record for the ticket
 ExternalSources:
     - local:macos1-icon-library.html
-Summary: Ticket for importing an HTML SVG icon library, extracting/normalizing its icons in Go, and rendering properly scaled animated buttons on the Loupedeck Live.
-LastUpdated: 2026-04-11T19:11:59-04:00
+Summary: Ticket for importing an HTML SVG icon library, extracting/normalizing its icons in Go, and rendering properly scaled animated buttons on the Loupedeck Live, including a working root demo command and hardware validation.
+LastUpdated: 2026-04-11T19:24:30-04:00
 WhatFor: Track the implementation and documentation for animated SVG-backed touch-button rendering on the Loupedeck Live.
-WhenToUse: Use when orienting on the SVG renderer work or locating the imported icon source and implementation diary.
+WhenToUse: Use when orienting on the SVG renderer work, locating the imported icon source, or running the hardware demo.
 ---
 
 # Animated SVG icon buttons for Loupedeck Live
@@ -41,10 +45,11 @@ LOUPE-004 builds on the new root `github.com/go-go-golems/loupedeck` package by 
 Current status: **active**
 
 Current completion state:
-- Ticket created
-- Source library imported into docmgr
-- Initial design/diary docs written
-- Implementation pending
+- Ticket created and source library imported into docmgr
+- SVG extraction/normalization/rasterization implemented
+- Root animated-button demo command added
+- Demo run on actual hardware
+- Lifecycle warnings still inherited from the lower-level package
 
 ## Topics
 

@@ -12,14 +12,22 @@ DocType: design-doc
 Intent: long-term
 Owners: []
 RelatedFiles:
+    - Path: cmd/loupe-svg-buttons/main.go
+      Note: Root demo command that animates 12 SVG-derived touch buttons on the Loupedeck Live
+    - Path: go.mod
+      Note: Declares the SVG rasterization dependencies used by the implementation
+    - Path: svg_icons.go
+      Note: HTML extraction, SVG normalization, rasterization, and scaling helpers
+    - Path: svg_icons_test.go
+      Note: Extraction and rasterization tests for the imported icon-library path
     - Path: ttmp/2026/04/11/LOUPE-004--animated-svg-icon-buttons-for-loupedeck-live/sources/local/macos1-icon-library.html
       Note: Imported source library containing the inline SVG icon set to extract and render
 ExternalSources:
     - local:macos1-icon-library.html
-Summary: Plan for extracting SVG icons from the imported System 1.0 icon library, rasterizing them safely in Go, scaling them to 90×90 touch-button tiles, and animating them on the Loupedeck Live.
-LastUpdated: 2026-04-11T19:11:59-04:00
-WhatFor: Provide the implementation plan for loading the imported icon library and rendering animated SVG buttons on actual Loupedeck Live hardware.
-WhenToUse: Use when implementing or reviewing the SVG button renderer and demo command.
+Summary: Plan and implementation notes for extracting SVG icons from the imported System 1.0 icon library, rasterizing them safely in Go, scaling them to 90×90 touch-button tiles, and animating them on the Loupedeck Live.
+LastUpdated: 2026-04-11T19:24:30-04:00
+WhatFor: Provide the implementation plan and current file map for loading the imported icon library and rendering animated SVG buttons on actual Loupedeck Live hardware.
+WhenToUse: Use when implementing or reviewing the SVG button renderer, loader, tests, and demo command.
 ---
 
 # Animated SVG icon button rendering plan
@@ -146,6 +154,33 @@ Rejected because it loses the provenance and breadth of the imported icon librar
 5. Add a root command to animate a 12-button icon bank on the Loupedeck Live.
 6. Run `go test ./...`.
 7. Run the command on hardware and record the results in the diary/changelog.
+
+## Current implementation status
+
+The planned implementation now exists in the repository in concrete form:
+
+- `svg_icons.go`
+  - loads the imported HTML library
+  - extracts icon labels and inline SVG fragments
+  - inlines CSS variables
+  - injects shared dither defs when needed
+  - strips browser animation styles
+  - rasterizes icons with Go SVG tooling
+- `svg_icons_test.go`
+  - validates extraction, normalization, and rasterization on a representative sample library fragment
+- `cmd/loupe-svg-buttons/main.go`
+  - loads the imported library from the ticket workspace by default
+  - selects 12 icons
+  - trims transparent bounds for better visual scaling
+  - composes `90×90` button frames with lightweight animation transforms
+  - renders the animated grid to the Loupedeck Live main display
+  - exits via Circle or optional duration flag
+
+Hardware validation summary so far:
+
+- the animated demo built and ran on the actual device
+- the first run showed repeated per-tile draw/ack traffic without an immediate protocol failure
+- a quieter follow-up run with `--duration 6s` completed the visible animation window, though the known connect/close lifecycle warnings (`Port has been closed`, short `Version` response, close-time read exit) still appeared around startup/shutdown
 
 ## Open Questions
 
