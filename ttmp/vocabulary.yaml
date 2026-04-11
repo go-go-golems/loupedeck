@@ -17,6 +17,12 @@ topics:
       description: Go programming language
     - slug: backpressure
       description: Outbound transport pacing, flow control, queueing, and render coalescing concerns in device or protocol integrations.
+    - slug: svg
+      description: Scalable Vector Graphics assets, parsing, normalization, and rasterization.
+    - slug: animation
+      description: Animated visual behavior, frame sequencing, and motion effects in UI or device rendering.
+    - slug: rendering
+      description: Image composition, rasterization, display drawing, and visual output pipelines.
 docTypes:
     - slug: design-doc
       description: Structured rationale and architecture notes
