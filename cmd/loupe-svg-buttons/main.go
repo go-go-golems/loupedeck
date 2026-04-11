@@ -68,7 +68,7 @@ var borderPalette = []color.RGBA{
 }
 
 func main() {
-	slog.SetDefault(slog.New(slog.NewTextHandler(os.Stderr, &slog.HandlerOptions{Level: slog.LevelInfo})))
+	slog.SetDefault(slog.New(slog.NewTextHandler(os.Stderr, &slog.HandlerOptions{Level: slog.LevelWarn})))
 
 	libraryPath := flag.String("library", defaultLibraryPath, "path to imported icon-library HTML")
 	fps := flag.Float64("fps", 12, "target animation fps")
@@ -129,7 +129,7 @@ func main() {
 		}
 	})
 
-	slog.Info("Starting animated SVG button demo", "library", *libraryPath, "icon_count", len(lib.Icons), "fps", *fps)
+	fmt.Printf("Starting animated SVG button demo library=%s icon_count=%d fps=%.2f\n", *libraryPath, len(lib.Icons), *fps)
 
 	ticker := time.NewTicker(time.Duration(float64(time.Second) / *fps))
 	defer ticker.Stop()
