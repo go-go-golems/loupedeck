@@ -214,9 +214,15 @@ func main() {
 				}
 			}
 		}(btnNum))
+		
+		// Small delay between buttons to avoid overwhelming the device
+		time.Sleep(50 * time.Millisecond)
 	}
 
 	slog.Info("MultiButtons ready (12 icons)")
+	
+	// Small delay to let device settle after all the drawing
+	time.Sleep(100 * time.Millisecond)
 
 	// Step 9: Setup physical buttons with LED color cycling
 	slog.Info("Setting up physical button LEDs...")
