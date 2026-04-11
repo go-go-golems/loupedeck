@@ -1,0 +1,36 @@
+# Binaries
+*.exe
+*.dll
+*.so
+*.dylib
+*.test
+*.out
+hello_world
+
+# Go build artifacts
+*.o
+*.a
+*.prof
+
+# Dependency directories
+vendor/
+
+# IDE
+.idea/
+.vscode/
+*.swp
+*.swo
+*~
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Playwright
+.playwright-mcp/
+
+# Docmgr (keep structure, ignore generated if any)
+*.tmp
+
+# External repositories (clone separately)
+sources/loupedeck-repo/

@@ -5,6 +5,16 @@ topics:
       description: Backend services
     - slug: websocket
       description: WebSocket lifecycle & events
+    - slug: loupedeck
+      description: Loupedeck control surface devices
+    - slug: embedded
+      description: Embedded systems and hardware programming
+    - slug: hardware
+      description: Hardware devices and interfaces
+    - slug: serial
+      description: Serial communication protocols
+    - slug: go
+      description: Go programming language
 docTypes:
     - slug: design-doc
       description: Structured rationale and architecture notes
