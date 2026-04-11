@@ -2,9 +2,10 @@ package loupedeck
 
 import (
 	"fmt"
-	"github.com/gorilla/websocket"
 	"log/slog"
 	"time"
+
+	"github.com/gorilla/websocket"
 )
 
 // MessageType is a uint16 used to identify various commands and
@@ -116,18 +117,51 @@ func (l *Loupedeck) newTransactionID() uint8 {
 	return t
 }
 
+func (l *Loupedeck) setTransactionCallback(id byte, cb transactionCallback) {
+	l.transactionMutex.Lock()
+	defer l.transactionMutex.Unlock()
+	if l.transactionCallbacks == nil {
+		l.transactionCallbacks = map[byte]transactionCallback{}
+	}
+	if cb == nil {
+		delete(l.transactionCallbacks, id)
+		return
+	}
+	l.transactionCallbacks[id] = cb
+}
+
+func (l *Loupedeck) takeTransactionCallback(id byte) transactionCallback {
+	l.transactionMutex.Lock()
+	defer l.transactionMutex.Unlock()
+	cb := l.transactionCallbacks[id]
+	if cb != nil {
+		delete(l.transactionCallbacks, id)
+	}
+	return cb
+}
+
+// EnqueueCommand sends an outbound command through the package-owned writer.
+func (l *Loupedeck) EnqueueCommand(cmd outboundCommand) error {
+	if l.writer != nil {
+		return l.writer.enqueue(cmd)
+	}
+	msgs, err := cmd.Messages()
+	if err != nil {
+		return err
+	}
+	for _, m := range msgs {
+		if err := l.conn.WriteMessage(websocket.BinaryMessage, m.asBytes()); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
 // Send sends a message to the specified device.
 func (l *Loupedeck) Send(m *Message) error {
 	slog.Info("Sending", "message", m.String())
-	l.transactionCallbacks[m.transactionID] = nil
-
-	return l.send(m)
-}
-
-// send sends a message to the specified device.
-func (l *Loupedeck) send(m *Message) error {
-	b := m.asBytes()
-	return l.conn.WriteMessage(websocket.BinaryMessage, b)
+	l.setTransactionCallback(m.transactionID, nil)
+	return l.EnqueueCommand(singleMessageCommand{message: m})
 }
 
 // SendWithCallback sends a message to the specified device
@@ -136,9 +170,8 @@ func (l *Loupedeck) send(m *Message) error {
 // provided with the response message.
 func (l *Loupedeck) SendWithCallback(m *Message, c transactionCallback) error {
 	slog.Info("Setting callback", "message", m.String())
-	l.transactionCallbacks[m.transactionID] = c
-
-	return l.send(m)
+	l.setTransactionCallback(m.transactionID, c)
+	return l.EnqueueCommand(singleMessageCommand{message: m})
 }
 
 // SendAndWait sends a message and then waits for a response, returning the response message.

@@ -33,10 +33,9 @@ func (l *Loupedeck) Listen() error {
 		slog.Info("Read", "message", m.String())
 
 		if m.transactionID != 0 {
-			if c := l.transactionCallbacks[m.transactionID]; c != nil {
+			if c := l.takeTransactionCallback(m.transactionID); c != nil {
 				slog.Info("Callback found, calling")
 				c(m)
-				l.transactionCallbacks[m.transactionID] = nil
 			}
 			continue
 		}

@@ -34,7 +34,6 @@ import (
 	"image/draw"
 	"strings"
 
-	"github.com/gorilla/websocket"
 	"golang.org/x/image/font"
 	"golang.org/x/image/font/gofont/goregular"
 	"golang.org/x/image/font/opentype"
@@ -58,7 +57,9 @@ type Loupedeck struct {
 	face                 font.Face
 	fontdrawer           *font.Drawer
 	serial               *SerialWebSockConn
-	conn                 *websocket.Conn
+	conn                 wsConn
+	writer               *outboundWriter
+	writerOptions        WriterOptions
 	buttonBindings       map[Button]ButtonFunc
 	buttonUpBindings     map[Button]ButtonFunc
 	knobBindings         map[Knob]KnobFunc
@@ -86,6 +87,9 @@ type Loupedeck struct {
 // Close closes the connection to the Loupedeck.
 func (l *Loupedeck) Close() error {
 	var errs []string
+	if l.writer != nil {
+		l.writer.Close()
+	}
 	if l.conn != nil {
 		if err := l.conn.Close(); err != nil {
 			errs = append(errs, fmt.Sprintf("websocket close: %v", err))
@@ -100,6 +104,14 @@ func (l *Loupedeck) Close() error {
 		return fmt.Errorf(strings.Join(errs, "; "))
 	}
 	return nil
+}
+
+// WriterStats returns a snapshot of outbound writer metrics.
+func (l *Loupedeck) WriterStats() WriterStats {
+	if l.writer == nil {
+		return WriterStats{}
+	}
+	return l.writer.Stats()
 }
 
 // FontDrawer returns a font.Drawer object configured to

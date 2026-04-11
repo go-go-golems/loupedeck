@@ -14,23 +14,33 @@ import (
 // than one device and want to connect to a specific one, then use
 // ConnectPath().
 func ConnectAuto() (*Loupedeck, error) {
+	return ConnectAutoWithOptions(DefaultWriterOptions)
+}
+
+// ConnectAutoWithOptions connects to the first available device using custom writer settings.
+func ConnectAutoWithOptions(writerOptions WriterOptions) (*Loupedeck, error) {
 	c, err := ConnectSerialAuto()
 	if err != nil {
 		return nil, err
 	}
 
-	return tryConnect(c)
+	return tryConnect(c, writerOptions)
 }
 
 // ConnectPath connects to a Loupedeck Live via a specified serial
 // device.  If successful it returns a new Loupedeck.
 func ConnectPath(serialPath string) (*Loupedeck, error) {
+	return ConnectPathWithOptions(serialPath, DefaultWriterOptions)
+}
+
+// ConnectPathWithOptions connects to a specific device using custom writer settings.
+func ConnectPathWithOptions(serialPath string, writerOptions WriterOptions) (*Loupedeck, error) {
 	c, err := ConnectSerialPath(serialPath)
 	if err != nil {
 		return nil, err
 	}
 
-	return tryConnect(c)
+	return tryConnect(c, writerOptions)
 }
 
 type connectResult struct {
@@ -52,11 +62,11 @@ type connectResult struct {
 // connect.  This has a 100% success rate for me.
 //
 // The actual connection logic is all in doConnect(), below.
-func tryConnect(c *SerialWebSockConn) (*Loupedeck, error) {
+func tryConnect(c *SerialWebSockConn, writerOptions WriterOptions) (*Loupedeck, error) {
 	result := make(chan connectResult, 1)
 	go func() {
 		r := connectResult{}
-		r.l, r.err = doConnect(c)
+		r.l, r.err = doConnect(c, writerOptions)
 		result <- r
 	}()
 
@@ -64,14 +74,14 @@ func tryConnect(c *SerialWebSockConn) (*Loupedeck, error) {
 	case <-time.After(2 * time.Second):
 		// timeout
 		slog.Info("Timeout! Trying again without timeout.")
-		return doConnect(c)
+		return doConnect(c, writerOptions)
 
 	case result := <-result:
 		return result.l, result.err
 	}
 }
 
-func doConnect(c *SerialWebSockConn) (*Loupedeck, error) {
+func doConnect(c *SerialWebSockConn, writerOptions WriterOptions) (*Loupedeck, error) {
 	dialer := websocket.Dialer{
 		NetDial: func(network, addr string) (net.Conn, error) {
 			slog.Info("Dialing...")
@@ -95,6 +105,7 @@ func doConnect(c *SerialWebSockConn) (*Loupedeck, error) {
 	l := &Loupedeck{
 		conn:                 conn,
 		serial:               c,
+		writerOptions:        writerOptions,
 		buttonBindings:       make(map[Button]ButtonFunc),
 		buttonUpBindings:     make(map[Button]ButtonFunc),
 		knobBindings:         make(map[Knob]KnobFunc),
@@ -111,6 +122,8 @@ func doConnect(c *SerialWebSockConn) (*Loupedeck, error) {
 		transactionCallbacks: map[byte]transactionCallback{},
 		displays:             map[string]*Display{},
 	}
+	l.writer = newOutboundWriter(l.conn, writerOptions)
+
 	err = l.SetDefaultFont()
 	if err != nil {
 		return nil, fmt.Errorf("Unable to set default font: %v", err)

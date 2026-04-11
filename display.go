@@ -19,6 +19,16 @@ type Display struct {
 	bigEndian        bool
 }
 
+type displayDrawCommand struct {
+	framebuffer *Message
+	draw        *Message
+}
+
+func (c displayDrawCommand) Kind() string { return "display-draw" }
+func (c displayDrawCommand) Messages() ([]*Message, error) {
+	return []*Message{c.framebuffer, c.draw}, nil
+}
+
 // GetDisplay returns a Display object with a given name if it exists,
 // otherwise it returns nil.
 //
@@ -147,10 +157,6 @@ func (d *Display) Draw(im image.Image, xoff, yoff int) {
 	}
 
 	m := d.loupedeck.NewMessage(WriteFramebuff, data)
-	err := d.loupedeck.Send(m)
-	if err != nil {
-		slog.Warn("Send failed", "err", err)
-	}
 
 	// I'd love to watch the return code for WriteFramebuff, but
 	// it doesn't seem to come back until after Draw, below.
@@ -170,7 +176,7 @@ func (d *Display) Draw(im image.Image, xoff, yoff int) {
 	data2 := make([]byte, 2)
 	binary.BigEndian.PutUint16(data2[0:], uint16(d.id))
 	m2 := d.loupedeck.NewMessage(Draw, data2)
-	err = d.loupedeck.Send(m2)
+	err := d.loupedeck.EnqueueCommand(displayDrawCommand{framebuffer: m, draw: m2})
 	if err != nil {
 		slog.Warn("Send failed", "err", err)
 	}
