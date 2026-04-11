@@ -12,13 +12,16 @@ Topics:
 DocType: design-doc
 Intent: long-term
 Owners: []
-RelatedFiles: []
+RelatedFiles:
+    - Path: ttmp/2026/04/11/LOUPE-002--loupedeck-live-feature-tester-comprehensive-hardware-exercise/scripts/feature_tester.go
+      Note: Postmortem analyzes this program's WebSocket issues
 ExternalSources: []
-Summary: "Postmortem analysis of the feature tester development, including what was accomplished, what failed, and next steps"
+Summary: Postmortem analysis of the feature tester development, including what was accomplished, what failed, and next steps
 LastUpdated: 2026-04-11T22:00:00-04:00
-WhatFor: "Document the current state of the feature tester and lessons learned"
-WhenToUse: "Reference when continuing development or troubleshooting hardware issues"
+WhatFor: Document the current state of the feature tester and lessons learned
+WhenToUse: Reference when continuing development or troubleshooting hardware issues
 ---
+
 
 # Feature Tester Postmortem and Current Status
 
