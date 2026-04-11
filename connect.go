@@ -19,12 +19,7 @@ func ConnectAuto() (*Loupedeck, error) {
 
 // ConnectAutoWithOptions connects to the first available device using custom writer settings.
 func ConnectAutoWithOptions(writerOptions WriterOptions) (*Loupedeck, error) {
-	c, err := ConnectSerialAuto()
-	if err != nil {
-		return nil, err
-	}
-
-	return tryConnect(c, writerOptions)
+	return tryConnect(ConnectSerialAuto, writerOptions)
 }
 
 // ConnectPath connects to a Loupedeck Live via a specified serial
@@ -35,12 +30,9 @@ func ConnectPath(serialPath string) (*Loupedeck, error) {
 
 // ConnectPathWithOptions connects to a specific device using custom writer settings.
 func ConnectPathWithOptions(serialPath string, writerOptions WriterOptions) (*Loupedeck, error) {
-	c, err := ConnectSerialPath(serialPath)
-	if err != nil {
-		return nil, err
-	}
-
-	return tryConnect(c, writerOptions)
+	return tryConnect(func() (*SerialWebSockConn, error) {
+		return ConnectSerialPath(serialPath)
+	}, writerOptions)
 }
 
 type connectResult struct {
@@ -62,19 +54,29 @@ type connectResult struct {
 // connect.  This has a 100% success rate for me.
 //
 // The actual connection logic is all in doConnect(), below.
-func tryConnect(c *SerialWebSockConn, writerOptions WriterOptions) (*Loupedeck, error) {
+func tryConnect(open func() (*SerialWebSockConn, error), writerOptions WriterOptions) (*Loupedeck, error) {
+	c, err := open()
+	if err != nil {
+		return nil, err
+	}
+
 	result := make(chan connectResult, 1)
-	go func() {
+	go func(conn *SerialWebSockConn) {
 		r := connectResult{}
-		r.l, r.err = doConnect(c, writerOptions)
+		r.l, r.err = doConnect(conn, writerOptions)
 		result <- r
-	}()
+	}(c)
 
 	select {
 	case <-time.After(2 * time.Second):
 		// timeout
 		slog.Info("Timeout! Trying again without timeout.")
-		return doConnect(c, writerOptions)
+		_ = c.Close()
+		c2, err := open()
+		if err != nil {
+			return nil, err
+		}
+		return doConnect(c2, writerOptions)
 
 	case result := <-result:
 		return result.l, result.err
@@ -155,6 +157,10 @@ func doConnect(c *SerialWebSockConn, writerOptions WriterOptions) (*Loupedeck, e
 	// callbacks, blocking via 'sendAndWait' isn't going to work.
 	m = l.NewMessage(Version, data)
 	err = l.SendWithCallback(m, func(m *Message) {
+		if len(m.data) < 3 {
+			slog.Warn("Received short 'Version' response", "message_type", m.messageType, "length", len(m.data), "data", m.data)
+			return
+		}
 		l.Version = fmt.Sprintf("%d.%d.%d", m.data[0], m.data[1], m.data[2])
 		slog.Info("Received 'Version' response", "version", l.Version)
 	})
@@ -164,6 +170,10 @@ func doConnect(c *SerialWebSockConn, writerOptions WriterOptions) (*Loupedeck, e
 
 	m = l.NewMessage(Serial, data)
 	err = l.SendWithCallback(m, func(m *Message) {
+		if len(m.data) == 0 {
+			slog.Warn("Received empty 'Serial' response", "message_type", m.messageType)
+			return
+		}
 		l.SerialNo = string(m.data)
 		slog.Info("Received 'Serial' response", "serial", l.SerialNo)
 	})
