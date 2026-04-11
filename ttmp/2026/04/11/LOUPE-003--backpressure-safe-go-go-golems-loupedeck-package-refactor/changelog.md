@@ -64,3 +64,14 @@ Added a project-report-style technical deep dive covering the new go-go-golems L
 
 - /home/manuel/code/wesen/2026-04-11--loupedeck-test/ttmp/2026/04/11/LOUPE-003--backpressure-safe-go-go-golems-loupedeck-package-refactor/design-doc/02-technical-deep-dive-the-new-go-go-golems-loupedeck-frontend-implementation.md — Long-form technical deep dive article for the new frontend
 
+
+## 2026-04-11
+
+Hardened connect-time callbacks against short payloads, retried timed-out websocket handshakes by reopening the serial connection, verified a clean Circle-button exit on hardware, and added a raw FPS benchmark command with measured full-screen and per-button throughput results.
+
+### Related Files
+
+- /home/manuel/code/wesen/2026-04-11--loupedeck-test/connect.go — Guards short Version/Serial responses and reopens the serial port for timeout retries instead of reusing a poisoned connection
+- /home/manuel/code/wesen/2026-04-11--loupedeck-test/cmd/loupe-fps-bench/main.go — Raw hardware benchmark for full-screen, single-button, and mixed multi-button animation throughput
+- /home/manuel/code/wesen/2026-04-11--loupedeck-test/ttmp/2026/04/11/LOUPE-003--backpressure-safe-go-go-golems-loupedeck-package-refactor/design-doc/01-go-go-golems-loupedeck-package-backpressure-safe-architecture-and-implementation-guide.md — Added measured throughput table and clean-exit hardware evidence
+

@@ -14,6 +14,8 @@ Owners: []
 RelatedFiles:
     - Path: cmd/loupe-feature-tester/main.go
       Note: Diary records the root-level feature tester migration
+    - Path: cmd/loupe-fps-bench/main.go
+      Note: Diary records the raw display throughput benchmark harness and measured FPS ceilings
     - Path: display.go
       Note: Diary records logical draw command grouping
     - Path: go.mod
@@ -41,10 +43,10 @@ RelatedFiles:
     - Path: writer_test.go
       Note: Diary records ordering and pacing tests
 ExternalSources: []
-Summary: Chronological diary for the package refactor analysis, including ticket setup, evidence gathering, and authoring of the implementation guide.
-LastUpdated: 2026-04-11T22:10:00-04:00
-WhatFor: Preserve the exact analysis path, commands, and decisions that produced the LOUPE-003 design guide.
-WhenToUse: Use when resuming work on the package refactor or when reviewing why B-lite was selected as the first implementation phase.
+Summary: Chronological diary for the package refactor analysis and implementation, including lifecycle fixes, hardware validation, and raw display throughput benchmarking.
+LastUpdated: 2026-04-11T19:11:59-04:00
+WhatFor: Preserve the exact analysis path, commands, commits, and hardware evidence that shaped the evolving go-go-golems Loupedeck package.
+WhenToUse: Use when resuming work on the package refactor or when reviewing why B-lite came first, how reconnect issues were diagnosed, and what the current hardware throughput limits look like.
 ---
 
 
@@ -1052,3 +1054,408 @@ This document is aimed at readers who want a cohesive technical narrative about 
 - The article complements, rather than replaces:
   - the primary design guide (`design-doc/01-...`)
   - the chronological diary (`reference/01-investigation-diary.md`)
+
+## Step 10: Fix connect callback shape assumptions, repair timeout retry lifecycles, and validate a clean-exit hardware cycle
+
+After the first successful root-package hardware smoke run, I pushed one layer deeper into the remaining instability and found that the next failures were no longer the original draw-storm problem. Instead, they clustered around connection lifecycle edges: short async callback payloads during the connect handshake, and retry logic that re-used a serial/websocket connection after a timeout instead of reopening a fresh one.
+
+This was a useful shift in failure mode. It meant the package had become stable enough in the steady state that the next bugs were now connect/reconnect hygiene problems. I fixed those concretely, then reran the root feature tester in the background and exited it cleanly with the Circle button so I could separate abrupt-stop corruption from normal runtime behavior.
+
+### Prompt Context
+
+**User prompt (verbatim):** "The conversation history before this point was compacted into the following summary:
+
+<summary>
+## Goal
+Create a comprehensive Loupedeck Live hardware feature tester program that exercises all device capabilities: 6 knob encoders, physical button presses, 4×3 touchscreen, scrolling sliders (TouchDial), round button LED colors, and individual touch button icons. Program must include proper docmgr ticket structure with analysis diary and be tested on actual hardware.
+
+Expanded goal: turn the experimental work into a real root Go package, `github.com/go-go-golems/loupedeck`, with package-owned backpressure handling, composable listeners, safer lifecycle behavior, a root feature tester command, detailed ticket docs, and an Obsidian technical deep dive.
+
+## Constraints & Preferences
+- Use `github.com/scottlaird/loupedeck` Go library over USB serial (firmware 2.x) as the upstream reference, but now work in the repo root as a real package
+- Must work on Loupedeck Live (product ID 0004)
+- Include rate-limiting / backpressure control to prevent `\"websocket: bad opcode 4\"` and related protocol errors
+- Touchscreen button presses should flash corresponding **screen button areas** (4×3 grid), not physical LEDs
+- Maintain docmgr ticket structure with design docs, diary, changelog, tasks, related files
+- Commit incrementally at appropriate intervals and update the diary as work proceeds
+- Upload major ticket docs to reMarkable when requested
+- Save project/deep-dive notes into the Obsidian vault
+- Keep exact file references and evidence-backed analysis
+- Root package should build with `go test ./...`
+
+## Progress
+### Done
+- [x] Created LOUPE-001 ticket with minimal hello_world.go (tested on hardware)
+- [x] Created LOUPE-002 ticket for comprehensive feature tester
+- [x] Implemented feature_tester.go with all 6 hardware features
+- [x] Fixed WebSocket error by adding 50ms delays between MultiButtons + 100ms after batch
+- [x] Fixed encoder value updates by removing double-binding (TouchDial already creates IntKnobs internally)
+- [x] Added touch-to-flash mapping: Touch 1-4 → Circle/Btn1-3, Touch 5-8 → Btn4-7, Touch 9-12 → cycles back
+- [x] Successfully tested on actual Loupedeck Live hardware - all features working
+- [x] Committed all changes to git (earlier LOUPE-001/002 work)
+- [x] Wrote LOUPE-002 postmortem and detailed diary:
+  - `/home/manuel/code/wesen/2026-04-11--loupedeck-test/ttmp/2026/04/11/LOUPE-002--loupedeck-live-feature-tester-comprehensive-hardware-exercise/design-doc/02-postmortem.md`
+  - `/home/manuel/code/wesen/2026/04/11/LOUPE-002--loupedeck-live-feature-tester-comprehensive-hardware-exercise/reference/02-detailed-diary.md`
+- [x] Updated Obsidian project note with LOUPE-002 status and WebSocket limitations:
+  - `/home/manuel/code/wesen/obsidian-vault/Projects/2026/04/11/PROJ - Loupedeck Live Hello World - Serial Go Driver.md`
+- [x] Analyzed LOUPE-002 backpressure problem and identified structural issues in upstream library:
+  - immediate draw sends in `sources/loupedeck-repo/display.go`
+  - direct send path in `sources/loupedeck-repo/message.go`
+  - panic in `sources/loupedeck-repo/listen.go`
+  - single-slot bindings in `sources/loupedeck-repo/inputs.go`
+  - incomplete close in `sources/loupedeck-repo/dialer.go`
+- [x] Created new ticket LOUPE-003:
+  - `/home/manuel/code/wesen/2026-04-11--loupedeck-test/ttmp/2026/04/11/LOUPE-003--backpressure-safe-go-go-golems-loupedeck-package-refactor/`
+- [x] Wrote primary LOUPE-003 architecture/design guide:
+  - `.../design-doc/01-go-go-golems-loupedeck-package-backpressure-safe-architecture-and-implementation-guide.md`
+- [x] Wrote and maintained LOUPE-003 diary:
+  - `.../reference/01-investigation-diary.md`
+- [x] Uploaded LOUPE-003 bundle to reMarkable:
+  - remote dir `/ai/2026/04/11/LOUPE-003/`
+  - document `LOUPE-003 Backpressure-safe go-go-golems loupedeck package refactor`
+- [x] Added `backpressure` to docmgr vocabulary and passed `docmgr doctor --ticket LOUPE-003 --stale-after 30`
+- [x] Phase 0: created root module `github.com/go-go-golems/loupedeck`
+  - root files copied from upstream reference into repo root
+  - root `README.md` added
+  - root `go.mod` and `go.sum` added
+  - `go test ./...` passes at root
+- [x] Phase 1: added composable listeners and safe lifecycle
+  - new file `/home/manuel/code/wesen/2026-04-11--loupedeck-test/listeners.go`
+  - new tests `/home/manuel/code/wesen/2026-04-11--loupedeck-test/listeners_test.go`
+  - `Listen()` now returns `error` instead of panicking
+  - `SerialWebSockConn.Close()` now closes the actual port
+  - widgets (`intknob.go`, `touchdials.go`, `multibutton.go`) now use `On*` APIs
+- [x] Phase 2: added B-lite outbound writer and pacing
+  - new file `/home/manuel/code/wesen/2026-04-11--loupedeck-test/writer.go`
+  - new tests `/home/manuel/code/wesen/2026-04-11--loupedeck-test/writer_test.go`
+  - added `WriterOptions`, `WriterStats`, `ConnectAutoWithOptions`, `ConnectPathWithOptions`
+  - all outbound websocket writes now go through a single writer goroutine
+  - `display.go` now groups `WriteFramebuff` + `Draw` into one logical `displayDrawCommand`
+- [x] Phase 3: added root feature tester command
+  - `/home/manuel/code/wesen/2026-04-11--loupedeck-test/cmd/loupe-feature-tester/main.go`
+  - uses new root package APIs (`On*`, `ConnectAutoWithOptions`)
+  - removed old app-level sleep-based pacing from the tester
+  - `go test ./...` passes with command present
+- [x] Hardware smoke test with B-lite/new root command succeeded after reconnect:
+  - `timeout 10s go run ./cmd/loupe-feature-tester`
+  - observed clean startup and runtime logs without immediate websocket failure during the observed window
+  - writer stats logged: `QueuedCommands:18 SentCommands:18 SentMessages:32 FailedCommands:0 MaxQueueDepth:1`
+- [x] Phase 4: added render scheduler and region coalescing (full-B groundwork)
+  - new file `/home/manuel/code/wesen/2026-04-11--loupedeck-test/renderer.go`
+  - new tests `/home/manuel/code/wesen/2026-04-11--loupedeck-test/renderer_test.go`
+  - `Display.Draw()` now routes through keyed invalidation when renderer is enabled
+  - region key format: `<display-name>:<x>:<y>:<width>:<height>`
+  - `go test ./...` passes
+- [x] Wrote LOUPE-003 technical deep dive article in ticket:
+  - `.../design-doc/02-technical-deep-dive-the-new-go-go-golems-loupedeck-frontend-implementation.md`
+- [x] Saved deep-dive article to Obsidian vault:
+  - `/home/manuel/code/wesen/obsidian-vault/Projects/2026/04/11/ARTICLE - Loupedeck - Backpressure-Safe Go Frontend Deep Dive.md`
+- [x] Maintained incremental commit history for LOUPE-003:
+  - `1c706c4 Add LOUPE-003 package refactor ticket and task breakdown`
+  - `e99d144 Phase 0: create root go-go-golems loupedeck module`
+  - `c828131 Phase 1: add composable listeners and safe lifecycle`
+  - `0bd7fc9 Update LOUPE-003 diary and bookkeeping for Phase 0 and Phase 1`
+  - `a3056ae Phase 2: add B-lite outbound writer and pacing`
+  - `1ed5c25 Update LOUPE-003 diary and bookkeeping for Phase 2`
+  - `8bd9e43 Phase 3: add root feature tester command`
+  - `9b12ff6 Update LOUPE-003 diary and bookkeeping for Phase 3`
+  - `c6cd4e2 Phase 4: add render scheduler and region coalescing`
+
+### In Progress
+- [ ] LOUPE-003 Phase 5 documentation/continuity bookkeeping after latest Phase 4 + deep-dive work
+- [ ] Decision gate for whether strict C-style in-flight / ack-gated flow control is needed
+- [ ] Additional clean-exit hardware validation to separate reconnect/reset issues from steady-state transport behavior
+
+### Blocked
+- Reconnect / handshake state after abrupt stop is still fragile. A later rerun after prior execution failed with:
+  - `malformed HTTP response "\x82\x05\x05\x00\x00\b\x00\x82\x05\x05\x00\x00\t\x01\x82\x05\x05\x00\x00"`
+- Serial device availability can still temporarily block runs:
+  - `unable to open port "/dev/ttyACM0"`
+
+## Key Decisions
+- **TouchDial vs IntKnob**: TouchDial internally creates IntKnobs; creating them separately caused double-binding conflicts. Solution: Let TouchDial handle knob binding, only add WatchedInt watchers for logging.
+- **Rate-limiting for WebSocket stability**: Rapid creation of 12 MultiButtons caused "bad opcode 4" WebSocket errors. Solution: initially 50ms delay between each MultiButton, 100ms after batch completion; later moved pacing responsibility into the package writer.
+- **Touch flash mapping**: Map touch buttons 1-12 to physical buttons in repeating pattern (Circle, Btn1-7, then cycle) with corresponding rainbow colors for visual feedback. Later changed per user request to flash the **screen button area** instead of physical LEDs.
+- **B-lite before B before C**: Implement package-owned single writer and pacing first, then render invalidation/coalescing, and only then assess whether strict ack-gated flow control (C) is necessary.
+- **Root package creation**: Move from ticket-local script modules to a real root package `github.com/go-go-golems/loupedeck` so transport/render control lives in the package, not the app.
+- **Composable listeners**: Keep legacy `Bind*` methods for compatibility, but add `OnButton`, `OnButtonUp`, `OnKnob`, `OnTouch`, `OnTouchUp` plus `Subscription` for multi-listener fanout.
+- **Safe lifecycle**: Replace panic-based `Listen()` behavior with `Listen() error`; make `SerialWebSockConn.Close()` actually close the underlying port; make `Loupedeck.Close()` return aggregated errors.
+- **Single outbound writer**: All websocket writes now go through one writer goroutine in `writer.go`; pacing is applied per outbound command, not per low-level message.
+- **Display draw grouping**: Treat framebuffer upload + draw trigger as one logical command (`displayDrawCommand`) instead of two unrelated sends.
+- **Render coalescing**: Add renderer above writer; `Display.Draw()` now invalidates a keyed region so repeated draws to the same tile/strip collapse to the latest state before flush.
+- **Feature tester migration**: Root command `cmd/loupe-feature-tester/main.go` should use package-owned pacing (`WriterOptions`) and `On*` listeners rather than app-level sleeps and overwrite-prone `Bind*` usage.
+- **Current interpretation of hardware results**: Steady-state draw-storm behavior appears improved under B-lite/full-B groundwork, while remaining failures now look more like reconnect/reset corruption after abrupt termination than immediate backpressure collapse.
+- **Documentation strategy**: Maintain three doc forms in LOUPE-003—primary design guide, chronological diary, and separate deep-dive article—plus mirror the deep dive into Obsidian for durable project knowledge.
+
+## Next Steps
+1. Finish latest LOUPE-003 diary/changelog/task bookkeeping for Phase 4 hardware observations and the new deep-dive article.
+2. Link the new Obsidian article from the main project note if desired.
+3. Re-run the root feature tester with a **clean exit path** (preferably Circle button, not `timeout`) to isolate reconnect/reset issues.
+4. Compare clean-exit rerun behavior against the malformed-handshake case:
+   - `malformed HTTP response "\x82\x05\x05\x00\x00\b\x00\x82\x05\x05\x00\x00\t\x01\x82\x05\x05\x00\x00"`
+5. Decide whether to open a dedicated lifecycle/reset ticket or continue LOUPE-003 for reconnect hygiene.
+6. Keep C undecided for now; only adopt strict in-flight/ack-gated flow control if failures remain after clean-exit validation.
+
+## Critical Context
+- **Repository**: `/home/manuel/code/wesen/2026-04-11--loupedeck-test/`
+- **Upstream reference library**: `sources/loupedeck-repo/` (frozen reference, not the active implementation)
+- **Root module**: `github.com/go-go-golems/loupedeck`
+- **Main new root command**: `/home/manuel/code/wesen/2026-04-11--loupedeck-test/cmd/loupe-feature-tester/main.go`
+- **Root package key files**:
+  - `/home/manuel/code/wesen/2026-04-11--loupedeck-test/listeners.go`
+  - `/home/manuel/code/wesen/2026-04-11--loupedeck-test/writer.go`
+  - `/home/manuel/code/wesen/2026-04-11--loupedeck-test/renderer.go`
+  - `/home/manuel/code/wesen/2026-04-11--loupedeck-test/display.go`
+  - `/home/manuel/code/wesen/2026-04-11--loupedeck-test/message.go`
+  - `/home/manuel/code/wesen/2026-04-11--loupedeck-test/connect.go`
+  - `/home/manuel/code/wesen/2026-04-11--loupedeck-test/listen.go`
+- **Root tests**:
+  - `/home/manuel/code/wesen/2026-04-11--loupedeck-test/listeners_test.go`
+  - `/home/manuel/code/wesen/2026-04-11--loupedeck-test/writer_test.go`
+  - `/home/manuel/code/wesen/2026-04-11--loupedeck-test/renderer_test.go`
+- **LOUPE-003 ticket path**:
+  - `/home/manuel/code/wesen/2026-04-11--loupedeck-test/ttmp/2026/04/11/LOUPE-003--backpressure-safe-go-go-golems-loupedeck-package-refactor/`
+- **LOUPE-003 primary design doc**:
+  - `.../design-doc/01-go-go-golems-loupedeck-package-backpressure-safe-architecture-and-implementation-guide.md`
+- **LOUPE-003 deep dive doc**:
+  - `.../design-doc/02-technical-deep-dive-the-new-go-go-golems-loupedeck-frontend-implementation.md`
+- **LOUPE-003 diary**:
+  - `.../reference/01-investigation-diary.md`
+- **Obsidian deep-dive article**:
+  - `/home/manuel/code/wesen/obsidian-vault/Projects/2026/04/11/ARTICLE - Loupedeck - Backpressure-Safe Go Frontend Deep Dive.md`
+- **Obsidian project note**:
+  - `/home/manuel/code/wesen/obsidian-vault/Projects/2026/04/11/PROJ - Loupedeck Live Hello World - Serial Go Driver.md`
+- **Hardware**: Loupedeck Live product `0004`, usually `/dev/ttyACM0`
+- **Protocol**: “mutant WebSocket over serial” over USB CDC ACM
+- **Display dimensions**: left `(60×270)`, main `(360×270)`, right `(60×270)`
+- **Successful hardware signal after reconnect**:
+  - `Feature tester ready writer_stats="{QueuedCommands:18 SentCommands:18 SentMessages:32 FailedCommands:0 MaxQueueDepth:1}"`
+- **Important remaining failure modes**:
+  - `unable to open port "/dev/ttyACM0"`
+  - `malformed HTTP response "\x82\x05\x05\x00\x00\b\x00\x82\x05\x05\x00\x00\t\x01\x82\x05\x05\x00\x00"`
+- **Current conclusion**: B-lite + initial full-B groundwork appear to improve steady-state startup/runtime behavior enough that immediate draw-storm websocket failures are less prominent; the biggest remaining issue appears to be reconnect/reset hygiene after abrupt stop rather than obviously insufficient steady-state flow control.
+
+---
+
+**Turn Context (split turn):**
+
+## Original Request
+- The user asked to try/run the software on the device.
+
+## Early Progress
+- The assistant launched the root-level tester `go run ./cmd/loupe-feature-tester` in the background and intended to log to `/tmp`, telling the user to exit with the Circle button.
+- The launch command had a shell/log variable bug (`LOG` echoed empty), so the assistant checked whether the process started and found the actual log file in `/tmp/loupedeck-feature-tester-1775947380.log`.
+- Log inspection showed the tester did connect and exercise the device, but later crashed due to a callback/data-shape issue rather than the earlier websocket backpressure problem.
+- The assistant inspected `connect.go` and found async callbacks for `Version` and `Serial` responses during connect.
+- It patched those callbacks to guard against short/empty response data instead of indexing blindly, then ran `gofmt` and `go test ./...` successfully.
+- The assistant reran the tester with `timeout 8s go run ./cmd/loupe-feature-tester`; startup succeeded and logs showed normal connect/listen/draw behavior.
+
+## Context for Suffix
+- During the rerun, the assistant noticed a separate lifecycle bug: `tryConnect` timed out after 2s, then retried `doConnect` using the same serial/websocket connection while the first attempt was still active, leading to later `Port has been closed` read failures.
+- To fix that, it refactored `ConnectAutoWithOptions`/`ConnectPathWithOptions` so `tryConnect` receives an opener function, opens a fresh serial connection for the retry, closes the timed-out one, and then reconnects cleanly.
+- After this patch, `gofmt` and `go test ./...` passed.
+- The suffix begins with the assistant doing one more test run using the fixed reconnect path, noting a possible unplug/replug may be needed if the device remained in a bad state from prior crashes.
+</summary>"
+
+**Assistant interpretation:** Continue the real-device validation, fix the new connect-path bugs that surface under the root package, and record the evidence carefully.
+
+**Inferred user intent:** Get the new root package to a point where it can be run repeatedly on hardware with cleaner lifecycle behavior and documented evidence rather than one-off success.
+
+**Commit (code):** `b9e2f22` — "Fix connect retry to reopen serial connection"
+
+### What I did
+- Inspected the root tester logs from the background run and confirmed the earlier software exercised the device but later failed in a callback/data-shape path rather than the old websocket draw-storm path.
+- Hardened the async connect callbacks in `connect.go` so `Version` ignores short payloads and `Serial` ignores empty payloads instead of indexing blindly.
+- Ran:
+  - `gofmt -w connect.go`
+  - `go test ./...`
+- Found the deeper retry bug in `tryConnect`: after the 2-second timeout it reused the same `SerialWebSockConn` for the second attempt, which later manifested as closed-port reads.
+- Refactored `tryConnect` to accept an opener function so the timed-out connection can be closed and the retry can open a fresh serial connection before calling `doConnect` again.
+- Committed the retry fix.
+- Started the root tester in the background with:
+
+```bash
+LOG="/tmp/loupedeck-feature-tester-$(date +%s).log"
+nohup go run ./cmd/loupe-feature-tester >"$LOG" 2>&1 &
+```
+
+- Verified the live log in `/tmp/loupedeck-feature-tester-1775947611.log`.
+- Confirmed a clean interactive session on hardware and a clean exit via the Circle button.
+- Captured the final clean-exit writer stats from the log:
+
+```text
+Final writer stats stats="{QueuedCommands:160 SentCommands:160 SentMessages:258 FailedCommands:0 MaxQueueDepth:1}"
+```
+
+### Why
+- The callback guard bug and retry-on-the-same-connection bug would both make reconnect behavior look worse than it really is.
+- A clean-exit run was necessary to distinguish steady-state draw behavior from state corruption caused by `timeout` killing the process.
+
+### What worked
+- The callback guards prevented the new root package from crashing on short async response payloads.
+- Reopening a fresh serial connection for the timeout retry removed the obvious self-poisoning retry path.
+- The background run connected, handled real button activity, exited via Circle, and shut down cleanly enough to flush the final writer stats without failed outbound commands.
+
+### What didn't work
+- Even with the retry fix, subsequent reconnects in later benchmark runs still produced familiar warnings such as:
+
+```text
+time=2026-04-11T18:55:44.846-04:00 level=WARN msg="Read error, exiting" error="Port has been closed"
+time=2026-04-11T18:55:46.849-04:00 level=WARN msg="dial failed" err="Port has been closed"
+```
+
+- That means the reconnect story is improved but not fully solved; there is still residual device or serial state that can outlive one process.
+
+### What I learned
+- The new primary failure mode had indeed moved from immediate draw overload to edge-case lifecycle handling.
+- Clean exit matters: the Circle-button path produced much better evidence than `timeout` because it let the application reset button colors and close in order.
+- `Version` responses are not guaranteed to be the only thing arriving on that transaction path when the device or websocket state is already slightly off.
+
+### What was tricky to build
+- The hardest part was separating a logic bug in our retry code from genuine device-side reset fragility. Both showed up as connection failures, but they have different fixes. The retry bug was internal and deterministic; the residual closed-port behavior is intermittent and likely involves the device or OS serial stack as well.
+- Another tricky point was that the connection helpers had already been threaded through the package and command API surface. The retry fix had to preserve the existing `ConnectAutoWithOptions` / `ConnectPathWithOptions` shape while still injecting a fresh-open path underneath.
+
+### What warrants a second pair of eyes
+- `tryConnect` now closes the timed-out serial connection before reopening, but a reviewer should confirm there is no race between the goroutine running the first `doConnect` and the close path.
+- The callback hardening is intentionally defensive; if stricter transaction validation is added later, this path may want more explicit message-type filtering.
+
+### What should be done in the future
+- Continue reconnect-focused validation after clean exits, not only after abrupt-stop runs.
+- If intermittent `Port has been closed` warnings continue, consider a dedicated lifecycle/reset ticket or a startup drain/recovery step.
+
+### Code review instructions
+- Review:
+  - `connect.go`
+  - `cmd/loupe-feature-tester/main.go`
+- Validate with:
+
+```bash
+gofmt -w connect.go
+go test ./...
+nohup go run ./cmd/loupe-feature-tester >/tmp/loupedeck-feature-tester.log 2>&1 &
+# interact with hardware, then exit via Circle
+```
+
+### Technical details
+- The key retry structural change was turning `tryConnect` into an opener-driven helper so the second attempt can call `open()` again instead of reusing the first `SerialWebSockConn`.
+- The clean-exit evidence log lived at:
+
+```text
+/tmp/loupedeck-feature-tester-1775947611.log
+```
+
+## Step 11: Add a raw FPS benchmark command and measure full-screen, single-tile, and mixed-button throughput on real hardware
+
+Once the clean-exit feature tester run showed that the root package was behaving sanely enough to interact with, I shifted from smoke testing to measurement. The immediate question from the user was not whether the package merely works, but how fast it can push different update granularities on the real Loupedeck Live.
+
+I implemented a dedicated benchmark command instead of trying to infer these numbers from the feature tester logs. That let me control writer settings, disable the render scheduler to expose raw transport ceilings, precompute animation frames so CPU-side image generation stayed predictable, and sweep targets until the device or transport began to fall behind.
+
+### Prompt Context
+
+**User prompt (verbatim):** "everything seems to work fine. measure max fps you can get on:
+- full screen
+- single button
+- updating individual buttons playing animations at different framerates (use geometric patterns or something)."
+
+**Assistant interpretation:** Build a repeatable hardware benchmark harness and use it to measure sustainable display-update throughput for the main display, a single tile, and a bank of independently animated touch buttons.
+
+**Inferred user intent:** Replace vague “it seems fast enough” judgments with concrete device-backed throughput numbers that can guide future rendering choices.
+
+**Commit (code):** N/A — code changes for the benchmark command are recorded in the next focused commit after this diary update.
+
+### What I did
+- Added optional connect helpers in `connect.go` so callers can supply both writer options and explicit render-scheduler behavior:
+  - `ConnectAutoWithWriterAndRenderOptions(...)`
+  - `ConnectPathWithWriterAndRenderOptions(...)`
+- Used those helpers to make a raw benchmark mode possible by passing `renderOptions=nil`, which disables the render scheduler so each draw goes directly through the writer.
+- Added a new root command:
+  - `cmd/loupe-fps-bench/main.go`
+- Suppressed global slog output in the benchmark command so the existing `INFO`-level draw/read logs in `display.go` and `listen.go` would not dominate the measurements.
+- Implemented three benchmark modes:
+  1. full main-display sweep (`360×270`),
+  2. single-tile sweep (`90×90`),
+  3. 12-button mixed-framerate animation sweep using geometric test patterns.
+- Precomputed geometric frames to keep raster generation predictable during the measurement runs.
+- Measured on the actual device with:
+
+```bash
+go run ./cmd/loupe-fps-bench
+```
+
+- Extended the target ranges when the first pass did not hit a ceiling, then reran until the command found real “fall behind” thresholds instead of arbitrary lower stable values.
+- Captured the resulting ceilings:
+  - full-screen main display: `36 FPS` stable, `37.65 FPS` peak achieved before falling behind
+  - single `90×90` tile: `320 FPS` stable target, about `314 FPS` practical ceiling
+  - 12-tile mixed animation: `288 FPS` total stable aggregate, about `314 FPS` aggregate ceiling before the highest-rate tiles started to flatten
+
+### Why
+- The package now has a writer and an optional renderer, so it is important to distinguish raw transport/display throughput from default coalesced-renderer behavior.
+- Small-tile performance is especially relevant for the Loupedeck Live because its 4×3 touchscreen layout encourages independent tile updates rather than full-screen repaints.
+- A dedicated benchmark harness is reusable evidence for future tickets and optimization decisions.
+
+### What worked
+- `cmd/loupe-fps-bench` built cleanly and `go test ./...` remained green.
+- The benchmark never recorded failed outbound commands in the successful sweeps.
+- The measured numbers were internally consistent: both the single-tile and mixed-tile scenarios saturated around the low-`300 draws/sec` range, while full-screen pushes saturated much earlier due to much larger framebuffer payloads.
+- The command successfully used the new “disable renderer” connect mode, which confirms that the package can now expose raw writer behavior separately from coalesced rendering.
+
+### What didn't work
+- Repeated connect/close cycles inside the benchmark still surfaced the familiar reconnect warnings between scenarios, including:
+
+```text
+time=2026-04-11T18:58:49.855-04:00 level=WARN msg="Read error, exiting" error="Port has been closed"
+time=2026-04-11T18:58:51.876-04:00 level=WARN msg="dial failed" err="Port has been closed"
+```
+
+- Early sweeps also produced occasional short callback warnings during connect, for example:
+
+```text
+time=2026-04-11T18:57:55.693-04:00 level=WARN msg="Received short 'Version' response" message_type=15 length=1 data="\x01"
+```
+
+- Those warnings did not invalidate the throughput numbers, but they do reinforce that reconnect/handshake cleanup is still weaker than steady-state drawing.
+
+### What I learned
+- Full-screen and tile-update throughput differ by almost an order of magnitude on this device, so future APIs should continue to favor region updates over whole-screen redraws when possible.
+- The raw command-rate ceiling for tile-sized updates is currently around `300 draws/sec`, which is comfortably above the rates needed for normal 12-button animation.
+- The mixed-button saturation behavior showed a clear fairness effect: at very high aggregate targets, the highest-FPS tiles flatten first while lower-rate tiles continue to track well.
+
+### What was tricky to build
+- The biggest measurement risk was accidentally benchmarking logging overhead rather than display throughput. The package currently logs every draw at `INFO`, so I had to silence slog in the benchmark command to avoid distorted numbers.
+- Another subtle issue was deciding what “stable” means. I used the benchmark command’s achieved FPS versus target FPS, plus writer failure counts and listen errors, rather than relying only on whether the process crashed. That produces more useful ceilings than a binary pass/fail result.
+- It was also necessary to rerun the command with larger target ranges after the first pass, because the initial sweep only proved that lower rates were stable; it did not actually find the limit.
+
+### What warrants a second pair of eyes
+- The benchmark currently measures raw writer mode with the render scheduler disabled. A reviewer should keep that distinction clear when using the numbers in design discussions.
+- The repeated connect/close loops in the benchmark are a strong stress test for lifecycle behavior. If later refactors change connect semantics, this command should be rerun to see whether the reconnect warnings improve.
+
+### What should be done in the future
+- Add a second benchmark mode later for “default renderer enabled” so raw throughput and coalesced-renderer UX throughput can be compared directly.
+- Use the current measurements to choose conservative animation rates for demo programs; there is no need to run close to the raw `300 draws/sec` ceiling.
+- Keep the C decision open until reconnect hygiene is better understood; the raw throughput numbers do not by themselves justify ack-gated flow control.
+
+### Code review instructions
+- Review:
+  - `cmd/loupe-fps-bench/main.go`
+  - `connect.go`
+- Validate with:
+
+```bash
+gofmt -w connect.go cmd/loupe-fps-bench/main.go
+go test ./...
+go run ./cmd/loupe-fps-bench
+```
+
+### Technical details
+- The benchmark runs in raw-writer mode using:
+
+```go
+writerOptions := loupedeck.WriterOptions{QueueSize: 4096, SendInterval: 0}
+l, err := loupedeck.ConnectAutoWithWriterAndRenderOptions(writerOptions, nil)
+```
+
+- The best stable mixed-rate scenario used these per-button targets:
+
+```text
+6, 9, 12, 15, 18, 21, 24, 27, 30, 36, 42, 48 FPS
+```

@@ -17,10 +17,10 @@ RelatedFiles:
     - Path: ttmp/2026/04/11/LOUPE-003--backpressure-safe-go-go-golems-loupedeck-package-refactor/reference/01-investigation-diary.md
       Note: Chronological record of ticket creation and analysis
 ExternalSources: []
-Summary: Planning ticket for turning the current Loupedeck experiments into a real backpressure-safe go-go-golems package, starting with B-lite and then full B.
-LastUpdated: 2026-04-11T22:12:00-04:00
-WhatFor: Track the package refactor that will move transport pacing and render control out of app-level experiments and into a reusable module.
-WhenToUse: Use when orienting on LOUPE-003, finding the primary design doc, or reviewing the implementation sequence for B-lite, B, and the later C decision gate.
+Summary: Active implementation ticket for the backpressure-safe go-go-golems Loupedeck package, including Phases 0-4, clean-exit hardware validation, and measured raw display throughput benchmarks.
+LastUpdated: 2026-04-11T19:11:59-04:00
+WhatFor: Track the package refactor that moved transport pacing and render control out of app-level experiments and now records the remaining reconnect and flow-control decision points with real hardware evidence.
+WhenToUse: Use when orienting on LOUPE-003, finding the primary design doc, or reviewing completed implementation phases plus the remaining C decision gate.
 ---
 
 
@@ -50,11 +50,12 @@ The primary design guide in this ticket is written for a new engineer and should
 Current status: **active**
 
 Current completion state:
-- Ticket created
-- Detailed design/implementation guide written
-- Diary started
-- Bookkeeping partially complete
-- Validation and reMarkable upload pending
+- Phases 0-4 implemented in the root package
+- Root feature tester migrated and hardware-smoke-tested
+- Clean-exit rerun validated with Circle-button shutdown
+- Raw throughput benchmarks captured for full-screen and tile animation workloads
+- Reconnect/reset hygiene still under investigation
+- Strict C-style flow control still undecided
 
 ## Topics
 

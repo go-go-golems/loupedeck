@@ -16,6 +16,8 @@ RelatedFiles:
       Note: Root package scope and roadmap
     - Path: cmd/loupe-feature-tester/main.go
       Note: Phase 3 root feature tester using the new package APIs
+    - Path: cmd/loupe-fps-bench/main.go
+      Note: Raw hardware throughput benchmark for full-screen and per-button display updates
     - Path: connect.go
       Note: Phase 2 configurable connect helpers
     - Path: dialer.go
@@ -54,7 +56,7 @@ RelatedFiles:
       Note: Phase 2 transport validation tests
 ExternalSources: []
 Summary: Detailed analysis and implementation guide for turning the current experimental Loupedeck work into a production-grade github.com/go-go-golems/loupedeck package with phased backpressure control.
-LastUpdated: 2026-04-11T22:05:00-04:00
+LastUpdated: 2026-04-11T19:11:59-04:00
 WhatFor: Orient a new engineer and provide the phased architecture plan for B-lite first, then full B, with a later evaluation gate for C.
 WhenToUse: Use when starting the package refactor, onboarding an intern, or reviewing transport/rendering decisions for the Loupedeck Live serial-WebSocket stack.
 ---
@@ -1034,6 +1036,24 @@ The real hardware validation loop should include at least:
 - number of draw requests vs actual sends,
 - number of coalesced invalidations,
 - any transport errors and exact logs.
+
+### Observed raw throughput on Loupedeck Live (`product 0004`)
+
+The current repository now includes a direct hardware benchmark command, `cmd/loupe-fps-bench`, which disables the render scheduler and sets the writer interval to `0` so the numbers represent approximate raw transport/display throughput ceilings rather than the default coalesced-renderer UX limits.
+
+Measured on actual hardware on 2026-04-11:
+
+| Scenario | Geometry | Best stable target FPS | Peak achieved FPS before falling behind | Notes |
+|---|---:|---:|---:|---|
+| Full main touchscreen | `360×270` | `36` | `37.65` | At `40 FPS` target the command fell behind by about `5.9%` |
+| Single touch-button tile | `90×90` | `320` | `314.44` | `320 FPS` target remained stable; `400 FPS` target saturated around `314 FPS` |
+| 12 animated touch-button tiles aggregate | `12 × 90×90` | `288 total` | `314.02 total` | Stable at per-button rates `6,9,12,15,18,21,24,27,30,36,42,48 FPS`; instability began around `336 total FPS` |
+
+Interpretation:
+
+- The transport ceiling is much higher for small-tile updates than for full-screen pushes, which is consistent with framebuffer payload size dominating throughput.
+- The mixed-button ceiling is close to the single-tile ceiling in aggregate, which suggests the package can sustain dense independent tile animation workloads when the total command rate stays below roughly `300 draws/sec`.
+- These numbers do **not** determine the best default renderer flush cadence or writer interval for end-user applications; they only establish the current raw ceiling.
 
 ---
 

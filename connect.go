@@ -19,7 +19,15 @@ func ConnectAuto() (*Loupedeck, error) {
 
 // ConnectAutoWithOptions connects to the first available device using custom writer settings.
 func ConnectAutoWithOptions(writerOptions WriterOptions) (*Loupedeck, error) {
-	return tryConnect(ConnectSerialAuto, writerOptions)
+	defaultRenderOptions := DefaultRenderOptions
+	return ConnectAutoWithWriterAndRenderOptions(writerOptions, &defaultRenderOptions)
+}
+
+// ConnectAutoWithWriterAndRenderOptions connects to the first available device using
+// custom writer settings and optional render scheduler settings. Passing nil for
+// renderOptions disables the render scheduler so draws go directly through the writer.
+func ConnectAutoWithWriterAndRenderOptions(writerOptions WriterOptions, renderOptions *RenderOptions) (*Loupedeck, error) {
+	return tryConnect(ConnectSerialAuto, writerOptions, renderOptions)
 }
 
 // ConnectPath connects to a Loupedeck Live via a specified serial
@@ -30,9 +38,17 @@ func ConnectPath(serialPath string) (*Loupedeck, error) {
 
 // ConnectPathWithOptions connects to a specific device using custom writer settings.
 func ConnectPathWithOptions(serialPath string, writerOptions WriterOptions) (*Loupedeck, error) {
+	defaultRenderOptions := DefaultRenderOptions
+	return ConnectPathWithWriterAndRenderOptions(serialPath, writerOptions, &defaultRenderOptions)
+}
+
+// ConnectPathWithWriterAndRenderOptions connects to a specific device using
+// custom writer settings and optional render scheduler settings. Passing nil for
+// renderOptions disables the render scheduler so draws go directly through the writer.
+func ConnectPathWithWriterAndRenderOptions(serialPath string, writerOptions WriterOptions, renderOptions *RenderOptions) (*Loupedeck, error) {
 	return tryConnect(func() (*SerialWebSockConn, error) {
 		return ConnectSerialPath(serialPath)
-	}, writerOptions)
+	}, writerOptions, renderOptions)
 }
 
 type connectResult struct {
@@ -54,7 +70,7 @@ type connectResult struct {
 // connect.  This has a 100% success rate for me.
 //
 // The actual connection logic is all in doConnect(), below.
-func tryConnect(open func() (*SerialWebSockConn, error), writerOptions WriterOptions) (*Loupedeck, error) {
+func tryConnect(open func() (*SerialWebSockConn, error), writerOptions WriterOptions, renderOptions *RenderOptions) (*Loupedeck, error) {
 	c, err := open()
 	if err != nil {
 		return nil, err
@@ -63,7 +79,7 @@ func tryConnect(open func() (*SerialWebSockConn, error), writerOptions WriterOpt
 	result := make(chan connectResult, 1)
 	go func(conn *SerialWebSockConn) {
 		r := connectResult{}
-		r.l, r.err = doConnect(conn, writerOptions)
+		r.l, r.err = doConnect(conn, writerOptions, renderOptions)
 		result <- r
 	}(c)
 
@@ -76,14 +92,14 @@ func tryConnect(open func() (*SerialWebSockConn, error), writerOptions WriterOpt
 		if err != nil {
 			return nil, err
 		}
-		return doConnect(c2, writerOptions)
+		return doConnect(c2, writerOptions, renderOptions)
 
 	case result := <-result:
 		return result.l, result.err
 	}
 }
 
-func doConnect(c *SerialWebSockConn, writerOptions WriterOptions) (*Loupedeck, error) {
+func doConnect(c *SerialWebSockConn, writerOptions WriterOptions, renderOptions *RenderOptions) (*Loupedeck, error) {
 	dialer := websocket.Dialer{
 		NetDial: func(network, addr string) (net.Conn, error) {
 			slog.Info("Dialing...")
@@ -108,7 +124,6 @@ func doConnect(c *SerialWebSockConn, writerOptions WriterOptions) (*Loupedeck, e
 		conn:                 conn,
 		serial:               c,
 		writerOptions:        writerOptions,
-		renderOptions:        DefaultRenderOptions,
 		buttonBindings:       make(map[Button]ButtonFunc),
 		buttonUpBindings:     make(map[Button]ButtonFunc),
 		knobBindings:         make(map[Knob]KnobFunc),
@@ -126,7 +141,10 @@ func doConnect(c *SerialWebSockConn, writerOptions WriterOptions) (*Loupedeck, e
 		displays:             map[string]*Display{},
 	}
 	l.writer = newOutboundWriter(l.conn, writerOptions)
-	l.renderer = newRenderScheduler(l.writer, l.renderOptions)
+	if renderOptions != nil {
+		l.renderOptions = *renderOptions
+		l.renderer = newRenderScheduler(l.writer, l.renderOptions)
+	}
 
 	err = l.SetDefaultFont()
 	if err != nil {

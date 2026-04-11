@@ -43,16 +43,16 @@
 - [x] Commit Phase 4 render scheduler groundwork
 
 ### Phase 5 — Documentation and continuity
-- [ ] Update the LOUPE-003 design doc with implementation deltas if the code deviates from plan
-- [ ] Append diary entries after each major implementation step/commit
-- [ ] Keep changelog and related-file bookkeeping current
-- [ ] Re-run `docmgr doctor --ticket LOUPE-003 --stale-after 30`
+- [x] Update the LOUPE-003 design doc with implementation deltas if the code deviates from plan
+- [x] Append diary entries after each major implementation step/commit
+- [x] Keep changelog and related-file bookkeeping current
+- [x] Re-run `docmgr doctor --ticket LOUPE-003 --stale-after 30`
 
 ### Decision gate — assess whether C is needed
 - [x] Run the hardware tester with B-lite only and capture behavior
 - [x] Compare bounded send-rate behavior against the old sleep-based implementation
 - [ ] Decide whether strict in-flight/ack-gated flow control (C) is still warranted
-- [ ] Re-run the hardware tester after a clean-exit cycle to separate transport stability from reconnect/reset issues
+- [x] Re-run the hardware tester after a clean-exit cycle to separate transport stability from reconnect/reset issues
 
 ## Done
 
