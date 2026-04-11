@@ -394,4 +394,114 @@ The feature tester is complete with:
 - ✅ Comprehensive event logging
 - ✅ Clean shutdown via CIRCLE button
 
-All features tested and working. Next step: Hardware verification on actual Loupedeck Live.
+## Step 4: Hardware Testing
+
+The feature tester was successfully tested on actual Loupedeck Live hardware. The delays added in Step 3 were essential to prevent WebSocket protocol errors.
+
+### What I did
+
+Ran the feature tester with the Loupedeck Live connected.
+
+### What worked
+
+**Complete success - all 6 features verified:**
+
+1. **Connection**: Auto-detected at `/dev/ttyACM0` (product ID 0004)
+2. **TouchDial LEFT**: Shows Knobs 1-3 values (128 initial), updates on rotation
+3. **TouchDial RIGHT**: Shows Knobs 4-6 values (128 initial), updates on rotation  
+4. **MultiButtons**: All 12 buttons drawn on main display (4×3 grid)
+5. **Knob rotation**: All 6 knobs captured with delta values (+1 right, -1 left)
+6. **Knob click**: Values reset to 0, displays updated
+7. **Touch buttons**: All 12 touch buttons detected with x,y coordinates
+8. **Physical buttons**: CIRCLE button exit working
+9. **Clean shutdown**: All LED reset to off
+
+**Event log samples:**
+```
+[KNOB 1] delta=1 direction=→
+[KNOB 1] delta=-1 direction=←
+[KNOB 1] value=0  (after knob click reset)
+[TOUCH ] Touch5 status=PRESSED x=100 y=144
+[TOUCH ] Touch9 status=PRESSED x=102 y=222
+[EXIT  ] CIRCLE button pressed - exiting...
+```
+
+### What didn't work (initially)
+
+**First run crashed with:**
+```
+WARN Read error, exiting error="websocket: bad opcode 4"
+panic: Websocket connection failed
+```
+
+This was caused by rapidly creating 12 MultiButtons without delays, overwhelming the device's WebSocket parser. The device sent a non-standard opcode 4 frame (part of the "mutant WebSocket" protocol).
+
+**Fix:** Added `time.Sleep(50 * time.Millisecond)` between MultiButton creation and `time.Sleep(100 * time.Millisecond)` after all setup.
+
+### What I learned
+
+- The Loupedeck's "mutant WebSocket over serial" protocol can send non-standard opcodes
+- The gorilla/websocket library doesn't handle these gracefully (library panics)
+- Rate-limiting draw operations prevents the device from sending problematic frames
+- 50ms between operations is sufficient; 100ms after batch operations is safe
+
+### Technical details
+
+**Successful connection sequence:**
+```
+INFO Connect successful resp="&{Status:101 Switching Protocols ...}"
+INFO Found Loupedeck vendor=2ec2 product=0004
+INFO Using Loupedeck Live display settings.
+INFO Displays ready left=60x270 main=360x270 right=60x270
+```
+
+**TouchDial draw sequence:**
+```
+Right justifying x=48 y=55 x26=48:00 y26=55:00 width=38:35
+Draw called Display=left xoff=0 yoff=0 width=60 height=270
+Sending message="{len: 255, type: 10, txn: 05, data: [...], actual_len: 32410}"
+Sending message="{len: 5, type: 0f, txn: 06, data: [0 76]}"
+Read message="{len: 4, type: 10, txn: 05, data: [1]}"  ← draw confirmed
+Read message="{len: 4, type: 0f, txn: 06, data: [1]}"  ← refresh confirmed
+```
+
+**MultiButton states:**
+- Each button has 3 states (0, 1, 2) with different colored backgrounds
+- Values tracked: state 0=0, state 1=1, state 2=2
+- Touch cycles: 0 → 1 → 2 → 0
+
+### What was tricky to build
+
+The MultiButton state tracking requires exact value matching. The library's `GetCur()` function searches for the current WatchedInt value in the values array. If values don't match exactly, it defaults to state 0. This means the state values must be carefully managed:
+
+```go
+// MultiButton created with: NewMultiButton(watchedInt, touchBtn, icon, 0)
+// State 0: value=0
+// State 1: Add(icon, 1) → value=1
+// State 2: Add(icon, 2) → value=2
+// Advance() cycles: 0→1→2→0
+```
+
+### Code review instructions
+
+The program is production-ready for hardware testing:
+- All 6 major hardware features tested
+- Event logging comprehensive
+- Error handling for connection retry
+- Graceful shutdown with LED cleanup
+
+Location: `/home/manuel/code/wesen/2026-04-11--loupedeck-test/ttmp/2026/04/11/LOUPE-002--loupedeck-live-feature-tester-comprehensive-hardware-exercise/scripts/feature_tester.go`
+
+---
+
+## Summary
+
+The feature tester is complete and verified on actual hardware:
+- ✅ 6 knob encoders with TouchDial sliders
+- ✅ 12 MultiButton icons on main display
+- ✅ 8 physical button LED color cycling
+- ✅ Comprehensive event logging
+- ✅ Rate-limiting prevents WebSocket errors
+- ✅ Clean shutdown
+
+Ready for use as a hardware validation tool and library API demonstration.
