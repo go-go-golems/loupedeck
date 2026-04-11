@@ -71,10 +71,10 @@ func (l *Loupedeck) IntKnob(k Knob, min int, max int, watchedint *WatchedInt) *I
 		min:        min,
 		max:        max,
 	}
-	l.BindKnob(k, func(k Knob, v int) {
+	l.OnKnob(k, func(k Knob, v int) {
 		i8k.Inc(v)
 	})
-	l.BindButton(Button(k), func(b Button, s ButtonStatus) {
+	l.OnButton(Button(k), func(b Button, s ButtonStatus) {
 		if s == ButtonDown {
 			i8k.Set(0)
 		}

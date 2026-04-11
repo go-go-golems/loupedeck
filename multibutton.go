@@ -89,7 +89,7 @@ func (l *Loupedeck) NewMultiButton(watchedint *WatchedInt, b TouchButton, im ima
 		m.Draw()
 	})
 
-	l.BindTouch(b, func(a TouchButton, b ButtonStatus, c uint16, d uint16) {
+	l.OnTouch(b, func(a TouchButton, b ButtonStatus, c uint16, d uint16) {
 		m.Advance()
 	})
 

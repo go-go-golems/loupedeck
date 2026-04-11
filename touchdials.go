@@ -78,7 +78,7 @@ func (l *Loupedeck) NewTouchDial(display *Display, w1, w2, w3 *WatchedInt, min, 
 
 	touchdial.dragstart = 65535
 
-	l.BindTouch(touch, func(t TouchButton, s ButtonStatus, x, y uint16) {
+	l.OnTouch(touch, func(t TouchButton, s ButtonStatus, x, y uint16) {
 		if touchdial.dragstart == 65535 {
 			touchdial.dragv1 = w1.Get()
 			touchdial.dragv2 = w2.Get()
@@ -91,7 +91,7 @@ func (l *Loupedeck) NewTouchDial(display *Display, w1, w2, w3 *WatchedInt, min, 
 			touchdial.Knob3.Set(int(touchdial.dragv3) + delta)
 		}
 	})
-	l.BindTouchUp(touch, func(t TouchButton, s ButtonStatus, x, y uint16) {
+	l.OnTouchUp(touch, func(t TouchButton, s ButtonStatus, x, y uint16) {
 		touchdial.dragstart = 65535
 	})
 

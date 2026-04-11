@@ -167,42 +167,54 @@ func touchCoordToButton(x, y uint16) TouchButton {
 	return TouchButton(uint16(Touch1) + x + 4*y)
 }
 
-// BindButton sets a callback for actions on a specific
-// button.  When the Button is pushed down, then the provided
-// ButtonFunc is called.
+// BindButton sets or replaces the legacy primary callback for actions on a specific
+// button. For composable subscriptions, prefer OnButton.
 func (l *Loupedeck) BindButton(b Button, f ButtonFunc) {
+	l.listenerMutex.Lock()
+	defer l.listenerMutex.Unlock()
+	l.ensureListenerMapsLocked()
 	l.buttonBindings[b] = f
 }
 
-// BindButtonUp sets a callback for actions on a specific
-// button.  When the Button is released, then the provided
-// ButtonFunc is called.
+// BindButtonUp sets or replaces the legacy primary callback for actions on a specific
+// button release. For composable subscriptions, prefer OnButtonUp.
 func (l *Loupedeck) BindButtonUp(b Button, f ButtonFunc) {
+	l.listenerMutex.Lock()
+	defer l.listenerMutex.Unlock()
+	l.ensureListenerMapsLocked()
 	l.buttonUpBindings[b] = f
 }
 
-// BindKnob sets a callback for actions on a specific
-// knob.  When the Knob is turned then the provided
-// KnobFunc is called.
+// BindKnob sets or replaces the legacy primary callback for actions on a specific
+// knob. For composable subscriptions, prefer OnKnob.
 func (l *Loupedeck) BindKnob(k Knob, f KnobFunc) {
+	l.listenerMutex.Lock()
+	defer l.listenerMutex.Unlock()
+	l.ensureListenerMapsLocked()
 	l.knobBindings[k] = f
 }
 
-// BindTouch sets a callback for actions on a specific
-// TouchButton.  When the TouchButton is pushed down, then the
-// provided TouchFunc is called.
+// BindTouch sets or replaces the legacy primary callback for actions on a specific
+// TouchButton. For composable subscriptions, prefer OnTouch.
 func (l *Loupedeck) BindTouch(b TouchButton, f TouchFunc) {
+	l.listenerMutex.Lock()
+	defer l.listenerMutex.Unlock()
+	l.ensureListenerMapsLocked()
 	l.touchBindings[b] = f
 }
 
-// BindTouchUp sets a callback for actions on a specific
-// TouchButton.  When the TouchButton is released, then the
-// provided TouchFunc is called.
+// BindTouchUp sets or replaces the legacy primary callback for actions on a specific
+// TouchButton release. For composable subscriptions, prefer OnTouchUp.
 func (l *Loupedeck) BindTouchUp(b TouchButton, f TouchFunc) {
+	l.listenerMutex.Lock()
+	defer l.listenerMutex.Unlock()
+	l.ensureListenerMapsLocked()
 	l.touchUpBindings[b] = f
 }
 
 // BindTouchCT sets a callback for actions when the Loupedeck CT's touch button is touched.
 func (l *Loupedeck) BindTouchCT(f TouchDKFunc) {
+	l.listenerMutex.Lock()
+	defer l.listenerMutex.Unlock()
 	l.touchDKBindings = f
 }

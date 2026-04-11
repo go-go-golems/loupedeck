@@ -39,9 +39,12 @@ func (l *SerialWebSockConn) Write(b []byte) (n int, err error) {
 	return l.Port.Write(b)
 }
 
-// Close closed the connection.
+// Close closes the underlying serial port connection.
 func (l *SerialWebSockConn) Close() error {
-	return nil // l.Port.Close()
+	if l == nil || l.Port == nil {
+		return nil
+	}
+	return l.Port.Close()
 }
 
 // LocalAddr is needed for Gorilla compatibility, but doesn't actually

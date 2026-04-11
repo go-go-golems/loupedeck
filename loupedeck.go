@@ -28,9 +28,11 @@
 package loupedeck
 
 import (
+	"fmt"
 	"image"
 	"image/color"
 	"image/draw"
+	"strings"
 
 	"github.com/gorilla/websocket"
 	"golang.org/x/image/font"
@@ -62,8 +64,15 @@ type Loupedeck struct {
 	knobBindings         map[Knob]KnobFunc
 	touchBindings        map[TouchButton]TouchFunc
 	touchUpBindings      map[TouchButton]TouchFunc
+	buttonListeners      map[Button]map[uint64]ButtonFunc
+	buttonUpListeners    map[Button]map[uint64]ButtonFunc
+	knobListeners        map[Knob]map[uint64]KnobFunc
+	touchListeners       map[TouchButton]map[uint64]TouchFunc
+	touchUpListeners     map[TouchButton]map[uint64]TouchFunc
 	touchDKBindings      TouchDKFunc
 	dragDKBinding        DragDisplayKnobFunc
+	listenerMutex        sync.RWMutex
+	listenerID           uint64
 	transactionID        uint8
 	transactionMutex     sync.Mutex
 	transactionCallbacks map[byte]transactionCallback
@@ -75,9 +84,22 @@ type Loupedeck struct {
 }
 
 // Close closes the connection to the Loupedeck.
-func (l *Loupedeck) Close() {
-	l.conn.Close()
-	l.serial.Close()
+func (l *Loupedeck) Close() error {
+	var errs []string
+	if l.conn != nil {
+		if err := l.conn.Close(); err != nil {
+			errs = append(errs, fmt.Sprintf("websocket close: %v", err))
+		}
+	}
+	if l.serial != nil {
+		if err := l.serial.Close(); err != nil {
+			errs = append(errs, fmt.Sprintf("serial close: %v", err))
+		}
+	}
+	if len(errs) > 0 {
+		return fmt.Errorf(strings.Join(errs, "; "))
+	}
+	return nil
 }
 
 // FontDrawer returns a font.Drawer object configured to

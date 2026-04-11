@@ -2,22 +2,22 @@ package loupedeck
 
 import (
 	"encoding/binary"
+	"fmt"
 	"log/slog"
 
 	"github.com/gorilla/websocket"
 )
 
 // Listen waits for events from the Loupedeck and calls
-// callbacks as configured.
-func (l *Loupedeck) Listen() {
+// callbacks as configured. It returns when the read loop exits.
+func (l *Loupedeck) Listen() error {
 	slog.Info("Listening")
 	for {
 		websocketMsgType, message, err := l.conn.ReadMessage()
 
 		if err != nil {
 			slog.Warn("Read error, exiting", "error", err)
-			// TODO(scottlaird): make this shut down cleanly.
-			panic("Websocket connection failed")
+			return fmt.Errorf("websocket read failed: %w", err)
 		}
 
 		if len(message) == 0 {
@@ -38,78 +38,66 @@ func (l *Loupedeck) Listen() {
 				c(m)
 				l.transactionCallbacks[m.transactionID] = nil
 			}
-		} else {
+			continue
+		}
 
-			switch m.messageType {
-			// Status messages in response to previous commands?
-
-			case ButtonPress:
-				button := Button(binary.BigEndian.Uint16(message[2:]))
-				upDown := ButtonStatus(message[4])
-				if upDown == ButtonDown && l.buttonBindings[button] != nil {
-					l.buttonBindings[button](button, upDown)
-				} else if upDown == ButtonUp && l.buttonUpBindings[button] != nil {
-					l.buttonUpBindings[button](button, upDown)
-				} else {
-					slog.Info("Received uncaught button press message", "button", button, "upDown", upDown, "message", message)
-				}
-			case KnobRotate:
-				knob := Knob(binary.BigEndian.Uint16(message[2:]))
-				value := int(message[4])
-				if l.knobBindings[knob] != nil {
-					v := value
-					if value == 255 {
-						v = -1
-					}
-					l.knobBindings[knob](knob, v)
-				} else {
-					slog.Debug("Received knob rotate message", "knob", knob, "value", value, "message", message)
-				}
-			case Touch:
-				x := binary.BigEndian.Uint16(message[4:])
-				y := binary.BigEndian.Uint16(message[6:])
-				id := message[8] // Not sure what this is for
-				b := touchCoordToButton(x, y)
-
-				if l.touchBindings[b] != nil {
-					l.touchBindings[b](b, ButtonDown, x, y)
-				} else {
-					slog.Debug("Received touch message", "x", x, "y", y, "id", id, "b", b, "message", message)
-				}
-
-			case TouchEnd:
-				x := binary.BigEndian.Uint16(message[4:])
-				y := binary.BigEndian.Uint16(message[6:])
-				id := message[8] // Not sure what this is for
-				b := touchCoordToButton(x, y)
-
-				if l.touchUpBindings[b] != nil {
-					l.touchUpBindings[b](b, ButtonUp, x, y)
-				} else {
-					slog.Debug("Received touch end message", "x", x, "y", y, "id", id, "b", b, "message", message)
-				}
-			case TouchCT:
-				x := binary.BigEndian.Uint16(message[4:])
-				y := binary.BigEndian.Uint16(message[6:])
-				id := message[8] // Not sure what this is for
-				slog.Debug("Received CT touch message", "x", x, "y", y, "id", id, "message", message)
-
-				if l.touchDKBindings != nil {
-					l.touchDKBindings(ButtonDown, x, y)
-				}
-			case TouchEndCT:
-				x := binary.BigEndian.Uint16(message[4:])
-				y := binary.BigEndian.Uint16(message[6:])
-				id := message[8] // Not sure what this is for
-				slog.Debug("Received CT touch message", "x", x, "y", y, "id", id, "message", message)
-
-				if l.touchDKBindings != nil {
-					l.touchDKBindings(ButtonUp, x, y)
-				}
-			default:
-				slog.Info("Received unknown message", "message", m.String())
-
+		switch m.messageType {
+		case ButtonPress:
+			button := Button(binary.BigEndian.Uint16(message[2:]))
+			upDown := ButtonStatus(message[4])
+			if !l.dispatchButton(button, upDown) {
+				slog.Info("Received uncaught button press message", "button", button, "upDown", upDown, "message", message)
 			}
+		case KnobRotate:
+			knob := Knob(binary.BigEndian.Uint16(message[2:]))
+			value := int(message[4])
+			v := value
+			if value == 255 {
+				v = -1
+			}
+			if !l.dispatchKnob(knob, v) {
+				slog.Debug("Received knob rotate message", "knob", knob, "value", value, "message", message)
+			}
+		case Touch:
+			x := binary.BigEndian.Uint16(message[4:])
+			y := binary.BigEndian.Uint16(message[6:])
+			id := message[8]
+			b := touchCoordToButton(x, y)
+			if !l.dispatchTouch(b, ButtonDown, x, y) {
+				slog.Debug("Received touch message", "x", x, "y", y, "id", id, "b", b, "message", message)
+			}
+		case TouchEnd:
+			x := binary.BigEndian.Uint16(message[4:])
+			y := binary.BigEndian.Uint16(message[6:])
+			id := message[8]
+			b := touchCoordToButton(x, y)
+			if !l.dispatchTouch(b, ButtonUp, x, y) {
+				slog.Debug("Received touch end message", "x", x, "y", y, "id", id, "b", b, "message", message)
+			}
+		case TouchCT:
+			x := binary.BigEndian.Uint16(message[4:])
+			y := binary.BigEndian.Uint16(message[6:])
+			id := message[8]
+			slog.Debug("Received CT touch message", "x", x, "y", y, "id", id, "message", message)
+			l.listenerMutex.RLock()
+			fn := l.touchDKBindings
+			l.listenerMutex.RUnlock()
+			if fn != nil {
+				fn(ButtonDown, x, y)
+			}
+		case TouchEndCT:
+			x := binary.BigEndian.Uint16(message[4:])
+			y := binary.BigEndian.Uint16(message[6:])
+			id := message[8]
+			slog.Debug("Received CT touch message", "x", x, "y", y, "id", id, "message", message)
+			l.listenerMutex.RLock()
+			fn := l.touchDKBindings
+			l.listenerMutex.RUnlock()
+			if fn != nil {
+				fn(ButtonUp, x, y)
+			}
+		default:
+			slog.Info("Received unknown message", "message", m.String())
 		}
 	}
 }
