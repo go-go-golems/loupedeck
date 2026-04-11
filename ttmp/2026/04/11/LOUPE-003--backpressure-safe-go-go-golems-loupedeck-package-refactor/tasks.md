@@ -3,21 +3,21 @@
 ## TODO
 
 ### Phase 0 — Root module and baseline package port
-- [ ] Create top-level `go.mod` with module path `github.com/go-go-golems/loupedeck`
-- [ ] Add top-level `README.md` describing package scope and current device support
-- [ ] Port the current upstream baseline files into the repo root package
-- [ ] Ensure the root package builds with `go test ./...`
-- [ ] Commit Phase 0 baseline port
+- [x] Create top-level `go.mod` with module path `github.com/go-go-golems/loupedeck`
+- [x] Add top-level `README.md` describing package scope and current device support
+- [x] Port the current upstream baseline files into the repo root package
+- [x] Ensure the root package builds with `go test ./...`
+- [x] Commit Phase 0 baseline port
 
 ### Phase 1 — Safe lifecycle and composable input listeners
-- [ ] Replace single-slot button listener maps with multi-listener registration
-- [ ] Replace single-slot knob listener maps with multi-listener registration
-- [ ] Replace single-slot touch listener maps with multi-listener registration
-- [ ] Add subscription/unsubscribe support for listener cleanup
-- [ ] Change the read loop to return/report errors instead of panicking
-- [ ] Fix serial connection close so the underlying port is actually closed
-- [ ] Add tests for multi-listener dispatch and subscription cleanup
-- [ ] Commit Phase 1 lifecycle/listener improvements
+- [x] Replace single-slot button listener maps with multi-listener registration
+- [x] Replace single-slot knob listener maps with multi-listener registration
+- [x] Replace single-slot touch listener maps with multi-listener registration
+- [x] Add subscription/unsubscribe support for listener cleanup
+- [x] Change the read loop to return/report errors instead of panicking
+- [x] Fix serial connection close so the underlying port is actually closed
+- [x] Add tests for multi-listener dispatch and subscription cleanup
+- [x] Commit Phase 1 lifecycle/listener improvements
 
 ### Phase 2 — B-lite outbound writer and pacing
 - [ ] Introduce an outbound command abstraction for transport writes

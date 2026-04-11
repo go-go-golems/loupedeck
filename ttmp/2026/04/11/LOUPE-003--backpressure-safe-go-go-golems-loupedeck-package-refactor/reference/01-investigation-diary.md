@@ -12,6 +12,14 @@ DocType: reference
 Intent: long-term
 Owners: []
 RelatedFiles:
+    - Path: go.mod
+      Note: Diary records the root module creation
+    - Path: listen.go
+      Note: Diary records the lifecycle change from panic to error
+    - Path: listeners.go
+      Note: Diary records the composable listener implementation
+    - Path: listeners_test.go
+      Note: Diary records the Phase 1 validation tests
     - Path: sources/loupedeck-repo/display.go
       Note: Evidence discussed in diary for direct draw behavior
     - Path: sources/loupedeck-repo/inputs.go
@@ -20,12 +28,15 @@ RelatedFiles:
       Note: Application evidence referenced while writing the guide
     - Path: ttmp/2026/04/11/LOUPE-003--backpressure-safe-go-go-golems-loupedeck-package-refactor/design-doc/01-go-go-golems-loupedeck-package-backpressure-safe-architecture-and-implementation-guide.md
       Note: Primary design deliverable recorded by this diary
+    - Path: ttmp/2026/04/11/LOUPE-003--backpressure-safe-go-go-golems-loupedeck-package-refactor/tasks.md
+      Note: Diary tracks task progression across phases
 ExternalSources: []
 Summary: Chronological diary for the package refactor analysis, including ticket setup, evidence gathering, and authoring of the implementation guide.
 LastUpdated: 2026-04-11T22:10:00-04:00
 WhatFor: Preserve the exact analysis path, commands, and decisions that produced the LOUPE-003 design guide.
 WhenToUse: Use when resuming work on the package refactor or when reviewing why B-lite was selected as the first implementation phase.
 ---
+
 
 
 # Diary
@@ -310,4 +321,214 @@ remarquee cloud ls "/ai/2026/04/11/LOUPE-003/" --long --non-interactive
 
 ```text
 /ai/2026/04/11/LOUPE-003/
+```
+
+## Step 3: Phase 0 — create the real root module and baseline package port
+
+This step moved the work from ticket-local example modules into a real repository-root Go module. The goal was not yet to improve behavior; it was to establish the code in the place where the next refactor phases will actually live.
+
+I intentionally kept the first code step conservative. Instead of redesigning and porting at the same time, I first copied the current upstream implementation into the root package, updated the module path, and made sure the repository could build as `github.com/go-go-golems/loupedeck` before changing semantics.
+
+### Prompt Context
+
+**User prompt (verbatim):** (same as Step 1)
+
+**Assistant interpretation:** Start implementation in the repo root and create the real package module as the base for the later backpressure refactor.
+
+**Inferred user intent:** Stop treating the code as an experiment around a cloned dependency and make this repository the authoritative implementation location.
+
+**Commit (code):** `e99d144` — `"Phase 0: create root go-go-golems loupedeck module"`
+
+### What I did
+- Copied the baseline implementation files from `sources/loupedeck-repo/` into the repository root:
+  - `connect.go`
+  - `dialer.go`
+  - `display.go`
+  - `displayknob.go`
+  - `inputs.go`
+  - `intknob.go`
+  - `listen.go`
+  - `loupedeck.go`
+  - `message.go`
+  - `multibutton.go`
+  - `touchdials.go`
+  - `watchedint.go`
+  - `loupedeck_test.go`
+  - `LICENSE`
+- Wrote a new root `go.mod` with:
+
+```text
+module github.com/go-go-golems/loupedeck
+```
+
+- Added a new root `README.md` describing the package focus and roadmap.
+- Updated `loupedeck_test.go` to import `github.com/go-go-golems/loupedeck` instead of the upstream module path.
+- Ran:
+  - `go mod tidy`
+  - `go test ./...`
+- Committed the root module baseline.
+
+### Why
+- We need a root package before we can apply package-owned architectural fixes like listener fanout and outbound pacing.
+- A baseline port isolates future behavior changes. It gives us a stable “ported as-is” reference point before deeper refactoring.
+
+### What worked
+- The baseline port compiled immediately after the module-path adjustment.
+- `go test ./...` passed at the root module level.
+- The repository now has a canonical Go package location for future work.
+
+### What didn't work
+- Nothing materially failed in this step. The work was mostly mechanical and low risk.
+
+### What I learned
+- The upstream package surface is small enough to port directly without introducing an intermediate shim layer.
+- Preserving the baseline first makes the next diffs easier to review because Phase 1 and Phase 2 changes can be read as true behavior changes rather than mixed port+refactor noise.
+
+### What was tricky to build
+- The main subtlety was sequencing, not code complexity. It would have been easy to combine the root-module port with the listener/lifecycle refactor, but doing so would have made both review and debugging harder. Keeping Phase 0 narrow produced a cleaner history.
+
+### What warrants a second pair of eyes
+- The root package layout is intentionally flat right now. If the team strongly prefers subpackages immediately, that should be decided before Phase 2 grows the API surface.
+- The README is intentionally short; it may want expansion once the package behavior diverges more from the upstream baseline.
+
+### What should be done in the future
+- Proceed to Phase 1: listener fanout and safe lifecycle handling.
+- Keep Phase 2 separate so the B-lite writer queue is reviewed as its own transport change.
+
+### Code review instructions
+- Review these root files first:
+  - `go.mod`
+  - `README.md`
+  - `connect.go`
+  - `display.go`
+  - `listen.go`
+- Validate with:
+  - `go test ./...`
+
+### Technical details
+- Phase 0 established the authoritative package path:
+
+```text
+github.com/go-go-golems/loupedeck
+```
+
+- This step intentionally did not change transport semantics yet.
+
+## Step 4: Phase 1 — add composable listeners, unsubscribe support, and safe lifecycle behavior
+
+This step introduced the first real behavior changes in the new root package. The key theme was composability: widget code, app code, and diagnostics should be able to observe the same inputs without overwriting each other, and transport read failures should no longer panic the entire process.
+
+I kept backward compatibility where practical. The existing `Bind*` methods still exist as legacy primary bindings, but I added `On*` subscription APIs and moved internal widget code over to them so widgets no longer depend on single-slot binding behavior.
+
+### Prompt Context
+
+**User prompt (verbatim):** "add detailed tasks to ticket. then go ahead. task by task, commit at appropriate intervals, update the diary as you go."
+
+**Assistant interpretation:** Expand the ticket into a concrete implementation checklist, then execute the refactor step-by-step with focused commits and diary updates.
+
+**Inferred user intent:** Build the package incrementally with reviewable history and high-quality continuity notes.
+
+**Commit (code):** `c828131` — `"Phase 1: add composable listeners and safe lifecycle"`
+
+### What I did
+- Expanded the LOUPE-003 `tasks.md` into a detailed phased checklist.
+- Added `listeners.go` implementing:
+  - `Subscription`
+  - `OnButton`
+  - `OnButtonUp`
+  - `OnKnob`
+  - `OnTouch`
+  - `OnTouchUp`
+  - dispatch helpers for button/knob/touch events
+- Updated `Loupedeck` in `loupedeck.go` to hold:
+  - legacy single-slot bindings
+  - new multi-listener registries
+  - listener mutex and listener ID state
+- Updated `inputs.go` so `Bind*` methods are legacy primary bindings protected by the listener mutex, while new listener maps remain available for composition.
+- Changed `listen.go` so:
+  - `Listen()` now returns `error`
+  - read failures no longer panic
+  - inbound events dispatch through the new helper methods
+- Updated `dialer.go` so `SerialWebSockConn.Close()` closes the underlying serial port.
+- Updated `loupedeck.go` so `Loupedeck.Close()` returns an aggregated `error` rather than silently discarding close failures.
+- Ported internal widget code to the new subscription model:
+  - `intknob.go` now uses `OnKnob` and `OnButton`
+  - `touchdials.go` now uses `OnTouch` and `OnTouchUp`
+  - `multibutton.go` now uses `OnTouch`
+- Added `listeners_test.go` covering:
+  - multiple button listeners
+  - unsubscribe cleanup
+  - coexistence of `BindKnob` and `OnKnob`
+  - touch-up listener cleanup
+- Ran:
+  - `gofmt -w *.go`
+  - `go test ./...`
+- Committed the Phase 1 implementation.
+
+### Why
+- The current single-slot binding model was one of the biggest structural problems found during LOUPE-002 analysis.
+- Package consumers need a way to add logging or app-level behavior without clobbering widget behavior.
+- Panicking on malformed or closed reads is not acceptable for a reusable package.
+- Proper serial close is important for repeated runs and device recovery.
+
+### What worked
+- The listener fanout model compiled cleanly and passed the initial unit tests.
+- Existing widget abstractions could be moved to the composable `On*` API with small targeted changes.
+- `Listen()` can now fail normally instead of terminating the process via panic.
+
+### What didn't work
+- I caught one design bug during implementation before it escaped into tests: the first version of the dispatch helpers called listener callbacks while still holding the read lock. That would have made unsubscribe/register-inside-callback behavior risky or deadlock-prone.
+- I fixed that by snapshotting the listeners under lock, unlocking, and only then invoking callbacks.
+
+### What I learned
+- Preserving `Bind*` as a legacy primary binding while moving internals to `On*` gives a good compatibility bridge.
+- Dispatch helpers make the listener model testable without hardware, which is important for the next transport-focused phases.
+- The package is now in a much better position for B-lite because outbound pacing can be added without simultaneously fighting callback overwrite bugs.
+
+### What was tricky to build
+- The trickiest part was making the new listener model safe without rewriting the entire public API at once. A hard API break would have made migration noisier, but leaving only `Bind*` would have preserved the same composition problems. The hybrid approach—legacy `Bind*` plus composable `On*`—balances compatibility and forward progress.
+- The second tricky point was zero-value safety. The subscription layer now initializes maps as needed so tests and helper instances do not panic on nil maps.
+
+### What warrants a second pair of eyes
+- The current listener fanout covers the main button/knob/touch paths, but CT-specific touch behavior still uses the older single callback field. That is acceptable for now, but it should be revisited if CT support becomes a priority.
+- `transactionCallbacks` still do not have their own dedicated synchronization strategy. That was not the focus of Phase 1, but it may matter once Phase 2 introduces a writer goroutine.
+
+### What should be done in the future
+- Start Phase 2: add the single outbound writer and route sends through it.
+- Revisit transaction callback synchronization as part of the writer refactor.
+- Port the feature tester later so it uses `On*` rather than relying on legacy `Bind*` semantics.
+
+### Code review instructions
+- Start with:
+  - `listeners.go`
+  - `listeners_test.go`
+  - `listen.go`
+  - `inputs.go`
+  - `loupedeck.go`
+  - `dialer.go`
+- Then verify the internal widget migration in:
+  - `intknob.go`
+  - `touchdials.go`
+  - `multibutton.go`
+- Validate with:
+  - `gofmt -w *.go`
+  - `go test ./...`
+
+### Technical details
+- New composable listener API added in Phase 1:
+
+```go
+func (l *Loupedeck) OnButton(b Button, f ButtonFunc) Subscription
+func (l *Loupedeck) OnButtonUp(b Button, f ButtonFunc) Subscription
+func (l *Loupedeck) OnKnob(k Knob, f KnobFunc) Subscription
+func (l *Loupedeck) OnTouch(b TouchButton, f TouchFunc) Subscription
+func (l *Loupedeck) OnTouchUp(b TouchButton, f TouchFunc) Subscription
+```
+
+- Key lifecycle changes:
+
+```go
+func (l *Loupedeck) Listen() error
+func (l *Loupedeck) Close() error
+func (l *SerialWebSockConn) Close() error
 ```

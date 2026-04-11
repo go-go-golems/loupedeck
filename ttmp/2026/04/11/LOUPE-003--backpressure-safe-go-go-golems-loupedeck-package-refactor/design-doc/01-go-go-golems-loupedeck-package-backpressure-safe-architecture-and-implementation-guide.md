@@ -12,6 +12,18 @@ DocType: design-doc
 Intent: long-term
 Owners: []
 RelatedFiles:
+    - Path: README.md
+      Note: Root package scope and roadmap
+    - Path: dialer.go
+      Note: Phase 1 serial close fix
+    - Path: go.mod
+      Note: Root module created for github.com/go-go-golems/loupedeck
+    - Path: listen.go
+      Note: Phase 1 non-panicking read loop
+    - Path: listeners.go
+      Note: Phase 1 composable listener implementation
+    - Path: listeners_test.go
+      Note: Phase 1 listener tests
     - Path: sources/loupedeck-repo/dialer.go
       Note: Serial-backed websocket adapter and incomplete Close()
     - Path: sources/loupedeck-repo/display.go
@@ -34,6 +46,7 @@ LastUpdated: 2026-04-11T22:05:00-04:00
 WhatFor: Orient a new engineer and provide the phased architecture plan for B-lite first, then full B, with a later evaluation gate for C.
 WhenToUse: Use when starting the package refactor, onboarding an intern, or reviewing transport/rendering decisions for the Loupedeck Live serial-WebSocket stack.
 ---
+
 
 
 # go-go-golems loupedeck package: backpressure-safe architecture and implementation guide
