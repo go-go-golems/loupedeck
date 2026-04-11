@@ -30,10 +30,10 @@
 - [x] Commit Phase 2 B-lite writer implementation
 
 ### Phase 3 — Port the feature tester onto the new package
-- [ ] Add a root-level feature tester command/example using the new package
-- [ ] Remove app-level sleep-based pacing from the tester
-- [ ] Validate the tester still builds cleanly against the new package
-- [ ] Commit the migrated feature tester
+- [x] Add a root-level feature tester command/example using the new package
+- [x] Remove app-level sleep-based pacing from the tester
+- [x] Validate the tester still builds cleanly against the new package
+- [x] Commit the migrated feature tester
 
 ### Phase 4 — Documentation and continuity
 - [ ] Update the LOUPE-003 design doc with implementation deltas if the code deviates from plan

@@ -14,6 +14,8 @@ Owners: []
 RelatedFiles:
     - Path: README.md
       Note: Root package scope and roadmap
+    - Path: cmd/loupe-feature-tester/main.go
+      Note: Phase 3 root feature tester using the new package APIs
     - Path: connect.go
       Note: Phase 2 configurable connect helpers
     - Path: dialer.go
@@ -56,6 +58,7 @@ LastUpdated: 2026-04-11T22:05:00-04:00
 WhatFor: Orient a new engineer and provide the phased architecture plan for B-lite first, then full B, with a later evaluation gate for C.
 WhenToUse: Use when starting the package refactor, onboarding an intern, or reviewing transport/rendering decisions for the Loupedeck Live serial-WebSocket stack.
 ---
+
 
 
 

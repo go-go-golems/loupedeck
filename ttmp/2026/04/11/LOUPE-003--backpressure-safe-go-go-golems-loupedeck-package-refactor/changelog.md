@@ -46,3 +46,12 @@ Implemented Phase 2 B-lite transport ownership: single outbound writer, configur
 - /home/manuel/code/wesen/2026-04-11--loupedeck-test/writer.go — B-lite outbound writer
 - /home/manuel/code/wesen/2026-04-11--loupedeck-test/writer_test.go — Writer ordering and pacing tests
 
+
+## 2026-04-11
+
+Added a root-level feature tester command that uses the new package APIs and package-owned pacing instead of app-level sleep-based throttling.
+
+### Related Files
+
+- /home/manuel/code/wesen/2026-04-11--loupedeck-test/cmd/loupe-feature-tester/main.go — Root command for exercising the new package on hardware
+

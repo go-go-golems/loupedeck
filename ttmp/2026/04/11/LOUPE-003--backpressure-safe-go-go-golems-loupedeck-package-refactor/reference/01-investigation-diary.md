@@ -12,6 +12,8 @@ DocType: reference
 Intent: long-term
 Owners: []
 RelatedFiles:
+    - Path: cmd/loupe-feature-tester/main.go
+      Note: Diary records the root-level feature tester migration
     - Path: display.go
       Note: Diary records logical draw command grouping
     - Path: go.mod
@@ -44,6 +46,7 @@ LastUpdated: 2026-04-11T22:10:00-04:00
 WhatFor: Preserve the exact analysis path, commands, and decisions that produced the LOUPE-003 design guide.
 WhenToUse: Use when resuming work on the package refactor or when reviewing why B-lite was selected as the first implementation phase.
 ---
+
 
 
 
@@ -656,3 +659,100 @@ func (l *Loupedeck) WriterStats() WriterStats
 ```
 
 - The display path now groups the two protocol messages for one draw as one logical outbound command.
+
+## Step 6: Phase 3 — add a root-level feature tester command using the new package
+
+This step moved the feature tester out of the ticket-local script module and into the root repository as a real command that consumes the new package. That migration matters because the package changes from Phases 1 and 2 are most valuable when an actual application uses them the way a future user would.
+
+The migrated command also exercises the new composable listener model directly. Unlike the old feature tester, it can log knob/touch/button events while the widgets continue to function, because those behaviors now compose through `On*` subscriptions instead of fighting over `Bind*` slots.
+
+### Prompt Context
+
+**User prompt (verbatim):** (same as Step 4)
+
+**Assistant interpretation:** Continue into the next ticket task by moving the feature tester to the new root package and rely on the package-owned pacing instead of application sleeps.
+
+**Inferred user intent:** Prove that the refactor is usable from a real command in the repository root, not only from isolated internal tests.
+
+**Commit (code):** `8bd9e43` — `"Phase 3: add root feature tester command"`
+
+### What I did
+- Added a new root command:
+  - `cmd/loupe-feature-tester/main.go`
+- Ported the current feature tester behavior into the command while updating it to use the new package APIs:
+  - `ConnectAutoWithOptions(...)`
+  - `OnKnob(...)`
+  - `OnTouch(...)`
+  - `OnTouchUp(...)`
+  - `OnButton(...)`
+  - `OnButtonUp(...)`
+- Removed the old application-level `time.Sleep()` pacing used during MultiButton setup.
+- Used package-owned pacing instead by supplying `WriterOptions` during connect.
+- Preserved the main interactive feature set:
+  - left/right TouchDial strips
+  - 12 MultiButtons on the main display
+  - touch flash overlays on press
+  - button LED color cycling
+  - Circle button exit path
+  - event logging
+- Started the listener loop with explicit error handling:
+
+```go
+listenErrCh := make(chan error, 1)
+go func() {
+    listenErrCh <- l.Listen()
+}()
+```
+
+- Logged writer stats at startup and shutdown.
+- Ran:
+  - `gofmt -w cmd/loupe-feature-tester/main.go`
+  - `go test ./...`
+- Committed the new command.
+
+### Why
+- We needed at least one real application in the root module to validate that the refactored package API is usable.
+- The migrated feature tester is the best practical bridge between package-only tests and later hardware validation.
+- Removing app-level sleeps is one of the clearest ways to show that pacing ownership has moved into the package.
+
+### What worked
+- The new command compiled cleanly as `github.com/go-go-golems/loupedeck/cmd/loupe-feature-tester`.
+- `go test ./...` continued to pass after adding the command.
+- The new package API was expressive enough to port the tester without falling back to the old single-slot binding model.
+
+### What didn't work
+- No build or test failures occurred in this step.
+- This step did **not** yet include real hardware validation, so the remaining open question is behavioral rather than compilation-related: we still need to see how the migrated command behaves on the actual device with B-lite pacing.
+
+### What I learned
+- The new `On*` listener model materially improves application ergonomics. The feature tester can now subscribe for logging/flash/exit behavior without disrupting the internal widget bindings.
+- The package-owned writer options are a better place to express pacing intent than scattered sleeps in app code.
+- The root command now gives us a concrete harness for the decision gate about whether C is necessary later.
+
+### What was tricky to build
+- The main challenge was deciding how much cleanup to do while porting. I kept the command close enough to the previous feature tester to preserve its role as a hardware exercise, but I updated the event wiring to take advantage of the new listener model. That balance keeps the migration understandable while still demonstrating the value of the refactor.
+- The other subtle point was handling `Listen()` now that it returns an error. The command needs to treat the read loop as a goroutine with an explicit error path rather than as an infinite background side effect.
+
+### What warrants a second pair of eyes
+- The chosen writer interval in the command (`40ms`) is still a hypothesis until hardware testing confirms it is stable enough and responsive enough.
+- The command currently logs writer stats but does not yet expose deeper diagnostics or render metrics; that may be useful once full B starts.
+
+### What should be done in the future
+- Run the new root-level feature tester on real hardware.
+- Compare its behavior with the earlier ticket-local feature tester.
+- Use those observations to decide whether to proceed directly to full B or whether any transport tuning is needed first.
+
+### Code review instructions
+- Start with:
+  - `cmd/loupe-feature-tester/main.go`
+- Cross-check the APIs it depends on in:
+  - `writer.go`
+  - `listeners.go`
+  - `connect.go`
+- Validate with:
+  - `gofmt -w cmd/loupe-feature-tester/main.go`
+  - `go test ./...`
+
+### Technical details
+- The command now depends on the root package instead of a ticket-local module.
+- The most important migration difference is that pacing is package-owned via `WriterOptions`, not enforced in the app with `Sleep` calls.
