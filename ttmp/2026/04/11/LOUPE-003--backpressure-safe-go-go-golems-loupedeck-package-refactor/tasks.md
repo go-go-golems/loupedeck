@@ -20,14 +20,14 @@
 - [x] Commit Phase 1 lifecycle/listener improvements
 
 ### Phase 2 — B-lite outbound writer and pacing
-- [ ] Introduce an outbound command abstraction for transport writes
-- [ ] Add a single writer goroutine that owns all websocket writes
-- [ ] Route display draw messages through the writer queue
-- [ ] Route button color messages through the writer queue
-- [ ] Add configurable pacing interval and queue size options
-- [ ] Add writer stats/logging (queued, sent, failed, queue depth)
-- [ ] Add tests for send ordering and pacing behavior
-- [ ] Commit Phase 2 B-lite writer implementation
+- [x] Introduce an outbound command abstraction for transport writes
+- [x] Add a single writer goroutine that owns all websocket writes
+- [x] Route display draw messages through the writer queue
+- [x] Route button color messages through the writer queue
+- [x] Add configurable pacing interval and queue size options
+- [x] Add writer stats/logging (queued, sent, failed, queue depth)
+- [x] Add tests for send ordering and pacing behavior
+- [x] Commit Phase 2 B-lite writer implementation
 
 ### Phase 3 — Port the feature tester onto the new package
 - [ ] Add a root-level feature tester command/example using the new package

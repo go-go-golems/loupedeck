@@ -34,3 +34,15 @@ Implemented Phase 0 root-module port and Phase 1 composable listeners/safe lifec
 - /home/manuel/code/wesen/2026-04-11--loupedeck-test/listeners.go — Composable listener registration and dispatch
 - /home/manuel/code/wesen/2026-04-11--loupedeck-test/listeners_test.go — Listener dispatch and unsubscribe tests
 
+
+## 2026-04-11
+
+Implemented Phase 2 B-lite transport ownership: single outbound writer, configurable pacing, command abstraction, and writer tests.
+
+### Related Files
+
+- /home/manuel/code/wesen/2026-04-11--loupedeck-test/connect.go — Connect helpers now accept writer options
+- /home/manuel/code/wesen/2026-04-11--loupedeck-test/display.go — Display draws now enqueue a single logical display draw command
+- /home/manuel/code/wesen/2026-04-11--loupedeck-test/writer.go — B-lite outbound writer
+- /home/manuel/code/wesen/2026-04-11--loupedeck-test/writer_test.go — Writer ordering and pacing tests
+

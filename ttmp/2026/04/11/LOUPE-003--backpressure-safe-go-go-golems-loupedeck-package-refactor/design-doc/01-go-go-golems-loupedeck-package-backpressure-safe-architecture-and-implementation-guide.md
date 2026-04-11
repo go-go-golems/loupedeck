@@ -14,8 +14,12 @@ Owners: []
 RelatedFiles:
     - Path: README.md
       Note: Root package scope and roadmap
+    - Path: connect.go
+      Note: Phase 2 configurable connect helpers
     - Path: dialer.go
       Note: Phase 1 serial close fix
+    - Path: display.go
+      Note: Phase 2 display draw command grouping
     - Path: go.mod
       Note: Root module created for github.com/go-go-golems/loupedeck
     - Path: listen.go
@@ -24,6 +28,8 @@ RelatedFiles:
       Note: Phase 1 composable listener implementation
     - Path: listeners_test.go
       Note: Phase 1 listener tests
+    - Path: message.go
+      Note: Phase 2 command enqueue path and transaction callback synchronization
     - Path: sources/loupedeck-repo/dialer.go
       Note: Serial-backed websocket adapter and incomplete Close()
     - Path: sources/loupedeck-repo/display.go
@@ -40,12 +46,17 @@ RelatedFiles:
       Note: Widget redraw/watch behavior and internal IntKnob binding
     - Path: ttmp/2026/04/11/LOUPE-002--loupedeck-live-feature-tester-comprehensive-hardware-exercise/scripts/feature_tester.go
       Note: Current app-level example demonstrating transport pressure and callback composition issues
+    - Path: writer.go
+      Note: Phase 2 B-lite transport implementation with single writer and pacing
+    - Path: writer_test.go
+      Note: Phase 2 transport validation tests
 ExternalSources: []
 Summary: Detailed analysis and implementation guide for turning the current experimental Loupedeck work into a production-grade github.com/go-go-golems/loupedeck package with phased backpressure control.
 LastUpdated: 2026-04-11T22:05:00-04:00
 WhatFor: Orient a new engineer and provide the phased architecture plan for B-lite first, then full B, with a later evaluation gate for C.
 WhenToUse: Use when starting the package refactor, onboarding an intern, or reviewing transport/rendering decisions for the Loupedeck Live serial-WebSocket stack.
 ---
+
 
 
 

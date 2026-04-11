@@ -12,6 +12,8 @@ DocType: reference
 Intent: long-term
 Owners: []
 RelatedFiles:
+    - Path: display.go
+      Note: Diary records logical draw command grouping
     - Path: go.mod
       Note: Diary records the root module creation
     - Path: listen.go
@@ -20,6 +22,8 @@ RelatedFiles:
       Note: Diary records the composable listener implementation
     - Path: listeners_test.go
       Note: Diary records the Phase 1 validation tests
+    - Path: message.go
+      Note: Diary records Send/SendWithCallback routing through the writer
     - Path: sources/loupedeck-repo/display.go
       Note: Evidence discussed in diary for direct draw behavior
     - Path: sources/loupedeck-repo/inputs.go
@@ -30,12 +34,17 @@ RelatedFiles:
       Note: Primary design deliverable recorded by this diary
     - Path: ttmp/2026/04/11/LOUPE-003--backpressure-safe-go-go-golems-loupedeck-package-refactor/tasks.md
       Note: Diary tracks task progression across phases
+    - Path: writer.go
+      Note: Diary records the B-lite writer implementation
+    - Path: writer_test.go
+      Note: Diary records ordering and pacing tests
 ExternalSources: []
 Summary: Chronological diary for the package refactor analysis, including ticket setup, evidence gathering, and authoring of the implementation guide.
 LastUpdated: 2026-04-11T22:10:00-04:00
 WhatFor: Preserve the exact analysis path, commands, and decisions that produced the LOUPE-003 design guide.
 WhenToUse: Use when resuming work on the package refactor or when reviewing why B-lite was selected as the first implementation phase.
 ---
+
 
 
 
@@ -532,3 +541,118 @@ func (l *Loupedeck) Listen() error
 func (l *Loupedeck) Close() error
 func (l *SerialWebSockConn) Close() error
 ```
+
+## Step 5: Phase 2 — add the B-lite outbound writer, pacing, and transport tests
+
+This step introduced the first backpressure-specific transport control in the new package. The objective was deliberately modest: do not build a full coalescing renderer yet, but do centralize outbound websocket writes behind a single queue-owning writer with configurable pacing and basic metrics.
+
+The implementation keeps `Send()` synchronous from the caller’s point of view. That is important because the existing package behavior assumes that `Send()` reports transport errors directly. Internally, however, the actual websocket writes now happen in one goroutine, which gives us an owned place to enforce ordering, insert pacing, and collect stats.
+
+### Prompt Context
+
+**User prompt (verbatim):** (same as Step 4)
+
+**Assistant interpretation:** Continue into the next implementation task and land the first package-owned backpressure mechanism as a focused commit.
+
+**Inferred user intent:** Replace ad hoc or implicit write behavior with a reviewable B-lite transport layer before moving to more advanced rendering changes.
+
+**Commit (code):** `a3056ae` — `"Phase 2: add B-lite outbound writer and pacing"`
+
+### What I did
+- Added `writer.go` implementing:
+  - `WriterOptions`
+  - `DefaultWriterOptions`
+  - `WriterStats`
+  - outbound command interface
+  - single-message command wrapper
+  - queue-owned `outboundWriter`
+  - pacing via configurable `SendInterval`
+  - synchronous enqueue-and-wait semantics for callers
+- Introduced `wsConn` as a narrow connection interface so writer behavior can be tested without real hardware.
+- Updated `Loupedeck` in `loupedeck.go` to hold:
+  - `conn wsConn`
+  - `writer *outboundWriter`
+  - `writerOptions WriterOptions`
+- Added `WriterStats()` on `Loupedeck`.
+- Updated `connect.go` to add:
+  - `ConnectAutoWithOptions`
+  - `ConnectPathWithOptions`
+  - root connections now start the writer using the configured options
+  - legacy `ConnectAuto` / `ConnectPath` now delegate to defaults
+- Updated `message.go` so:
+  - `Send()` and `SendWithCallback()` route through `EnqueueCommand()`
+  - transaction callback map access is synchronized through helper methods
+- Updated `display.go` so a display draw now enqueues a single logical `displayDrawCommand` containing both:
+  - `WriteFramebuff`
+  - `Draw`
+- Added `writer_test.go` covering:
+  - send ordering
+  - pacing interval behavior
+  - display draw command ordering (`WriteFramebuff` before `Draw`)
+- Ran:
+  - `gofmt -w *.go`
+  - `go test ./...`
+- Committed the Phase 2 implementation.
+
+### Why
+- B-lite needed to move write ownership into one place before any higher-level render work can be trusted.
+- Keeping `Send()` synchronous preserves compatibility while still giving the package a single writer goroutine underneath.
+- The new writer also creates a natural insertion point for future queue metrics, throttling, coalescing, or stricter flow-control experiments.
+
+### What worked
+- The package compiled cleanly after the writer refactor.
+- The writer tests passed without needing real hardware.
+- `Display.Draw()` now routes as one logical command through the writer instead of two independent ad hoc sends.
+- The new connect helpers make send interval and queue size configurable without breaking the old API.
+
+### What didn't work
+- No external failures occurred in this step, but I did tighten one implementation detail during the refactor: transaction callback registration and retrieval were previously unsynchronized relative to the read loop. Since the writer introduced clearer transport ownership, it made sense to clean that up in the same phase.
+
+### What I learned
+- A narrow connection interface (`wsConn`) makes transport behavior much easier to test than hard-coding `*websocket.Conn` everywhere.
+- The B-lite writer can preserve the existing synchronous `Send()` contract while still serializing outbound traffic internally.
+- Grouping framebuffer and draw into one command is a good transitional abstraction even before full dirty-region coalescing exists.
+
+### What was tricky to build
+- The main design tension was between compatibility and ownership. If `Send()` became fully asynchronous immediately, it would change error-reporting behavior at the same time that we are trying to stabilize the transport. The chosen design—queue internally, but wait for the queued command result—keeps the surface area stable while still moving the actual write side under one goroutine.
+- Another subtle point was deciding the unit of pacing. For B-lite, pacing is applied per outbound command, not per individual protocol message. That means a logical display draw can still write framebuffer + draw back-to-back, but multiple draw commands are spaced. This matches the current working hypothesis about where the device gets overwhelmed.
+
+### What warrants a second pair of eyes
+- The default pacing interval (`25ms`) is a reasonable starting point, but it has not yet been hardware-validated against the current feature tester.
+- The writer currently provides coarse stats and simple queue behavior. If queue saturation becomes an issue, we may want more explicit backpressure/error semantics rather than a buffered-channel wait.
+- Once the feature tester is ported, we should inspect whether any draw patterns still create unacceptable traffic bursts even with the single writer in place.
+
+### What should be done in the future
+- Start Phase 3 by porting the feature tester to the new root package.
+- Run hardware tests with B-lite to collect send-rate and stability evidence.
+- Use those results to decide how aggressively full B should coalesce display invalidations.
+
+### Code review instructions
+- Start with:
+  - `writer.go`
+  - `writer_test.go`
+  - `message.go`
+  - `display.go`
+  - `connect.go`
+- Then review the root type changes in:
+  - `loupedeck.go`
+- Validate with:
+  - `gofmt -w *.go`
+  - `go test ./...`
+
+### Technical details
+- New B-lite transport API pieces introduced in this step:
+
+```go
+type WriterOptions struct {
+    QueueSize    int
+    SendInterval time.Duration
+}
+
+func ConnectAutoWithOptions(writerOptions WriterOptions) (*Loupedeck, error)
+func ConnectPathWithOptions(serialPath string, writerOptions WriterOptions) (*Loupedeck, error)
+func (l *Loupedeck) EnqueueCommand(cmd outboundCommand) error
+func (l *Loupedeck) WriterStats() WriterStats
+```
+
+- The display path now groups the two protocol messages for one draw as one logical outbound command.
