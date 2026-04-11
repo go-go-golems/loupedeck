@@ -106,6 +106,7 @@ func doConnect(c *SerialWebSockConn, writerOptions WriterOptions) (*Loupedeck, e
 		conn:                 conn,
 		serial:               c,
 		writerOptions:        writerOptions,
+		renderOptions:        DefaultRenderOptions,
 		buttonBindings:       make(map[Button]ButtonFunc),
 		buttonUpBindings:     make(map[Button]ButtonFunc),
 		knobBindings:         make(map[Knob]KnobFunc),
@@ -123,6 +124,7 @@ func doConnect(c *SerialWebSockConn, writerOptions WriterOptions) (*Loupedeck, e
 		displays:             map[string]*Display{},
 	}
 	l.writer = newOutboundWriter(l.conn, writerOptions)
+	l.renderer = newRenderScheduler(l.writer, l.renderOptions)
 
 	err = l.SetDefaultFont()
 	if err != nil {

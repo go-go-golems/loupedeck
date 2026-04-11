@@ -59,7 +59,9 @@ type Loupedeck struct {
 	serial               *SerialWebSockConn
 	conn                 wsConn
 	writer               *outboundWriter
+	renderer             *renderScheduler
 	writerOptions        WriterOptions
+	renderOptions        RenderOptions
 	buttonBindings       map[Button]ButtonFunc
 	buttonUpBindings     map[Button]ButtonFunc
 	knobBindings         map[Knob]KnobFunc
@@ -87,6 +89,9 @@ type Loupedeck struct {
 // Close closes the connection to the Loupedeck.
 func (l *Loupedeck) Close() error {
 	var errs []string
+	if l.renderer != nil {
+		l.renderer.Close()
+	}
 	if l.writer != nil {
 		l.writer.Close()
 	}
@@ -112,6 +117,14 @@ func (l *Loupedeck) WriterStats() WriterStats {
 		return WriterStats{}
 	}
 	return l.writer.Stats()
+}
+
+// RenderStats returns a snapshot of render invalidation/coalescing metrics.
+func (l *Loupedeck) RenderStats() RenderStats {
+	if l.renderer == nil {
+		return RenderStats{}
+	}
+	return l.renderer.Stats()
 }
 
 // FontDrawer returns a font.Drawer object configured to

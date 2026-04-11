@@ -2,6 +2,7 @@ package loupedeck
 
 import (
 	"encoding/binary"
+	"fmt"
 	"image"
 	"log/slog"
 	"maze.io/x/pixel/pixelcolor"
@@ -176,7 +177,16 @@ func (d *Display) Draw(im image.Image, xoff, yoff int) {
 	data2 := make([]byte, 2)
 	binary.BigEndian.PutUint16(data2[0:], uint16(d.id))
 	m2 := d.loupedeck.NewMessage(Draw, data2)
-	err := d.loupedeck.EnqueueCommand(displayDrawCommand{framebuffer: m, draw: m2})
+	cmd := displayDrawCommand{framebuffer: m, draw: m2}
+	if d.loupedeck.renderer != nil {
+		key := fmt.Sprintf("%s:%d:%d:%d:%d", d.Name, x, y, width, height)
+		if err := d.loupedeck.renderer.Invalidate(key, cmd); err != nil {
+			slog.Warn("Render invalidate failed", "err", err)
+		}
+		return
+	}
+
+	err := d.loupedeck.EnqueueCommand(cmd)
 	if err != nil {
 		slog.Warn("Send failed", "err", err)
 	}
