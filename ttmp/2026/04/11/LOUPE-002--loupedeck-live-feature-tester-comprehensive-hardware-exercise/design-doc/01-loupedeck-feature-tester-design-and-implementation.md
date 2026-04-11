@@ -12,13 +12,16 @@ Topics:
 DocType: design-doc
 Intent: long-term
 Owners: []
-RelatedFiles: []
+RelatedFiles:
+    - Path: ttmp/2026/04/11/LOUPE-002--loupedeck-live-feature-tester-comprehensive-hardware-exercise/scripts/feature_tester.go
+      Note: Comprehensive feature tester program
 ExternalSources: []
 Summary: ""
 LastUpdated: 2026-04-11T17:40:48.30769145-04:00
 WhatFor: ""
 WhenToUse: ""
 ---
+
 
 # Loupedeck Feature Tester Design and Implementation
 
