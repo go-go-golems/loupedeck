@@ -138,19 +138,13 @@ func main() {
 		knobValues[i] = loupedeck.NewWatchedInt(128)
 	}
 
-	// Step 6: Create IntKnobs for all 6 knobs (individual control)
-	slog.Info("Setting up knob encoders...")
-	knobIds := []loupedeck.Knob{loupedeck.Knob1, loupedeck.Knob2, loupedeck.Knob3,
-		loupedeck.Knob4, loupedeck.Knob5, loupedeck.Knob6}
-	
+	// Step 6: Add watchers to log knob value changes
+	slog.Info("Setting up knob value logging...")
 	for i := 0; i < 6; i++ {
 		knobNum := i + 1
 		watchedInt := knobValues[i]
 		
-		// Create IntKnob with min=0, max=255
-		l.IntKnob(knobIds[i], 0, 255, watchedInt)
-		
-		// Add watcher to log changes
+		// Add watcher to log changes (TouchDial will handle the actual IntKnob creation)
 		watchedInt.AddWatcher(func(kn int) func(int) {
 			return func(v int) {
 				slog.Info(fmt.Sprintf("[KNOB %d]", kn), "value", v)
@@ -159,6 +153,7 @@ func main() {
 	}
 
 	// Step 7: Create TouchDials for left and right displays (sliders)
+	// NOTE: TouchDial internally creates IntKnobs and handles knob binding
 	slog.Info("Setting up TouchDial sliders...")
 	
 	// Left display: Knobs 1-3
@@ -204,25 +199,59 @@ func main() {
 			}
 		}(btnNum))
 		
-		// Bind touch for logging
-		l.BindTouch(touchButtons[i], func(btn int) func(loupedeck.TouchButton, loupedeck.ButtonStatus, uint16, uint16) {
+		// Get the screen coordinates for this touch button
+		bx, by := touchButtonCoordinates(touchButtons[i])
+		flashColor := rainbowColors[i%len(rainbowColors)]
+		
+		// Bind touch for logging and screen flash effect
+		l.BindTouch(touchButtons[i], func(btn int, buttonX, buttonY int, fc color.RGBA) func(loupedeck.TouchButton, loupedeck.ButtonStatus, uint16, uint16) {
 			return func(b loupedeck.TouchButton, s loupedeck.ButtonStatus, x, y uint16) {
 				if s == loupedeck.ButtonDown {
 					slog.Info(fmt.Sprintf("[TOUCH ] Touch%d", btn), "status", "PRESSED", "x", x, "y", y)
+					// Flash screen button area with bright color
+					flash := image.NewRGBA(image.Rect(0, 0, 90, 90))
+					draw.Draw(flash, flash.Bounds(), &image.Uniform{fc}, image.Point{}, draw.Src)
+					mainDisplay.Draw(flash, buttonX, buttonY)
 				} else {
 					slog.Info(fmt.Sprintf("[TOUCH ] Touch%d", btn), "status", "RELEASED")
+					// Redraw original icon (MultiButton will restore it)
+					multiBtn.Draw()
 				}
 			}
-		}(btnNum))
+		}(btnNum, bx, by, flashColor))
 		
 		// Small delay between buttons to avoid overwhelming the device
-		time.Sleep(50 * time.Millisecond)
+		time.Sleep(100 * time.Millisecond)
 	}
 
 	slog.Info("MultiButtons ready (12 icons)")
 	
-	// Small delay to let device settle after all the drawing
-	time.Sleep(100 * time.Millisecond)
+	// Delay to let device settle after all the drawing
+	time.Sleep(500 * time.Millisecond)
+
+	// Step 8b: Add knob rotation logging for deltas (TouchDial handles the value updates internally)
+	slog.Info("Setting up knob rotation logging...")
+	knobIds := []loupedeck.Knob{loupedeck.Knob1, loupedeck.Knob2, loupedeck.Knob3,
+		loupedeck.Knob4, loupedeck.Knob5, loupedeck.Knob6}
+	
+	for i := 0; i < 6; i++ {
+		knobNum := i + 1
+		knobId := knobIds[i]
+		
+		// Log raw knob rotation deltas BEFORE TouchDial processes them
+		l.BindKnob(knobId, func(kn int, kid loupedeck.Knob) func(loupedeck.Knob, int) {
+			return func(k loupedeck.Knob, delta int) {
+				direction := "→"
+				if delta < 0 {
+					direction = "←"
+				}
+				slog.Info(fmt.Sprintf("[KNOB %d]", kn), 
+					"delta", delta, 
+					"direction", direction,
+					"raw_event", true)
+			}
+		}(knobNum, knobId))
+	}
 
 	// Step 9: Setup physical buttons with LED color cycling
 	slog.Info("Setting up physical button LEDs...")
@@ -320,6 +349,38 @@ func main() {
 	}
 	
 	slog.Info("Goodbye!")
+}
+
+// touchButtonCoordinates returns the x,y coordinates for a touch button on the main display
+func touchButtonCoordinates(b loupedeck.TouchButton) (int, int) {
+	switch b {
+	case loupedeck.Touch1:
+		return 0, 0
+	case loupedeck.Touch2:
+		return 90, 0
+	case loupedeck.Touch3:
+		return 180, 0
+	case loupedeck.Touch4:
+		return 270, 0
+	case loupedeck.Touch5:
+		return 0, 90
+	case loupedeck.Touch6:
+		return 90, 90
+	case loupedeck.Touch7:
+		return 180, 90
+	case loupedeck.Touch8:
+		return 270, 90
+	case loupedeck.Touch9:
+		return 0, 180
+	case loupedeck.Touch10:
+		return 90, 180
+	case loupedeck.Touch11:
+		return 180, 180
+	case loupedeck.Touch12:
+		return 270, 180
+	default:
+		return 0, 0
+	}
 }
 
 // createIcon creates a simple icon with text and colored background
