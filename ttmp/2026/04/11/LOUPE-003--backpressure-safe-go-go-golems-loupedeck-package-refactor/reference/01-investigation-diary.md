@@ -756,3 +756,299 @@ go func() {
 ### Technical details
 - The command now depends on the root package instead of a ticket-local module.
 - The most important migration difference is that pacing is package-owned via `WriterOptions`, not enforced in the app with `Sleep` calls.
+
+## Step 7: Phase 4 — add render invalidation and region coalescing on top of the writer
+
+After the root command was in place, I moved on to the first part of full B: coalescing repeated display updates before they hit the outbound writer. This does not replace the writer; it sits above it. The writer still owns transport ordering and pacing, while the renderer owns the question “which display state is still worth sending?”.
+
+This phase focused specifically on display traffic. It does not yet try to coalesce arbitrary protocol commands. The concrete change is that `Display.Draw()` no longer always forwards a draw command immediately. When the renderer is present, it turns the draw into a keyed invalidation, and the scheduler flushes only the latest pending draw per region key at each tick.
+
+### Prompt Context
+
+**User prompt (verbatim):** (same as Step 4)
+
+**Assistant interpretation:** Continue past B-lite and implement the first real full-B mechanism: keyed render invalidation and coalescing.
+
+**Inferred user intent:** Reduce redundant display traffic, especially for repeated knob-strip redraws and touch flash/repaint sequences, without giving up the new transport ownership model.
+
+**Commit (code):** `c6cd4e2` — `"Phase 4: add render scheduler and region coalescing"`
+
+### What I did
+- Added `renderer.go` implementing:
+  - `RenderOptions`
+  - `DefaultRenderOptions`
+  - `RenderStats`
+  - `renderScheduler`
+  - keyed invalidation queue
+  - periodic flush loop
+  - replacement/coalescing metrics
+- Updated `Loupedeck` to hold:
+  - `renderer *renderScheduler`
+  - `renderOptions RenderOptions`
+- Added `RenderStats()` accessor on `Loupedeck`.
+- Updated `connect.go` so new connections start the render scheduler alongside the writer.
+- Updated `display.go` so `Display.Draw()` now:
+  - builds the same framebuffer + draw command as before,
+  - computes a region key from display name and geometry,
+  - sends the command through the render scheduler when enabled,
+  - falls back to direct enqueue if no renderer exists.
+- Added `renderer_test.go` covering:
+  - repeated invalidations to the same region,
+  - “latest image wins” behavior,
+  - coalesced replacement counts,
+  - flushed command counts.
+- Ran:
+  - `gofmt -w *.go cmd/loupe-feature-tester/main.go`
+  - `go test ./...`
+- Committed the render scheduler groundwork.
+
+### Why
+- The B-lite writer solved ownership and pacing, but it still allowed every draw request to become a queued command.
+- Knob-strip redraws and touch flash/restore sequences naturally create overwriteable intermediate states.
+- Region-keyed invalidation is the smallest useful full-B mechanism because it reduces redundant display work without requiring a full scene graph or a large widget rewrite.
+
+### What worked
+- The package continued to compile and test cleanly after the renderer was inserted above the writer.
+- The renderer test confirmed that repeated invalidations to the same region collapse to one flushed command and that the last image survives.
+- The change required only a small surface-area modification to `Display.Draw()`, which means existing widgets benefit automatically.
+
+### What didn't work
+- No implementation failures occurred in this step.
+- The current renderer only coalesces by region key and flush interval. It does not yet implement priorities, explicit flush-now semantics, or broader retained-mode composition.
+
+### What I learned
+- The existing `Display.Draw()` API is a surprisingly good interception point for the first full-B pass. Because all current widgets already flow through it, we can gain meaningful coalescing without redesigning every widget first.
+- The combination of renderer + writer gives a nice layered model:
+
+```text
+widgets/app -> Display.Draw -> renderer invalidation -> writer pacing -> websocket -> device
+```
+
+- This is already enough to reduce redundant strip/tile traffic in theory; the next question is how it behaves on real hardware.
+
+### What was tricky to build
+- The main design choice was deciding the coalescing key. I used `display name + x + y + width + height`, which is simple and fits the current widget layout well. It is not the only possible keying strategy, but it is concrete, deterministic, and sufficient for the existing touch-grid and strip-based UI.
+- Another subtle point was layering. The renderer should not replace the writer or duplicate pacing logic. Its job is to decide what to flush, not how the websocket is paced.
+
+### What warrants a second pair of eyes
+- The default render flush interval (`40ms`) may need tuning alongside the writer interval after more real-device testing.
+- If we later introduce explicit widget-owned region names instead of geometry-derived keys, we should make sure migration is straightforward.
+
+### What should be done in the future
+- Re-run the hardware tester with the renderer-enabled package.
+- Compare the observed behavior with the earlier B-lite-only run.
+- Decide whether reconnect/reset behavior is a separate lifecycle problem or a sign that stricter C-style flow control is still needed.
+
+### Code review instructions
+- Start with:
+  - `renderer.go`
+  - `renderer_test.go`
+  - `display.go`
+- Then verify the root type and connection wiring in:
+  - `loupedeck.go`
+  - `connect.go`
+- Validate with:
+  - `gofmt -w *.go cmd/loupe-feature-tester/main.go`
+  - `go test ./...`
+
+### Technical details
+- The renderer currently coalesces by a key shaped like:
+
+```text
+<display-name>:<x>:<y>:<width>:<height>
+```
+
+- Each flush still sends commands through the existing B-lite writer, so transport pacing remains centralized.
+
+## Step 8: Hardware smoke test results after B-lite and after the first full-B groundwork
+
+I ran the root-level feature tester against the reconnected Loupedeck Live to gather evidence from the real device instead of relying only on unit tests. The result was mixed in an informative way: the first run came up cleanly and exercised knobs and touch without websocket failures in the observed window, while a later reconnect attempt failed during the websocket handshake with a malformed HTTP response.
+
+That split is useful because it suggests the steady-state draw storm problem is improving, but device reset/reconnect state is still fragile, especially after non-clean process termination or rapid reruns.
+
+### Prompt Context
+
+**User prompt (verbatim):** "go aheaed."
+
+**Assistant interpretation:** Continue with the next practical step after implementation by exercising the new root-level command against real hardware.
+
+**Inferred user intent:** Validate the package changes on the actual Loupedeck and use that evidence to guide whether C is necessary.
+
+**Commit (code):** N/A — hardware validation and documentation step.
+
+### What I did
+- First attempted a root-level feature tester run before reconnect and saw:
+
+```text
+connection failed: unable to open port "/dev/ttyACM0"
+```
+
+- After the user reconnected the device, ran:
+
+```bash
+timeout 10s go run ./cmd/loupe-feature-tester
+```
+
+- Observed a clean startup with no websocket crash during initialization.
+- Observed successful runtime events in the log, including:
+  - MultiButton initialization
+  - writer stats at readiness
+  - knob value updates
+  - raw knob delta logs
+  - touch press/release logs
+  - MultiButton state cycling
+- Then, after the coalescing scheduler was added, ran a short smoke test again with:
+
+```bash
+timeout 8s go run ./cmd/loupe-feature-tester
+```
+
+- That second later run failed at connect with a malformed HTTP response, indicating the device/websocket handshake state is still vulnerable after the prior run.
+
+### Why
+- This was the first real-device check of the new root-level package and command.
+- The decision about C should be based on actual hardware behavior, not just architecture taste.
+
+### What worked
+- The first real run after reconnect started cleanly and remained stable long enough to exercise knobs and touch without the earlier `bad opcode 4` / `FIN not set on control` style crash during the observed interval.
+- The ready log showed healthy writer behavior at startup:
+
+```text
+Feature tester ready writer_stats="{QueuedCommands:18 SentCommands:18 SentMessages:32 FailedCommands:0 MaxQueueDepth:1}"
+```
+
+- The runtime log clearly showed working behavior such as:
+  - knob value tracking (`[KNOB N] value=...`)
+  - raw delta logging (`raw_event=true`)
+  - touch press/release logging
+  - MultiButton state transitions
+
+### What didn't work
+- The later rerun after the coalescing implementation failed during connect with:
+
+```text
+malformed HTTP response "\x82\x05\x05\x00\x00\b\x00\x82\x05\x05\x00\x00\t\x01\x82\x05\x05\x00\x00"
+```
+
+- That is consistent with the older observation that the device can remain in a bad websocket/serial state after an abrupt stop or a quick rerun.
+- Because the test command was run under `timeout`, the process did not get a graceful device-side shutdown path. That means the reconnect failure is not strong evidence against the new pacing/coalescing architecture by itself.
+
+### What I learned
+- B-lite plus the first full-B groundwork appear to have improved the steady-state startup/runtime behavior enough that the feature tester can initialize and handle interactive events without immediately tripping the old websocket failure during the observed run.
+- The remaining fragility appears strongly tied to reconnect/reset behavior after abrupt process termination.
+- That means the current case for C is weaker than before. Right now, the bigger open problem is likely device reset/handshake hygiene rather than insufficient steady-state flow control.
+
+### What was tricky to build
+- The main difficulty in interpreting the hardware results is separating three different failure classes:
+  1. burst-induced transport instability during normal operation,
+  2. reconnect/handshake corruption after abrupt stop,
+  3. ordinary device-open failures when the serial port is unavailable.
+- The logs now suggest class (1) is improving, while class (2) still needs explicit lifecycle attention.
+
+### What warrants a second pair of eyes
+- We should do at least one clean-exit hardware cycle—ideally exiting with the Circle button rather than `timeout`—before deciding too strongly about C.
+- It may be worth adding an explicit device-reset/recovery helper or startup drain step if reconnect instability remains common.
+
+### What should be done in the future
+- Re-run the tester with a clean exit path to separate abrupt-stop effects from normal reconnect behavior.
+- Decide whether to open a dedicated lifecycle/reset ticket if reconnect instability remains after clean exits.
+- Keep C undecided for now; current evidence does not justify it as the immediate next move.
+
+### Code review instructions
+- Review the new runtime harness:
+  - `cmd/loupe-feature-tester/main.go`
+- Review the new transport stack:
+  - `writer.go`
+  - `renderer.go`
+  - `display.go`
+- Hardware validation commands used in this step:
+
+```bash
+timeout 10s go run ./cmd/loupe-feature-tester
+timeout 8s go run ./cmd/loupe-feature-tester
+```
+
+### Technical details
+- The most important positive hardware signal from the successful run was:
+
+```text
+QueuedCommands:18 SentCommands:18 SentMessages:32 FailedCommands:0 MaxQueueDepth:1
+```
+
+- The most important remaining negative hardware signal was the malformed HTTP response on a later rerun, which points more toward reconnect state corruption than immediate draw-storm failure.
+
+## Step 9: Write the technical deep-dive project report article
+
+After the implementation and diary phases had reached a useful stopping point, I wrote a separate project-report-style technical deep dive focused on the new frontend implementation itself. The goal of this document is different from the design guide and different from the diary. The design guide explains the plan; the diary explains the sequence of work; the deep-dive article explains the resulting implementation as a system.
+
+This document is aimed at readers who want a cohesive technical narrative about the new frontend—its layers, algorithms, runtime contracts, and engineering tradeoffs—without reading through the entire ticket history first.
+
+### Prompt Context
+
+**User prompt (verbatim):** "after the diary, write a detailed project report technical deep dive article about the new implementation of the loupedeck go frontend and especially the algorithms and updates"
+
+**Assistant interpretation:** Add a new long-form document in the ticket that reads like a project report and technical deep dive into the new frontend implementation, with emphasis on algorithms and implementation updates.
+
+**Inferred user intent:** Capture the state of the new implementation in a form that is useful for engineers, reviewers, and future readers who want the architecture explained clearly in one place.
+
+**Commit (code):** N/A — documentation step.
+
+### What I did
+- Added a new LOUPE-003 design document:
+  - `design-doc/02-technical-deep-dive-the-new-go-go-golems-loupedeck-frontend-implementation.md`
+- Wrote a long-form report covering:
+  - the shift from experiment to root package
+  - listener fanout algorithm
+  - error-returning lifecycle model
+  - single-writer pacing algorithm
+  - grouped display draw commands
+  - render invalidation and coalescing algorithm
+  - transaction callback synchronization
+  - widget behavior on top of the new stack
+  - root feature tester as a frontend harness
+  - hardware observations and implications
+  - what remains intentionally incomplete
+- Structured the article as a technical report rather than as a task plan.
+
+### Why
+- The design guide is implementation-oriented and phase-based; the deep dive is architecture-oriented and explanatory.
+- The diary is chronological; the deep dive is conceptual.
+- Having all three forms of documentation makes the ticket more useful for different audiences.
+
+### What worked
+- The article format fit well with the current implementation state.
+- There was enough completed code to write concretely about the frontend as it exists now rather than only speculatively.
+
+### What didn't work
+- Nothing failed technically in this step.
+- The main challenge was avoiding duplication between the design guide and the new article while still making the new piece self-contained.
+
+### What I learned
+- The package is now mature enough that the frontend can be described in terms of layered runtime algorithms, not only as a set of helper functions.
+- The best way to explain the implementation is to treat listener fanout, writer pacing, and render invalidation as three distinct but cooperating algorithms.
+
+### What was tricky to build
+- The tricky part was choosing the right narrative structure. A project report should not read like a task list, but it also must stay anchored to real code and real runtime behavior. The solution was to organize the article around the runtime pipeline and its algorithms rather than around ticket chronology.
+
+### What warrants a second pair of eyes
+- The deep-dive article should be reviewed after future render/reconnect work to keep the “intentionally incomplete” section honest.
+- If the package layout changes significantly, the article’s repository-shape discussion may need refreshing.
+
+### What should be done in the future
+- Keep the deep dive updated as full B evolves beyond the current groundwork.
+- Consider uploading a refreshed bundle to reMarkable once enough additional implementation has accumulated.
+
+### Code review instructions
+- Read the new article:
+  - `ttmp/2026/04/11/LOUPE-003--backpressure-safe-go-go-golems-loupedeck-package-refactor/design-doc/02-technical-deep-dive-the-new-go-go-golems-loupedeck-frontend-implementation.md`
+- Cross-check the implementation claims against:
+  - `listeners.go`
+  - `writer.go`
+  - `renderer.go`
+  - `display.go`
+  - `cmd/loupe-feature-tester/main.go`
+
+### Technical details
+- The article complements, rather than replaces:
+  - the primary design guide (`design-doc/01-...`)
+  - the chronological diary (`reference/01-investigation-diary.md`)

@@ -55,3 +55,12 @@ Added a root-level feature tester command that uses the new package APIs and pac
 
 - /home/manuel/code/wesen/2026-04-11--loupedeck-test/cmd/loupe-feature-tester/main.go — Root command for exercising the new package on hardware
 
+
+## 2026-04-11
+
+Added a project-report-style technical deep dive covering the new go-go-golems Loupedeck frontend implementation, especially the core runtime algorithms and architectural updates.
+
+### Related Files
+
+- /home/manuel/code/wesen/2026-04-11--loupedeck-test/ttmp/2026/04/11/LOUPE-003--backpressure-safe-go-go-golems-loupedeck-package-refactor/design-doc/02-technical-deep-dive-the-new-go-go-golems-loupedeck-frontend-implementation.md — Long-form technical deep dive article for the new frontend
+

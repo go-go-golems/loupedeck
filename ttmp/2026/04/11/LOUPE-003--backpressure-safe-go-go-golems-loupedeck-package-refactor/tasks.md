@@ -35,16 +35,24 @@
 - [x] Validate the tester still builds cleanly against the new package
 - [x] Commit the migrated feature tester
 
-### Phase 4 — Documentation and continuity
+### Phase 4 — Full B groundwork: render invalidation and coalescing
+- [x] Add a render scheduler with keyed invalidation
+- [x] Route `Display.Draw` through the render scheduler when enabled
+- [x] Coalesce repeated region invalidations so latest state wins per region
+- [x] Add tests for coalescing and flushed command counts
+- [x] Commit Phase 4 render scheduler groundwork
+
+### Phase 5 — Documentation and continuity
 - [ ] Update the LOUPE-003 design doc with implementation deltas if the code deviates from plan
 - [ ] Append diary entries after each major implementation step/commit
 - [ ] Keep changelog and related-file bookkeeping current
 - [ ] Re-run `docmgr doctor --ticket LOUPE-003 --stale-after 30`
 
 ### Decision gate — assess whether C is needed
-- [ ] Run the hardware tester with B-lite only and capture behavior
-- [ ] Compare bounded send-rate behavior against the old sleep-based implementation
+- [x] Run the hardware tester with B-lite only and capture behavior
+- [x] Compare bounded send-rate behavior against the old sleep-based implementation
 - [ ] Decide whether strict in-flight/ack-gated flow control (C) is still warranted
+- [ ] Re-run the hardware tester after a clean-exit cycle to separate transport stability from reconnect/reset issues
 
 ## Done
 
