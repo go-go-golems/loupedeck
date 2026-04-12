@@ -407,10 +407,10 @@ function renderChromeLayer(activeIdx) {
   chromeLayer.batch(() => {
     chromeLayer.clear(0);
     for (let i = 0; i < 12; i++) {
+      if (i === activeIdx) continue;
       const { x, y } = tileRect(i);
-      const isActive = i === activeIdx;
-      drawTileFrame(chromeLayer, x, y, isActive);
-      drawTileChrome(chromeLayer, i, x, y, isActive);
+      drawTileFrame(chromeLayer, x, y, false);
+      drawTileChrome(chromeLayer, i, x, y, false);
     }
   });
 }
@@ -419,8 +419,9 @@ function renderSceneLayer(t, activeIdx) {
   sceneLayer.batch(() => {
     sceneLayer.clear(0);
     for (let i = 0; i < 12; i++) {
+      if (i === activeIdx) continue;
       const { x, y } = tileRect(i);
-      drawTileArt(sceneLayer, i, x, y, t, i === activeIdx);
+      drawTileArt(sceneLayer, i, x, y, t, false);
     }
   });
 }
@@ -486,23 +487,22 @@ function retrigger(signal, targetValue, durationMs, previousHandle) {
   return anim.to(signal, 0, durationMs);
 }
 
-function triggerTouchRipple(idx) {
+function triggerTouchRipple(idx, localX, localY) {
   const { x, y } = tileRect(idx);
-  touchRippleOriginX.set(x + 45);
-  touchRippleOriginY.set(y + 48);
-  touchRippleHandle = retrigger(touchRipple, 1, 900, touchRippleHandle);
+  const ox = typeof localX === "number" ? x + localX : x + 45;
+  const oy = typeof localY === "number" ? y + localY : y + 48;
+  touchRippleOriginX.set(ox);
+  touchRippleOriginY.set(oy);
+  touchRippleHandle = retrigger(touchRipple, 1, 1200, touchRippleHandle);
 }
 
-function drawSelectedTileAccent(surface, idx, tick) {
+function drawSelectedTileAccent(surface, idx, tick, t) {
   const { x, y } = tileRect(idx);
-  surface.fillRect(x + 2, y + 2, TILE - 4, TILE - 4, 18);
-  surface.fillRect(x + 6, y + 24, TILE - 12, TILE - 30, 8);
-  surface.line(x, y, x + TILE - 1, y, 110);
-  surface.line(x, y + TILE - 1, x + TILE - 1, y + TILE - 1, 110);
-  surface.line(x, y, x, y + TILE - 1, 110);
-  surface.line(x + TILE - 1, y, x + TILE - 1, y + TILE - 1, 110);
-  drawActiveSweep(surface, idx, tick, 90);
-  drawActiveRipple(surface, idx, tick, 34);
+  drawTileFrame(surface, x, y, true);
+  drawTileChrome(surface, idx, x, y, true);
+  drawTileArt(surface, idx, x, y, t, true);
+  drawActiveSweep(surface, idx, tick, 120);
+  drawActiveRipple(surface, idx, tick, 48);
 }
 
 function drawFullscreenSpiralRipple(surface, tick) {
@@ -514,37 +514,44 @@ function drawFullscreenSpiralRipple(surface, tick) {
   const cy = touchRippleOriginY.get();
   const maxR = Math.sqrt(MAIN_W * MAIN_W + MAIN_H * MAIN_H);
   const progress = 1 - amount;
-  const front = progress * maxR;
+  const front = 18 + Math.pow(progress, 0.78) * (maxR + 40);
   const pulse = tick * Math.PI * 2;
-  const arms = 3;
-  const armSteps = 260;
+  const arms = 5;
+  const armSteps = 520;
 
   for (let arm = 0; arm < arms; arm++) {
-    const armOffset = arm * (Math.PI * 2 / arms) + pulse * 0.8;
+    const armOffset = arm * (Math.PI * 2 / arms) + pulse * 0.6;
     for (let i = 0; i < armSteps; i++) {
       const p = i / (armSteps - 1);
       const r = p * front;
-      const angle = armOffset + p * Math.PI * 10 + progress * 6;
-      const brightness = (1 - p * 0.7) * amount * 95;
+      const swirl = p * Math.PI * 18 + progress * 8;
+      const angle = armOffset + swirl;
+      const brightness = (1 - p * 0.5) * amount * 120;
       const px = cx + Math.cos(angle) * r;
       const py = cy + Math.sin(angle) * r;
       addP(surface, px, py, brightness);
-      addP(surface, px + 1, py, brightness * 0.35);
+      addP(surface, px + 1, py, brightness * 0.45);
+      addP(surface, px, py + 1, brightness * 0.25);
     }
   }
 
-  for (let a = 0; a < Math.PI * 2; a += 0.035) {
-    const rr = front + Math.sin(a * 6 + pulse * 2.5) * 12 * amount;
-    const brightness = amount * 70;
-    addP(surface, cx + Math.cos(a) * rr, cy + Math.sin(a) * rr, brightness);
-    addP(surface, cx + Math.cos(a) * (rr - 6), cy + Math.sin(a) * (rr - 6), brightness * 0.4);
+  for (let ring = 0; ring < 3; ring++) {
+    const ringFront = front - ring * 22;
+    if (ringFront <= 0) continue;
+    for (let a = 0; a < Math.PI * 2; a += 0.018) {
+      const wobble = Math.sin(a * (6 + ring * 2) + pulse * (2.5 + ring * 0.4)) * (10 + ring * 4) * amount;
+      const rr = ringFront + wobble;
+      const brightness = amount * (85 - ring * 18);
+      addP(surface, cx + Math.cos(a) * rr, cy + Math.sin(a) * rr, brightness);
+      addP(surface, cx + Math.cos(a) * (rr - 8), cy + Math.sin(a) * (rr - 8), brightness * 0.35);
+    }
   }
 }
 
-function renderAccentLayer(tick, activeIdx) {
+function renderAccentLayer(tick, activeIdx, t) {
   accentLayer.batch(() => {
     accentLayer.clear(0);
-    drawSelectedTileAccent(accentLayer, activeIdx, tick);
+    drawSelectedTileAccent(accentLayer, activeIdx, tick, t);
     drawFullscreenSpiralRipple(accentLayer, tick);
   });
 }
@@ -589,7 +596,7 @@ function renderAll(reason) {
     renderChromeLayer(activeIdx);
     renderSceneLayer(t, activeIdx);
     renderFXLayer(tick);
-    renderAccentLayer(tick, activeIdx);
+    renderAccentLayer(tick, activeIdx, t);
     renderHUDLayer(activeIdx, eventText);
     composeFrame();
   });
@@ -601,13 +608,13 @@ function renderAll(reason) {
   return result;
 }
 
-function setActive(idx, why, isTouch) {
+function setActive(idx, why, isTouch, localX, localY) {
   sceneMetrics.trace("setActive", { idx: String(idx), why });
   sceneMetrics.recordActivation(why);
   active.set(idx);
   lastEvent.set(why);
   if (isTouch) {
-    triggerTouchRipple(idx);
+    triggerTouchRipple(idx, localX, localY);
   }
   present.invalidate(why);
 }
@@ -621,7 +628,7 @@ ui.page("full-page-all12", page => {
 
 for (let i = 1; i <= 12; i++) {
   const idx = i - 1;
-  ui.onTouch(`Touch${i}`, () => setActive(idx, `T${i}`, true));
+  ui.onTouch(`Touch${i}`, event => setActive(idx, `T${i}`, true, event.x, event.y));
 }
 ui.onButton("Button1", () => setActive((active.get() + 11) % 12, "B1", false));
 ui.onButton("Button2", () => setActive((active.get() + 1) % 12, "B2", false));
