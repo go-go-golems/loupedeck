@@ -13,11 +13,18 @@ const LABEL_Y = 6;
 const LABEL_H = 16;
 const DIVIDER_Y = 22;
 
-const main = gfx.surface(MAIN_W, MAIN_H);
+const frame = gfx.surface(MAIN_W, MAIN_H);
+const baseLayer = gfx.surface(MAIN_W, MAIN_H);
+const chromeLayer = gfx.surface(MAIN_W, MAIN_H);
+const sceneLayer = gfx.surface(MAIN_W, MAIN_H);
+const fxLayer = gfx.surface(MAIN_W, MAIN_H);
+const hudLayer = gfx.surface(MAIN_W, MAIN_H);
 
 const phase = state.signal(0);
 const active = state.signal(0);
 const lastEvent = state.signal("BOOT");
+
+let baseLayerReady = false;
 
 const tileLabels = [
   "EYE",
@@ -89,28 +96,28 @@ function drawSpiral(surface, cx, cy, turns, size, brt, speed, t, thick) {
   }
 }
 
-function drawTileFrame(x, y, isActive) {
+function drawTileFrame(surface, x, y, isActive) {
   const border = isActive ? 255 : 24;
   const glow = isActive ? 80 : 0;
-  main.fillRect(x, y, TILE, TILE, isActive ? 10 : 0);
-  main.line(x, y, x + TILE - 1, y, border);
-  main.line(x, y + TILE - 1, x + TILE - 1, y + TILE - 1, border);
-  main.line(x, y, x, y + TILE - 1, border);
-  main.line(x + TILE - 1, y, x + TILE - 1, y + TILE - 1, border);
+  surface.fillRect(x, y, TILE, TILE, isActive ? 10 : 0);
+  surface.line(x, y, x + TILE - 1, y, border);
+  surface.line(x, y + TILE - 1, x + TILE - 1, y + TILE - 1, border);
+  surface.line(x, y, x, y + TILE - 1, border);
+  surface.line(x + TILE - 1, y, x + TILE - 1, y + TILE - 1, border);
   if (glow > 0) {
-    main.line(x + 1, y + 1, x + TILE - 2, y + 1, glow);
-    main.line(x + 1, y + TILE - 2, x + TILE - 2, y + TILE - 2, glow);
-    main.line(x + 1, y + 1, x + 1, y + TILE - 2, glow);
-    main.line(x + TILE - 2, y + 1, x + TILE - 2, y + TILE - 2, glow);
+    surface.line(x + 1, y + 1, x + TILE - 2, y + 1, glow);
+    surface.line(x + 1, y + TILE - 2, x + TILE - 2, y + TILE - 2, glow);
+    surface.line(x + 1, y + 1, x + 1, y + TILE - 2, glow);
+    surface.line(x + TILE - 2, y + 1, x + TILE - 2, y + TILE - 2, glow);
   }
 }
 
-function drawTileChrome(idx, x, y, isActive) {
-  drawText(main, tileLabels[idx], x + 45, y + LABEL_Y, isActive ? 170 : 65, 74, LABEL_H);
-  lineH(main, x + 2, x + TILE - 3, y + DIVIDER_Y, isActive ? 28 : 8);
+function drawTileChrome(surface, idx, x, y, isActive) {
+  drawText(surface, tileLabels[idx], x + 45, y + LABEL_Y, isActive ? 170 : 65, 74, LABEL_H);
+  lineH(surface, x + 2, x + TILE - 3, y + DIVIDER_Y, isActive ? 28 : 8);
 }
 
-function drawEyeTile(x, y, t, isActive) {
+function drawEyeTile(surface, x, y, t, isActive) {
   const oy = y + TOP;
   const cx = x + 45;
   const cy = oy + 41;
@@ -119,53 +126,53 @@ function drawEyeTile(x, y, t, isActive) {
   for (let a = 0; a < Math.PI * 2; a += 0.02) {
     const rx = 30 * Math.cos(a);
     const py = Math.sin(a) * 12;
-    addP(main, cx + rx, cy + py, brt);
-    addP(main, cx + rx * 1.04, cy + py * 1.1, brt * 0.4);
+    addP(surface, cx + rx, cy + py, brt);
+    addP(surface, cx + rx * 1.04, cy + py * 1.1, brt * 0.4);
   }
 
   const irisR = 11 + Math.sin(t * 0.5) * 2;
   for (let a = 0; a < Math.PI * 2; a += 0.03) {
-    addP(main, cx + Math.cos(a) * irisR, cy + Math.sin(a) * irisR, brt);
+    addP(surface, cx + Math.cos(a) * irisR, cy + Math.sin(a) * irisR, brt);
   }
 
   const pupilR = 5 + Math.sin(t * 1.5) * 2;
-  fillDisk(main, cx, cy, pupilR | 0, brt * 0.9);
+  fillDisk(surface, cx, cy, pupilR | 0, brt * 0.9);
 
-  addP(main, cx - 2, cy - 2, 255);
-  addP(main, cx - 3, cy - 2, 255);
-  addP(main, cx - 2, cy - 3, 255);
+  addP(surface, cx - 2, cy - 2, 255);
+  addP(surface, cx - 3, cy - 2, 255);
+  addP(surface, cx - 2, cy - 3, 255);
 
   for (let i = 0; i < 8; i++) {
     const a = i * Math.PI / 4 + Math.sin(t * 0.3 + i) * 0.2;
     for (let r = irisR + 1; r < irisR + 8 + Math.sin(t + i) * 3; r++) {
       const wx = Math.sin(r * 0.5 + i) * 0.8;
-      addP(main, cx + Math.cos(a) * r + wx, cy + Math.sin(a) * r * 0.5, brt * 0.3 * (1 - r / 25));
+      addP(surface, cx + Math.cos(a) * r + wx, cy + Math.sin(a) * r * 0.5, brt * 0.3 * (1 - r / 25));
     }
   }
 
-  main.crosshatch(x + 4, oy + 16, 18, 50, 3, isActive ? 20 : 8);
-  main.crosshatch(x + 68, oy + 16, 18, 50, 3, isActive ? 20 : 8);
+  surface.crosshatch(x + 4, oy + 16, 18, 50, 3, isActive ? 20 : 8);
+  surface.crosshatch(x + 68, oy + 16, 18, 50, 3, isActive ? 20 : 8);
 }
 
-function drawSpiralTile(x, y, t, isActive) {
+function drawSpiralTile(surface, x, y, t, isActive) {
   const oy = y + TOP;
   const cx = x + 45;
   const cy = oy + 43;
   const brt = isActive ? 190 : 76;
-  drawSpiral(main, cx, cy, 6, 32, brt, 0.5, t, 2);
-  drawSpiral(main, cx, cy, 4, 12, brt * 1.2, 0.85, t, 1);
-  drawSpiral(main, x + 14, oy + 20, 2, 6, brt * 0.3, 1.0, t, 1);
-  drawSpiral(main, x + 76, oy + 70, 2, 6, brt * 0.3, -0.7, t, 1);
+  drawSpiral(surface, cx, cy, 6, 32, brt, 0.5, t, 2);
+  drawSpiral(surface, cx, cy, 4, 12, brt * 1.2, 0.85, t, 1);
+  drawSpiral(surface, x + 14, oy + 20, 2, 6, brt * 0.3, 1.0, t, 1);
+  drawSpiral(surface, x + 76, oy + 70, 2, 6, brt * 0.3, -0.7, t, 1);
   for (let r = 8; r < 34; r += 7) {
     const wobble = Math.sin(r * 0.5 + t) * 3;
     for (let a = 0; a < Math.PI * 2; a += 0.05) {
       const wr = r + Math.sin(a * 3 + t) * wobble;
-      addP(main, cx + Math.cos(a) * wr, cy + Math.sin(a) * wr, brt * 0.12);
+      addP(surface, cx + Math.cos(a) * wr, cy + Math.sin(a) * wr, brt * 0.12);
     }
   }
 }
 
-function drawTeethTile(x, y, t, isActive) {
+function drawTeethTile(surface, x, y, t, isActive) {
   const oy = y + TOP;
   const cx = x + 45;
   const cy = oy + 43;
@@ -175,11 +182,11 @@ function drawTeethTile(x, y, t, isActive) {
   for (let a = -Math.PI; a < 0; a += 0.03) {
     const rx = 32;
     const ry = 8 + Math.sin(t * 0.7) * 2;
-    addP(main, cx + Math.cos(a) * rx, cy - 6 + Math.sin(a) * ry, brt);
-    addP(main, cx + Math.cos(a) * rx, cy + 6 - Math.sin(a) * ry, brt);
+    addP(surface, cx + Math.cos(a) * rx, cy - 6 + Math.sin(a) * ry, brt);
+    addP(surface, cx + Math.cos(a) * rx, cy + 6 - Math.sin(a) * ry, brt);
   }
 
-  main.fillRect(x + 12, cy - gapOpen + 1, 66, gapOpen * 2 - 1, 0);
+  surface.fillRect(x + 12, cy - gapOpen + 1, 66, gapOpen * 2 - 1, 0);
 
   const teethW = 7;
   const teethCount = 8;
@@ -190,35 +197,35 @@ function drawTeethTile(x, y, t, isActive) {
     for (let dy = 0; dy < up; dy++) {
       const taper = 1 - dy / up * 0.25;
       const w = Math.max(3, (teethW * taper) | 0);
-      for (let dx = 0; dx < w; dx++) addP(main, tx + dx, cy - gapOpen - dy, brt * (0.65 + dy / up * 0.35));
+      for (let dx = 0; dx < w; dx++) addP(surface, tx + dx, cy - gapOpen - dy, brt * (0.65 + dy / up * 0.35));
     }
     for (let dy = 0; dy < down; dy++) {
       const taper = 1 - dy / down * 0.2;
       const w = Math.max(3, (teethW * taper) | 0);
-      for (let dx = 0; dx < w; dx++) addP(main, tx + dx, cy + gapOpen + dy, brt * (0.65 + dy / down * 0.35));
+      for (let dx = 0; dx < w; dx++) addP(surface, tx + dx, cy + gapOpen + dy, brt * (0.65 + dy / down * 0.35));
     }
   }
 
-  main.crosshatch(x + 6, cy - gapOpen - 18, 78, 6, 2, brt * 0.12);
-  main.crosshatch(x + 6, cy + gapOpen + 12, 78, 6, 2, brt * 0.12);
+  surface.crosshatch(x + 6, cy - gapOpen - 18, 78, 6, 2, brt * 0.12);
+  surface.crosshatch(x + 6, cy + gapOpen + 12, 78, 6, 2, brt * 0.12);
 }
 
-function drawMeltTile(x, y, t, isActive) {
+function drawMeltTile(surface, x, y, t, isActive) {
   const brt = isActive ? 220 : 90;
   const top = y + 30;
-  main.fillRect(x + 10, top, 70, 10, brt * 0.2);
+  surface.fillRect(x + 10, top, 70, 10, brt * 0.2);
   for (let i = 0; i < 8; i++) {
     const px = x + 12 + i * 9;
     const length = 14 + ((Math.sin(t * 2 + i * 0.9) * 0.5 + 0.5) * 28) | 0;
     const width = i % 3 === 0 ? 4 : 2;
     for (let w = 0; w < width; w++) {
-      lineV(main, px + w, top + 7, top + 7 + length, brt * (0.7 + w * 0.1));
+      lineV(surface, px + w, top + 7, top + 7 + length, brt * (0.7 + w * 0.1));
     }
-    fillDisk(main, px + (width >> 1), top + 7 + length + 2, 3 + (i % 2), brt * 0.6);
+    fillDisk(surface, px + (width >> 1), top + 7 + length + 2, 3 + (i % 2), brt * 0.6);
   }
 }
 
-function drawHoleTile(x, y, t, isActive) {
+function drawHoleTile(surface, x, y, t, isActive) {
   const cx = x + 45;
   const cy = y + 48;
   const brt = isActive ? 220 : 85;
@@ -226,116 +233,116 @@ function drawHoleTile(x, y, t, isActive) {
     for (let a = 0; a < Math.PI * 2; a += 0.04) {
       const wobble = Math.sin(a * 5 + t * 2 + r) * 2;
       const rr = r + wobble;
-      addP(main, cx + Math.cos(a) * rr, cy + Math.sin(a) * rr, brt * (1 - r / 34));
+      addP(surface, cx + Math.cos(a) * rr, cy + Math.sin(a) * rr, brt * (1 - r / 34));
     }
   }
   for (let i = 0; i < 11; i++) {
     const a = i / 11 * Math.PI * 2 + t;
-    main.line(cx, cy, cx + Math.cos(a) * 34, cy + Math.sin(a) * 26, brt * 0.12);
+    surface.line(cx, cy, cx + Math.cos(a) * 34, cy + Math.sin(a) * 26, brt * 0.12);
   }
-  fillDisk(main, cx, cy, 9, 0);
+  fillDisk(surface, cx, cy, 9, 0);
 }
 
-function drawFaceTile(x, y, t, isActive) {
+function drawFaceTile(surface, x, y, t, isActive) {
   const cx = x + 45;
   const cy = y + 46;
   const brt = isActive ? 215 : 88;
   for (let a = 0; a < Math.PI * 2; a += 0.04) {
     const rx = 24 + Math.sin(a * 3 + t) * 2;
     const ry = 28 + Math.cos(a * 2 + t * 0.8) * 2;
-    addP(main, cx + Math.cos(a) * rx, cy + Math.sin(a) * ry, brt * 0.65);
+    addP(surface, cx + Math.cos(a) * rx, cy + Math.sin(a) * ry, brt * 0.65);
   }
-  fillDisk(main, cx - 10, cy - 6, 4, brt);
-  fillDisk(main, cx + 12, cy - 4, 5, brt);
-  main.line(cx - 2, cy, cx + 2, cy + 8, brt * 0.7);
+  fillDisk(surface, cx - 10, cy - 6, 4, brt);
+  fillDisk(surface, cx + 12, cy - 4, 5, brt);
+  surface.line(cx - 2, cy, cx + 2, cy + 8, brt * 0.7);
   for (let a = 0.3; a < Math.PI - 0.2; a += 0.04) {
-    addP(main, cx + Math.cos(a) * 15, cy + 16 + Math.sin(a) * 8, brt);
+    addP(surface, cx + Math.cos(a) * 15, cy + 16 + Math.sin(a) * 8, brt);
   }
 }
 
-function drawWormTile(x, y, t, isActive) {
+function drawWormTile(surface, x, y, t, isActive) {
   const brt = isActive ? 225 : 92;
   const baseY = y + 50;
   for (let i = 0; i < 9; i++) {
     const px = x + 10 + i * 8;
     const py = baseY + Math.sin(t * 2.2 + i * 0.6) * 14 + Math.sin(i * 0.2) * 5;
     const r = 3 + ((8 - i) * 0.2);
-    fillDisk(main, px, py | 0, r | 0, brt * (1 - i / 12 * 0.3));
+    fillDisk(surface, px, py | 0, r | 0, brt * (1 - i / 12 * 0.3));
     if (i === 0) {
-      addP(main, px + 2, py - 1, 255);
-      addP(main, px + 2, py + 1, 255);
+      addP(surface, px + 2, py - 1, 255);
+      addP(surface, px + 2, py + 1, 255);
     }
   }
 }
 
-function drawNoiseTile(x, y, t, isActive) {
+function drawNoiseTile(surface, x, y, t, isActive) {
   const brt = isActive ? 190 : 70;
   for (let py = y + 30; py < y + 84; py += 2) {
     for (let px = x + 6; px < x + 84; px += 2) {
       const n = hash(px, py, (t * 37) | 0);
-      if (n > 0.72) addP(main, px, py, brt);
-      else if (n > 0.6) addP(main, px, py, brt * 0.4);
+      if (n > 0.72) addP(surface, px, py, brt);
+      else if (n > 0.6) addP(surface, px, py, brt * 0.4);
     }
   }
 }
 
-function drawWarpTile(x, y, t, isActive) {
+function drawWarpTile(surface, x, y, t, isActive) {
   const brt = isActive ? 210 : 82;
   const cx = x + 45;
   const cy = y + 48;
   for (let gx = x + 10; gx <= x + 80; gx += 8) {
     for (let py = y + 28; py <= y + 84; py++) {
       const dx = Math.sin((py - y) * 0.11 + t * 2 + gx * 0.1) * 6;
-      addP(main, gx + dx, py, brt * 0.42);
+      addP(surface, gx + dx, py, brt * 0.42);
     }
   }
   for (let gy = y + 30; gy <= y + 82; gy += 8) {
     for (let px = x + 8; px <= x + 82; px++) {
       const dy = Math.cos(px * 0.11 + t * 2.3 + gy * 0.09) * 5;
-      addP(main, px, gy + dy, brt * 0.35);
+      addP(surface, px, gy + dy, brt * 0.35);
     }
   }
-  fillDisk(main, cx, cy, 4, brt);
+  fillDisk(surface, cx, cy, 4, brt);
 }
 
-function branchCrack(x1, y1, angle, length, brt, depth) {
+function branchCrack(surface, x1, y1, angle, length, brt, depth) {
   if (depth <= 0 || length < 4) return;
   const x2 = x1 + Math.cos(angle) * length;
   const y2 = y1 + Math.sin(angle) * length;
-  main.line(x1, y1, x2, y2, brt);
-  branchCrack(x2, y2, angle - 0.5, length * 0.55, brt * 0.75, depth - 1);
-  branchCrack(x2, y2, angle + 0.4, length * 0.45, brt * 0.6, depth - 1);
+  surface.line(x1, y1, x2, y2, brt);
+  branchCrack(surface, x2, y2, angle - 0.5, length * 0.55, brt * 0.75, depth - 1);
+  branchCrack(surface, x2, y2, angle + 0.4, length * 0.45, brt * 0.6, depth - 1);
 }
 
-function drawCrackTile(x, y, t, isActive) {
+function drawCrackTile(surface, x, y, t, isActive) {
   const brt = isActive ? 240 : 96;
   const cx = x + 44;
   const cy = y + 40;
-  branchCrack(cx, cy, 1.7 + Math.sin(t) * 0.1, 28, brt, 4);
-  branchCrack(cx, cy, 0.7 + Math.sin(t * 0.6) * 0.1, 22, brt * 0.7, 3);
-  branchCrack(cx, cy, 2.6, 18, brt * 0.65, 3);
+  branchCrack(surface, cx, cy, 1.7 + Math.sin(t) * 0.1, 28, brt, 4);
+  branchCrack(surface, cx, cy, 0.7 + Math.sin(t * 0.6) * 0.1, 22, brt * 0.7, 3);
+  branchCrack(surface, cx, cy, 2.6, 18, brt * 0.65, 3);
 }
 
-function drawPulseTile(x, y, t, isActive) {
+function drawPulseTile(surface, x, y, t, isActive) {
   const cx = x + 45;
   const cy = y + 48;
   const brt = isActive ? 220 : 84;
   for (let r = 6; r < 28; r += 5) {
     const pulse = 1 + Math.sin(t * 4 - r * 0.4) * 0.18;
     for (let a = 0; a < Math.PI * 2; a += 0.05) {
-      addP(main, cx + Math.cos(a) * r * pulse, cy + Math.sin(a) * r * pulse, brt * (1 - r / 30));
+      addP(surface, cx + Math.cos(a) * r * pulse, cy + Math.sin(a) * r * pulse, brt * (1 - r / 30));
     }
   }
   const baseY = y + 74;
-  lineH(main, x + 8, x + 24, baseY, brt * 0.5);
-  main.line(x + 24, baseY, x + 34, baseY - 10, brt);
-  main.line(x + 34, baseY - 10, x + 40, baseY + 6, brt);
-  main.line(x + 40, baseY + 6, x + 48, baseY - 18, brt);
-  main.line(x + 48, baseY - 18, x + 57, baseY, brt);
-  lineH(main, x + 57, x + 82, baseY, brt * 0.5);
+  lineH(surface, x + 8, x + 24, baseY, brt * 0.5);
+  surface.line(x + 24, baseY, x + 34, baseY - 10, brt);
+  surface.line(x + 34, baseY - 10, x + 40, baseY + 6, brt);
+  surface.line(x + 40, baseY + 6, x + 48, baseY - 18, brt);
+  surface.line(x + 48, baseY - 18, x + 57, baseY, brt);
+  lineH(surface, x + 57, x + 82, baseY, brt * 0.5);
 }
 
-function drawVoidTile(x, y, t, isActive) {
+function drawVoidTile(surface, x, y, t, isActive) {
   const cx = x + 45;
   const cy = y + 48;
   const brt = isActive ? 180 : 60;
@@ -343,33 +350,150 @@ function drawVoidTile(x, y, t, isActive) {
     const px = x + 8 + ((hash(i, 3, 1) * 74) | 0);
     const py = y + 28 + ((hash(i, 7, 2) * 54) | 0);
     const tw = hash(px, py, (t * 20) | 0);
-    if (tw > 0.82) addP(main, px, py, 220 + tw * 30);
+    if (tw > 0.82) addP(surface, px, py, 220 + tw * 30);
   }
   for (let a = 0; a < Math.PI * 2; a += 0.05) {
     const rr = 24 + Math.sin(a * 7 + t * 3) * 3;
-    addP(main, cx + Math.cos(a) * rr, cy + Math.sin(a) * rr, brt * 0.4);
+    addP(surface, cx + Math.cos(a) * rr, cy + Math.sin(a) * rr, brt * 0.4);
   }
-  fillDisk(main, cx, cy, 10 + (Math.sin(t * 2) * 2) | 0, 0);
+  fillDisk(surface, cx, cy, 10 + (Math.sin(t * 2) * 2) | 0, 0);
 }
 
-function drawTile(idx, x, y, t, isActive) {
+function drawTileArt(surface, idx, x, y, t, isActive) {
   return sceneMetrics.timeTile(tileLabels[idx], () => {
-    drawTileFrame(x, y, isActive);
-    drawTileChrome(idx, x, y, isActive);
     switch (idx) {
-      case 0: return drawEyeTile(x, y, t, isActive);
-      case 1: return drawSpiralTile(x, y, t, isActive);
-      case 2: return drawTeethTile(x, y, t, isActive);
-      case 3: return drawMeltTile(x, y, t, isActive);
-      case 4: return drawHoleTile(x, y, t, isActive);
-      case 5: return drawFaceTile(x, y, t, isActive);
-      case 6: return drawWormTile(x, y, t, isActive);
-      case 7: return drawNoiseTile(x, y, t, isActive);
-      case 8: return drawWarpTile(x, y, t, isActive);
-      case 9: return drawCrackTile(x, y, t, isActive);
-      case 10: return drawPulseTile(x, y, t, isActive);
-      case 11: return drawVoidTile(x, y, t, isActive);
+      case 0: return drawEyeTile(surface, x, y, t, isActive);
+      case 1: return drawSpiralTile(surface, x, y, t, isActive);
+      case 2: return drawTeethTile(surface, x, y, t, isActive);
+      case 3: return drawMeltTile(surface, x, y, t, isActive);
+      case 4: return drawHoleTile(surface, x, y, t, isActive);
+      case 5: return drawFaceTile(surface, x, y, t, isActive);
+      case 6: return drawWormTile(surface, x, y, t, isActive);
+      case 7: return drawNoiseTile(surface, x, y, t, isActive);
+      case 8: return drawWarpTile(surface, x, y, t, isActive);
+      case 9: return drawCrackTile(surface, x, y, t, isActive);
+      case 10: return drawPulseTile(surface, x, y, t, isActive);
+      case 11: return drawVoidTile(surface, x, y, t, isActive);
     }
+  });
+}
+
+function rebuildBaseLayer() {
+  baseLayer.batch(() => {
+    baseLayer.clear(0);
+    for (let y = 0; y < MAIN_H; y += 18) {
+      lineH(baseLayer, 0, MAIN_W - 1, y, 2);
+    }
+    for (let i = 0; i < 12; i++) {
+      const { x, y } = tileRect(i);
+      baseLayer.fillRect(x + 3, y + 3, TILE - 6, TILE - 6, 3);
+      baseLayer.fillRect(x + 8, y + 28, TILE - 16, TILE - 18, 2);
+      if ((i % 2) === 0) {
+        baseLayer.crosshatch(x + 6, y + 28, 18, 46, 4, 5);
+      } else {
+        baseLayer.crosshatch(x + 66, y + 28, 18, 46, 4, 5);
+      }
+    }
+  });
+  baseLayerReady = true;
+}
+
+function renderChromeLayer(activeIdx) {
+  chromeLayer.batch(() => {
+    chromeLayer.clear(0);
+    for (let i = 0; i < 12; i++) {
+      const { x, y } = tileRect(i);
+      const isActive = i === activeIdx;
+      drawTileFrame(chromeLayer, x, y, isActive);
+      drawTileChrome(chromeLayer, i, x, y, isActive);
+    }
+  });
+}
+
+function renderSceneLayer(t, activeIdx) {
+  sceneLayer.batch(() => {
+    sceneLayer.clear(0);
+    for (let i = 0; i < 12; i++) {
+      const { x, y } = tileRect(i);
+      drawTileArt(sceneLayer, i, x, y, t, i === activeIdx);
+    }
+  });
+}
+
+function drawScanlines(surface, tick) {
+  const phaseOffset = ((tick * 12) | 0) % 6;
+  for (let y = phaseOffset; y < MAIN_H; y += 6) {
+    lineH(surface, 0, MAIN_W - 1, y, 8);
+    if (y + 1 < MAIN_H) {
+      lineH(surface, 0, MAIN_W - 1, y + 1, 3);
+    }
+  }
+}
+
+function drawFrameNoise(surface, tick) {
+  const seed = (tick * 97) | 0;
+  for (let y = 0; y < MAIN_H; y += 3) {
+    for (let x = (y + seed) % 5; x < MAIN_W; x += 5) {
+      const n = hash(x, y, seed);
+      if (n > 0.86) addP(surface, x, y, 22);
+      else if (n > 0.76) addP(surface, x, y, 10);
+    }
+  }
+}
+
+function drawActiveSweep(surface, idx, tick) {
+  const { x, y } = tileRect(idx);
+  const sweepX = x + 6 + (((Math.sin(tick * Math.PI * 2) * 0.5 + 0.5) * (TILE - 12)) | 0);
+  for (let py = y + 24; py < y + TILE - 6; py++) {
+    const fade = 1 - Math.abs(py - (y + 54)) / 40;
+    addP(surface, sweepX, py, 60 * fade);
+    addP(surface, sweepX + 1, py, 22 * fade);
+  }
+}
+
+function drawActiveRipple(surface, idx, tick) {
+  const { x, y } = tileRect(idx);
+  const cx = x + 45;
+  const cy = y + 48;
+  const pulse = tick * Math.PI * 2;
+  for (let ring = 0; ring < 2; ring++) {
+    const baseR = 18 + ring * 11;
+    const radius = baseR + Math.sin(pulse * 1.3 - ring * 0.8) * 3;
+    for (let a = 0; a < Math.PI * 2; a += 0.08) {
+      const brightness = 20 + ring * 10;
+      addP(surface, cx + Math.cos(a) * radius, cy + Math.sin(a) * radius, brightness);
+    }
+  }
+}
+
+function renderFXLayer(tick, activeIdx) {
+  fxLayer.batch(() => {
+    fxLayer.clear(0);
+    drawScanlines(fxLayer, tick);
+    drawFrameNoise(fxLayer, tick);
+    drawActiveSweep(fxLayer, activeIdx, tick);
+    drawActiveRipple(fxLayer, activeIdx, tick);
+  });
+}
+
+function renderHUDLayer(activeIdx, eventText) {
+  const { x, y } = tileRect(activeIdx);
+  hudLayer.batch(() => {
+    hudLayer.clear(0);
+    hudLayer.fillRect(x + 28, y + 68, 34, 10, 16);
+    drawText(hudLayer, eventText, 315, 248, 120, 42, 14);
+    drawText(hudLayer, tileLabels[activeIdx], 315, 232, 70, 54, 12);
+  });
+}
+
+function composeFrame() {
+  frame.batch(() => {
+    frame.clear(0);
+    frame.compositeAdd(baseLayer, 0, 0);
+    frame.compositeAdd(sceneLayer, 0, 0);
+    frame.compositeAdd(chromeLayer, 0, 0);
+    frame.compositeAdd(fxLayer, 0, 0);
+    frame.compositeAdd(hudLayer, 0, 0);
   });
 }
 
@@ -381,16 +505,19 @@ function renderAll(reason) {
     lastEvent: lastEvent.get(),
   });
   const result = sceneMetrics.recordRebuild(resolvedReason, () => {
-    main.batch(() => {
-      main.clear(0);
-      const t = phase.get() * Math.PI * 2;
-      const a = active.get();
-      for (let i = 0; i < 12; i++) {
-        const { x, y } = tileRect(i);
-        drawTile(i, x, y, t, i === a);
-      }
-      drawText(main, lastEvent.get(), 315, 248, 120, 42, 14);
-    });
+    if (!baseLayerReady) {
+      rebuildBaseLayer();
+    }
+    const tick = phase.get();
+    const t = tick * Math.PI * 2;
+    const activeIdx = active.get();
+    const eventText = lastEvent.get();
+
+    renderChromeLayer(activeIdx);
+    renderSceneLayer(t, activeIdx);
+    renderFXLayer(tick, activeIdx);
+    renderHUDLayer(activeIdx, eventText);
+    composeFrame();
   });
   sceneMetrics.trace("renderAll.end", {
     reason: resolvedReason,
@@ -410,7 +537,7 @@ function setActive(idx, why) {
 
 ui.page("full-page-all12", page => {
   page.display("main", display => {
-    display.surface(main);
+    display.surface(frame);
   });
 });
 
