@@ -1,6 +1,9 @@
 package js
 
 import (
+	"fmt"
+	"os"
+	"path/filepath"
 	"sync"
 	"sync/atomic"
 	"testing"
@@ -9,7 +12,9 @@ import (
 	"github.com/dop251/goja"
 	deck "github.com/go-go-golems/loupedeck"
 	"github.com/go-go-golems/loupedeck/pkg/runtimebridge"
+	"github.com/go-go-golems/loupedeck/runtime/gfx"
 	envpkg "github.com/go-go-golems/loupedeck/runtime/js/env"
+	"golang.org/x/image/font/gofont/goregular"
 )
 
 type fakeSource struct {
@@ -271,6 +276,100 @@ func TestGfxModuleCanBuildAndCompositeSurface(t *testing.T) {
 	}
 	if width.ToInteger() != 16 {
 		t.Fatalf("expected width 16, got %d", width.ToInteger())
+	}
+}
+
+func TestGfxModuleCanLoadFontHandleAndUseItForText(t *testing.T) {
+	fontPath := filepath.Join(t.TempDir(), "Go-Regular.ttf")
+	if err := os.WriteFile(fontPath, goregular.TTF, 0o644); err != nil {
+		t.Fatalf("write font: %v", err)
+	}
+
+	rt := NewRuntime(nil)
+	defer rt.Close(nil)
+
+	_, err := rt.RunString(nil, fmt.Sprintf(`
+		const gfx = require("loupedeck/gfx");
+		const font = gfx.font(%q, { size: 12, dpi: 72 });
+		const s = gfx.surface(32, 16);
+		s.text("A", { x: 0, y: 0, width: 32, height: 16, brightness: 255, center: true, font });
+		globalThis.__gfxFont = font;
+		globalThis.__gfxSurface = s;
+	`, fontPath))
+	if err != nil {
+		t.Fatalf("run script: %v", err)
+	}
+
+	fontObj := rt.VM.Get("__gfxFont").ToObject(rt.VM)
+	pathFn, ok := goja.AssertFunction(fontObj.Get("path"))
+	if !ok {
+		t.Fatal("expected gfx font to expose path()")
+	}
+	pathValue, err := pathFn(fontObj)
+	if err != nil {
+		t.Fatalf("call path(): %v", err)
+	}
+	if pathValue.String() != fontPath {
+		t.Fatalf("expected font path %q, got %q", fontPath, pathValue.String())
+	}
+
+	surfaceObj := rt.VM.Get("__gfxSurface").ToObject(rt.VM)
+	exported := surfaceObj.Get("__surface").Export()
+	surface, ok := exported.(*gfx.Surface)
+	if !ok || surface == nil {
+		t.Fatal("expected exported gfx surface")
+	}
+	found := false
+	for y := 0; y < surface.Height() && !found; y++ {
+		for x := 0; x < surface.Width(); x++ {
+			if surface.At(x, y) != 0 {
+				found = true
+				break
+			}
+		}
+	}
+	if !found {
+		t.Fatal("expected rendered text pixels from loaded font")
+	}
+}
+
+func TestGfxModuleCanRenderKanjiFromCollectionFontWhenAvailable(t *testing.T) {
+	const cjkCollection = "/usr/share/fonts/opentype/noto/NotoSansCJK-Regular.ttc"
+	if _, err := os.Stat(cjkCollection); err != nil {
+		t.Skipf("CJK collection not available: %v", err)
+	}
+
+	rt := NewRuntime(nil)
+	defer rt.Close(nil)
+
+	_, err := rt.RunString(nil, fmt.Sprintf(`
+		const gfx = require("loupedeck/gfx");
+		const font = gfx.font(%q, { size: 18, dpi: 72, index: 0 });
+		const s = gfx.surface(32, 24);
+		s.text("渦", { x: 0, y: 0, width: 32, height: 24, brightness: 255, center: true, font });
+		globalThis.__kanjiSurface = s;
+	`, cjkCollection))
+	if err != nil {
+		t.Fatalf("run script: %v", err)
+	}
+
+	surfaceObj := rt.VM.Get("__kanjiSurface").ToObject(rt.VM)
+	exported := surfaceObj.Get("__surface").Export()
+	surface, ok := exported.(*gfx.Surface)
+	if !ok || surface == nil {
+		t.Fatal("expected exported kanji surface")
+	}
+	found := false
+	for y := 0; y < surface.Height() && !found; y++ {
+		for x := 0; x < surface.Width(); x++ {
+			if surface.At(x, y) != 0 {
+				found = true
+				break
+			}
+		}
+	}
+	if !found {
+		t.Fatal("expected non-zero kanji glyph pixels from collection font")
 	}
 }
 
