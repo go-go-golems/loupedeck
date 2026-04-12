@@ -57,10 +57,16 @@ func (u *UI) Show(name string) error {
 		return fmt.Errorf("ui: unknown page %q", name)
 	}
 	u.activePage = page
-	for _, tile := range page.tiles {
-		tile.markDirty()
-	}
+	u.invalidatePage(page)
 	return nil
+}
+
+func (u *UI) InvalidateActivePage() bool {
+	if u.activePage == nil {
+		return false
+	}
+	u.invalidatePage(u.activePage)
+	return true
 }
 
 func (u *UI) DirtyTiles() []*Tile {
@@ -102,4 +108,10 @@ func (u *UI) ClearDirtyTiles(tiles []*Tile) {
 
 func (u *UI) markDirty(tile *Tile) {
 	u.dirtyTiles[tile] = struct{}{}
+}
+
+func (u *UI) invalidatePage(page *Page) {
+	for _, tile := range page.tiles {
+		tile.markDirty()
+	}
 }

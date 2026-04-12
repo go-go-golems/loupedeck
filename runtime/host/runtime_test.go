@@ -189,3 +189,36 @@ func TestTimersFireAndStop(t *testing.T) {
 		t.Fatal("interval continued firing after stop")
 	}
 }
+
+func TestReplayActivePageMarksTilesDirtyWithoutRerunningShowHooks(t *testing.T) {
+	uiRuntime := ui.New(nil)
+	page := uiRuntime.AddPage("home")
+	tile := page.AddTile(0, 0)
+	tile.SetText("REC")
+	r := New(uiRuntime)
+
+	showCalls := 0
+	r.OnShow("home", func(string) {
+		showCalls++
+	})
+	if err := r.Show("home"); err != nil {
+		t.Fatalf("show home: %v", err)
+	}
+	if showCalls != 1 {
+		t.Fatalf("expected one show hook call, got %d", showCalls)
+	}
+	uiRuntime.ClearDirty()
+	if tile.Dirty() {
+		t.Fatal("expected tile to be clean after explicit clear")
+	}
+
+	if !r.ReplayActivePage() {
+		t.Fatal("expected replay to report active page")
+	}
+	if !tile.Dirty() {
+		t.Fatal("expected replay to mark active tile dirty")
+	}
+	if showCalls != 1 {
+		t.Fatalf("expected replay not to rerun show hooks, got %d calls", showCalls)
+	}
+}

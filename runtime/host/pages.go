@@ -35,3 +35,10 @@ func (r *Runtime) Show(page string) error {
 	}
 	return nil
 }
+
+// ReplayActivePage marks the currently active retained page dirty again so a
+// renderer can redraw it after reconnect. It deliberately does not rerun page
+// show hooks; replay should restore visuals, not re-trigger page-entry logic.
+func (r *Runtime) ReplayActivePage() bool {
+	return r.UI.InvalidateActivePage()
+}
