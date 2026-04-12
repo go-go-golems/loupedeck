@@ -1,0 +1,744 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+<style>
+*{margin:0;padding:0}
+html,body{width:100%;height:100%;background:#000;display:flex;align-items:center;justify-content:center;overflow:hidden;touch-action:none}
+canvas{image-rendering:pixelated;image-rendering:crisp-edges;display:block}
+</style>
+</head>
+<body>
+<canvas id="c"></canvas>
+<script>
+const BS=90,COLS=4,ROWS=3,STRIP=36;
+const TW=STRIP+COLS*BS+STRIP,TH=ROWS*BS;
+const c=document.getElementById('c');
+c.width=TW;c.height=TH;
+c.style.width=TW*2+'px';c.style.height=TH*2+'px';
+const ctx=c.getContext('2d');
+const img=ctx.createImageData(TW,TH);
+const d=img.data;
+const spirals=[];
+let frame=0,scrollOff=0;
+
+const horrorKanji='呪螺旋恐怖闇影穴裂溶歪狂蝕腐朽這寄生喰渦巻沈黙叫骸'.split('');
+
+function setP(x,y,v){
+  x=x|0;y=y|0;
+  if(x<0||x>=TW||y<0||y>=TH)return;
+  const pi=(y*TW+x)*4;
+  d[pi]=Math.min(255,d[pi]+v);d[pi+1]=Math.min(255,d[pi+1]+v);d[pi+2]=Math.min(255,d[pi+2]+v);
+}
+function lineH(x1,x2,y,v){for(let x=x1;x<=x2;x++)setP(x,y,v)}
+function lineV(x,y1,y2,v){for(let y=y1;y<=y2;y++)setP(x,y,v)}
+
+const _tc=document.createElement('canvas');_tc.width=90;_tc.height=20;
+const _tctx=_tc.getContext('2d');const _cache={};
+function rTxt(text,font,size,w,h){
+  const k=text+'|'+size+'|'+font+'|'+w;
+  if(_cache[k])return _cache[k];
+  _tc.width=w;_tc.height=h;_tctx.clearRect(0,0,w,h);_tctx.fillStyle='#fff';
+  _tctx.font=size+'px '+font;_tctx.textAlign='center';_tctx.textBaseline='middle';
+  _tctx.fillText(text,w/2,h/2);
+  const dd=_tctx.getImageData(0,0,w,h).data;
+  const out=new Uint8Array(w*h);for(let i=0;i<w*h;i++)out[i]=dd[i*4];
+  _cache[k]={data:out,w,h};return _cache[k];
+}
+function drawText(text,font,size,px,py,brt,w,h){
+  const t=rTxt(text,font,size,w||80,h||14);
+  for(let ly=0;ly<t.h;ly++)for(let lx=0;lx<t.w;lx++){
+    const v=t.data[ly*t.w+lx];if(v>25)setP(px+lx,py+ly,(v/255*brt)|0);
+  }
+}
+
+// crosshatch fill
+function crosshatch(x,y,w,h,density,brt){
+  for(let py=y;py<y+h;py++)for(let px=x;px<x+w;px++){
+    if((px+py)%density===0)setP(px,py,brt);
+    if((px-py)%density===0&&density<4)setP(px,py,brt*0.5|0);
+  }
+}
+
+// draw spiral (Uzumaki style)
+function drawSpiral(cx,cy,turns,size,brt,speed,thick){
+  const steps=turns*120;
+  for(let i=0;i<steps;i++){
+    const angle=i*0.05+frame*speed;
+    const r=i*size/steps;
+    const px=(cx+Math.cos(angle)*r)|0;
+    const py=(cy+Math.sin(angle)*r)|0;
+    const fade=1-i/steps*0.3;
+    setP(px,py,(brt*fade)|0);
+    if(thick>1)setP(px+1,py,(brt*fade*0.5)|0);
+    if(thick>2)setP(px,py+1,(brt*fade*0.3)|0);
+  }
+}
+
+// dripping effect
+function drip(x,startY,len,brt,seed){
+  const wobble=Math.sin(seed*7.7+frame*0.02)*2;
+  for(let i=0;i<len;i++){
+    const fade=1-i/len;
+    const wx=(x+Math.sin(i*0.15+wobble)*1.5)|0;
+    setP(wx,startY+i,(brt*fade)|0);
+    // thicken at blob
+    if(i>len-5){
+      setP(wx-1,startY+i,(brt*fade*0.6)|0);
+      setP(wx+1,startY+i,(brt*fade*0.6)|0);
+      if(i>len-3)setP(wx,startY+i+1,(brt*fade*0.4)|0);
+    }
+  }
+}
+
+// ===== TILES =====
+const tiles=[
+  // 0: THE EYE (Junji Ito's obsessive staring eye)
+  {title:'眼',sub:'EYE',
+    draw(ox,oy,t,active){
+      const cx=ox+45,cy=oy+44;
+      // outer eye shape (almond)
+      const brt=active?200:80;
+      for(let a=0;a<Math.PI*2;a+=0.02){
+        const rx=30*Math.cos(a);
+        const ry=14*Math.sin(a);
+        // almond distortion
+        const squeeze=Math.cos(a);
+        const py=ry*0.9;
+        setP(cx+rx|0,cy+py|0,brt);
+        // double line
+        setP(cx+(rx*1.05)|0,cy+(py*1.1)|0,brt*0.4|0);
+      }
+      // iris
+      const irisR=11+Math.sin(t*0.5)*2;
+      for(let a=0;a<Math.PI*2;a+=0.03){
+        const px=(cx+Math.cos(a)*irisR)|0;
+        const py=(cy+Math.sin(a)*irisR)|0;
+        setP(px,py,brt);
+      }
+      // pupil - contracts and dilates
+      const pupilR=5+Math.sin(t*1.5)*2;
+      for(let dy=-pupilR;dy<=pupilR;dy++){
+        for(let dx=-pupilR;dx<=pupilR;dx++){
+          if(dx*dx+dy*dy<=pupilR*pupilR){
+            setP(cx+dx|0,cy+dy|0,brt*0.9|0);
+          }
+        }
+      }
+      // pupil highlight
+      setP(cx-2,cy-2,255);setP(cx-3,cy-2,255);setP(cx-2,cy-3,255);
+      // bloodshot lines radiating from iris
+      for(let i=0;i<8;i++){
+        const a=i*Math.PI/4+Math.sin(t*0.3+i)*0.2;
+        for(let r=irisR+1;r<irisR+8+Math.sin(t+i)*3;r++){
+          const wx=Math.sin(r*0.5+i)*0.8;
+          setP(cx+(Math.cos(a)*r+wx)|0,cy+(Math.sin(a)*r*0.5)|0,(brt*0.3*(1-r/25))|0);
+        }
+      }
+      // crosshatch shading around eye
+      crosshatch(ox+4,oy+16,18,50,3,active?20:8);
+      crosshatch(ox+68,oy+16,18,50,3,active?20:8);
+      // lower lid wrinkles
+      for(let i=0;i<3;i++){
+        for(let a=-0.8;a<0.8;a+=0.04){
+          setP(cx+(Math.cos(a+Math.PI)*28)|0,cy+(Math.sin(a+Math.PI)*12+4+i*3)|0,brt*0.2|0);
+        }
+      }
+    }},
+
+  // 1: UZUMAKI SPIRAL
+  {title:'渦',sub:'SPIRAL',
+    draw(ox,oy,t,active){
+      const cx=ox+45,cy=oy+46;
+      const brt=active?180:70;
+      // main spiral
+      drawSpiral(cx,cy,6,32,brt,0.015,2);
+      // inner tight spiral
+      drawSpiral(cx,cy,4,12,brt*1.2,0.025,1);
+      // ambient mini spirals in corners
+      drawSpiral(ox+14,oy+20,2,6,brt*0.3|0,0.03,1);
+      drawSpiral(ox+76,oy+74,2,6,brt*0.3|0,-0.02,1);
+      // distortion rings
+      for(let r=8;r<34;r+=7){
+        const wobble=Math.sin(r*0.5+t)*3;
+        for(let a=0;a<Math.PI*2;a+=0.05){
+          const wr=r+Math.sin(a*3+t)*wobble;
+          setP(cx+(Math.cos(a)*wr)|0,cy+(Math.sin(a)*wr)|0,brt*0.12|0);
+        }
+      }
+    }},
+
+  // 2: TEETH / MOUTH
+  {title:'歯',sub:'TEETH',
+    draw(ox,oy,t,active){
+      const cx=ox+45,cy=oy+46;
+      const brt=active?200:75;
+      // lips outline
+      for(let a=-Math.PI;a<0;a+=0.03){
+        const rx=32,ry=8+Math.sin(t*0.7)*2;
+        setP(cx+(Math.cos(a)*rx)|0,cy-6+(Math.sin(a)*ry)|0,brt);
+        setP(cx+(Math.cos(a)*rx)|0,cy+6+(-Math.sin(a)*ry)|0,brt);
+      }
+      // teeth upper row
+      const teethW=7,teethCount=8;
+      const gapOpen=2+Math.sin(t*0.5)*3;
+      for(let i=0;i<teethCount;i++){
+        const tx=ox+9+i*teethW+(i>=4?3:0);
+        const th=10+Math.sin(i*1.2+t*0.3)*2;
+        for(let dy=0;dy<th;dy++){
+          const taper=1-dy/th*0.3;
+          const w=(teethW*taper)|0;
+          for(let dx=0;dx<w;dx++){
+            setP(tx+dx,cy-gapOpen-dy,brt*(0.5+dy/th*0.5)|0);
+          }
+          // edge lines
+          setP(tx,cy-gapOpen-dy,brt);
+          setP(tx+w-1,cy-gapOpen-dy,brt);
+        }
+        // root lines going up
+        setP(tx+teethW/2|0,cy-gapOpen-th-1,brt*0.3|0);
+        setP(tx+teethW/2|0,cy-gapOpen-th-2,brt*0.2|0);
+      }
+      // teeth lower row
+      for(let i=0;i<teethCount;i++){
+        const tx=ox+9+i*teethW+(i>=4?3:0);
+        const th=8+Math.sin(i*0.9+t*0.4)*2;
+        for(let dy=0;dy<th;dy++){
+          const taper=1-dy/th*0.3;
+          const w=(teethW*taper)|0;
+          for(let dx=0;dx<w;dx++){
+            setP(tx+dx,cy+gapOpen+dy,brt*(0.5+dy/th*0.5)|0);
+          }
+          setP(tx,cy+gapOpen+dy,brt);
+          setP(tx+w-1,cy+gapOpen+dy,brt);
+        }
+      }
+      // gum line darkness
+      crosshatch(ox+6,cy-gapOpen-18,78,6,2,brt*0.15|0);
+      crosshatch(ox+6,cy+gapOpen+12,78,6,2,brt*0.15|0);
+      // darkness inside mouth
+      for(let y=cy-gapOpen+1;y<cy+gapOpen;y++)
+        for(let x=ox+12;x<ox+78;x++)
+          if((x+y)%3===0)setP(x,y,brt*0.08|0);
+    }},
+
+  // 3: DRIPPING / MELTING
+  {title:'溶',sub:'MELT',dripSeeds:null,
+    draw(ox,oy,t,active){
+      if(!this.dripSeeds){this.dripSeeds=[];for(let i=0;i<14;i++)this.dripSeeds.push(Math.random()*100);}
+      const brt=active?180:65;
+      // top mass - heavy black ink blob
+      for(let y=oy+14;y<oy+30;y++){
+        const wobble=Math.sin(y*0.3+t)*3;
+        for(let x=ox+6;x<ox+84;x++){
+          const edgeFade=Math.min((x-ox-6)/8,(ox+84-x)/8,1);
+          setP(x,y,(brt*0.7*edgeFade)|0);
+        }
+      }
+      // drips falling from mass
+      for(let i=0;i<14;i++){
+        const dx=ox+8+i*5.5;
+        const speed=0.3+Math.sin(this.dripSeeds[i])*0.2;
+        const len=15+Math.sin(this.dripSeeds[i]*3+t*speed)*20+15;
+        const startY=oy+28+Math.sin(this.dripSeeds[i]*2)*3;
+        const phase=(frame*speed*0.03+this.dripSeeds[i])%2;
+        const dripLen=phase<1?len*phase:len*(2-phase)*0.3;
+        drip(dx|0,startY|0,dripLen|0,brt,this.dripSeeds[i]);
+      }
+      // pooling at bottom
+      for(let x=ox+4;x<ox+86;x++){
+        const poolH=3+Math.sin(x*0.2+t*0.5)*2;
+        for(let y=0;y<poolH;y++){
+          setP(x,oy+BS-4-y,(brt*0.4*(1-y/poolH))|0);
+        }
+      }
+    }},
+
+  // 4: AMIGARA FAULT (human shaped hole)
+  {title:'穴',sub:'HOLE',
+    draw(ox,oy,t,active){
+      const cx=ox+45,cy=oy+44;
+      const brt=active?190:70;
+      // rock face crosshatch
+      crosshatch(ox+3,oy+14,84,68,3,active?18:7);
+      crosshatch(ox+3,oy+14,84,68,5,active?12:5);
+      // human-shaped hole (silhouette)
+      const bodyW=12,headR=6;
+      // head
+      for(let a=0;a<Math.PI*2;a+=0.04){
+        setP(cx+(Math.cos(a)*headR)|0,cy-18+(Math.sin(a)*headR)|0,brt);
+      }
+      // clear inside head
+      for(let dy=-headR+1;dy<headR;dy++)for(let dx=-headR+1;dx<headR;dx++){
+        if(dx*dx+dy*dy<(headR-1)*(headR-1)){
+          // darkness inside
+          const pi=((cy-18+dy)*TW+(cx+dx))*4;
+          if(pi>=0&&pi<d.length){d[pi]=Math.min(d[pi],3);d[pi+1]=Math.min(d[pi+1],3);d[pi+2]=Math.min(d[pi+2],3);}
+        }
+      }
+      // body outline
+      const bodyPts=[[-6,-12],[-7,-6],[-12,-2],[-14,4],[-12,6],[-8,8],[-7,12],[-9,18],[-8,24],[-6,26],[-4,24],[-4,18],[-3,12],[0,10],[3,12],[4,18],[4,24],[6,26],[8,24],[9,18],[7,12],[8,8],[12,6],[14,4],[12,-2],[7,-6],[6,-12]];
+      for(let i=0;i<bodyPts.length-1;i++){
+        const[x1,y1]=bodyPts[i],[x2,y2]=bodyPts[i+1];
+        const steps=Math.max(Math.abs(x2-x1),Math.abs(y2-y1))+1;
+        for(let s=0;s<=steps;s++){
+          const px=cx+(x1+(x2-x1)*s/steps)|0;
+          const py=cy+(y1+(y2-y1)*s/steps)|0;
+          setP(px,py,brt);
+        }
+      }
+      // darkness inside body
+      for(let y=cy-11;y<cy+26;y++){
+        let inside=false,lx=cx-15;
+        for(let x=cx-15;x<cx+15;x++){
+          const pi=((y)*TW+(x))*4;
+          // simple inside check by scanline
+          const onEdge=d[pi]>brt*0.5;
+          if(onEdge&&!inside){inside=true;lx=x;}
+          if(onEdge&&inside&&x>lx+2){
+            for(let fx=lx+1;fx<x;fx++){
+              const fpi=(y*TW+fx)*4;
+              d[fpi]=Math.min(d[fpi],2);d[fpi+1]=Math.min(d[fpi+1],2);d[fpi+2]=Math.min(d[fpi+2],2);
+            }
+            inside=false;
+          }
+        }
+      }
+      // figure approaching from distance (subtle)
+      const figDist=Math.sin(t*0.3)*0.3+0.7;
+      const figBrt=(active?40:12)*figDist|0;
+      const fy=cy+2,fx=cx;
+      const fs=figDist*3;
+      for(let a=0;a<Math.PI*2;a+=0.1)setP(fx+(Math.cos(a)*fs)|0,fy-8*figDist+(Math.sin(a)*fs)|0,figBrt);
+      lineV(fx,fy-5*figDist|0,fy+5*figDist|0,figBrt);
+    }},
+
+  // 5: SPIRAL FACE
+  {title:'狂',sub:'FACE',
+    draw(ox,oy,t,active){
+      const cx=ox+45,cy=oy+42;
+      const brt=active?190:75;
+      // face outline
+      for(let a=0;a<Math.PI*2;a+=0.03){
+        const rx=22+Math.sin(a*2+t*0.3)*2;
+        const ry=28+Math.sin(a*3)*2;
+        setP(cx+(Math.cos(a)*rx)|0,cy+(Math.sin(a)*ry)|0,brt*0.7|0);
+      }
+      // spiral eyes!
+      drawSpiral(cx-9,cy-8,3,8,brt,0.04,1);
+      drawSpiral(cx+9,cy-8,3,8,brt,-0.04,1);
+      // nose - just two dots
+      setP(cx-1,cy+3,brt*0.5|0);setP(cx+1,cy+3,brt*0.5|0);
+      // grinning mouth - too wide
+      for(let a=-0.9;a<0.9;a+=0.03){
+        const mx=Math.cos(a)*20;
+        const my=Math.sin(a)*6+10;
+        setP(cx+mx|0,cy+my|0,brt);
+        // teeth marks
+        if(Math.abs(a)%0.15<0.04)lineV(cx+mx|0,(cy+my-3)|0,(cy+my)|0,brt*0.6|0);
+      }
+      // hair strands (Tomie-like)
+      for(let i=0;i<12;i++){
+        const startA=-Math.PI*0.8+i*0.13;
+        const sx=cx+(Math.cos(startA)*23)|0;
+        const sy=cy+(Math.sin(startA)*29)|0;
+        for(let j=0;j<15;j++){
+          const wavex=Math.sin(j*0.4+i+t*0.5)*3;
+          setP(sx+wavex-j*0.3|0,sy-j,(brt*0.3*(1-j/15))|0);
+        }
+      }
+      // crosshatch cheek shading
+      crosshatch(cx-20,cy-2,10,12,3,brt*0.12|0);
+      crosshatch(cx+10,cy-2,10,12,3,brt*0.12|0);
+    }},
+
+  // 6: CRAWLING THINGS
+  {title:'蟲',sub:'WORM',worms:null,
+    draw(ox,oy,t,active){
+      if(!this.worms){
+        this.worms=[];
+        for(let i=0;i<6;i++){
+          const pts=[];
+          let wx=ox+10+Math.random()*70,wy=oy+20+Math.random()*50;
+          for(let j=0;j<12;j++){pts.push({x:wx,y:wy});wx+=Math.random()*6-3;wy+=Math.random()*4-2;}
+          this.worms.push({pts,speed:0.3+Math.random()*0.4,phase:Math.random()*10});
+        }
+      }
+      const brt=active?180:60;
+      this.worms.forEach((w,wi)=>{
+        // animate
+        w.pts.forEach((p,pi)=>{
+          p.x+=Math.sin(t*w.speed+pi*0.8+w.phase)*0.6;
+          p.y+=Math.cos(t*w.speed*0.7+pi*0.6+w.phase)*0.4;
+          // keep in bounds
+          p.x=Math.max(ox+4,Math.min(ox+BS-4,p.x));
+          p.y=Math.max(oy+16,Math.min(oy+BS-4,p.y));
+        });
+        // draw worm body
+        for(let i=0;i<w.pts.length-1;i++){
+          const a=w.pts[i],b=w.pts[i+1];
+          const steps=Math.max(Math.abs(b.x-a.x),Math.abs(b.y-a.y))+1;
+          const thick=2-i/w.pts.length;
+          for(let s=0;s<=steps;s++){
+            const px=a.x+(b.x-a.x)*s/steps;
+            const py=a.y+(b.y-a.y)*s/steps;
+            setP(px|0,py|0,brt);
+            if(thick>1){setP((px+1)|0,py|0,brt*0.5|0);setP(px|0,(py+1)|0,brt*0.5|0);}
+          }
+        }
+        // head
+        const h=w.pts[0];
+        for(let dy=-2;dy<=2;dy++)for(let dx=-2;dx<=2;dx++)if(dx*dx+dy*dy<=4)setP(h.x+dx|0,h.y+dy|0,brt);
+        // tiny eyes on head
+        setP(h.x-1|0,h.y-1|0,255);setP(h.x+1|0,h.y-1|0,255);
+      });
+    }},
+
+  // 7: STATIC / INTERFERENCE
+  {title:'砂',sub:'NOISE',faceTimer:0,showFace:false,
+    draw(ox,oy,t,active){
+      const brt=active?120:35;
+      // TV static
+      for(let y=oy+14;y<oy+BS-2;y+=2){
+        for(let x=ox+3;x<ox+BS-3;x+=2){
+          const v=Math.random();
+          if(v>0.6)setP(x,y,(v*brt)|0);
+        }
+      }
+      // occasionally a face emerges from static
+      this.faceTimer--;
+      if(this.faceTimer<=0){this.showFace=!this.showFace;this.faceTimer=this.showFace?30:80+Math.random()*120;}
+      if(this.showFace){
+        const cx=ox+45,cy=oy+48;
+        const fb=brt*0.5|0;
+        // ghost face
+        for(let a=0;a<Math.PI*2;a+=0.06)setP(cx+(Math.cos(a)*12)|0,cy+(Math.sin(a)*16)|0,fb);
+        // eye sockets
+        for(let dy=-2;dy<=2;dy++)for(let dx=-2;dx<=2;dx++){
+          setP(cx-5+dx,cy-5+dy,fb);setP(cx+5+dx,cy-5+dy,fb);
+        }
+        // mouth
+        lineH(cx-6,cx+6,cy+7,fb);
+      }
+      // scan lines
+      const scanY=oy+14+((frame*2)%74);
+      lineH(ox+3,ox+BS-3,scanY,brt*0.8|0);
+    }},
+
+  // 8: STRETCHING / DISTORTION
+  {title:'歪',sub:'WARP',
+    draw(ox,oy,t,active){
+      const cx=ox+45,cy=oy+46;
+      const brt=active?180:65;
+      // a face being stretched/pulled
+      // normal circle head that distorts
+      const stretch=Math.sin(t*0.4)*8;
+      for(let a=0;a<Math.PI*2;a+=0.03){
+        const rx=14+Math.sin(a*2)*stretch*0.3;
+        const ry=16+stretch*0.5+Math.cos(a*3)*2;
+        setP(cx+(Math.cos(a)*rx)|0,cy+(Math.sin(a)*ry)|0,brt*0.7|0);
+      }
+      // eyes stretching
+      const eyeStretch=stretch*0.4;
+      for(let a=0;a<Math.PI*2;a+=0.05){
+        setP(cx-6+(Math.cos(a)*3)|0,cy-4+eyeStretch*0.2+(Math.sin(a)*(3+Math.abs(eyeStretch)*0.3))|0,brt);
+        setP(cx+6+(Math.cos(a)*3)|0,cy-4+eyeStretch*0.2+(Math.sin(a)*(3+Math.abs(eyeStretch)*0.3))|0,brt);
+      }
+      // mouth stretching down
+      const mouthDrop=Math.abs(stretch)*0.6;
+      for(let a=-1;a<1;a+=0.04){
+        setP(cx+(Math.cos(a)*10)|0,cy+6+mouthDrop+(Math.sin(a)*3)|0,brt);
+      }
+      // stretching lines from face
+      for(let i=0;i<8;i++){
+        const sx=cx-10+i*3;
+        const sLen=Math.abs(stretch)*1.5+5;
+        for(let j=0;j<sLen;j++){
+          setP(sx,cy+16+mouthDrop+j,(brt*0.3*(1-j/sLen))|0);
+        }
+      }
+      // crosshatch shadow
+      crosshatch(ox+4,oy+60,82,20,4,brt*0.1|0);
+    }},
+
+  // 9: CRACKS / FRACTURES
+  {title:'裂',sub:'CRACK',cracks:null,
+    draw(ox,oy,t,active){
+      if(!this.cracks){
+        this.cracks=[];
+        for(let i=0;i<5;i++){
+          const pts=[{x:ox+20+Math.random()*50,y:oy+20+Math.random()*20}];
+          for(let j=0;j<8;j++){
+            const prev=pts[pts.length-1];
+            pts.push({x:prev.x+(Math.random()-0.5)*14,y:prev.y+4+Math.random()*6});
+          }
+          this.cracks.push(pts);
+        }
+      }
+      const brt=active?200:70;
+      this.cracks.forEach(crack=>{
+        for(let i=0;i<crack.length-1;i++){
+          const a=crack[i],b=crack[i+1];
+          const steps=Math.max(Math.abs(b.x-a.x),Math.abs(b.y-a.y))+1;
+          for(let s=0;s<=steps;s++){
+            const px=a.x+(b.x-a.x)*s/steps;
+            const py=a.y+(b.y-a.y)*s/steps;
+            setP(px|0,py|0,brt);
+            // shadow on one side
+            setP((px+1)|0,(py+1)|0,brt*0.3|0);
+          }
+          // branch cracks
+          if(i===3||i===5){
+            const bx=a.x,by=a.y;
+            for(let j=0;j<6;j++){
+              setP((bx+j*2+(Math.random()-0.5)*2)|0,(by+j+(Math.random()-0.5)*3)|0,brt*0.5|0);
+            }
+          }
+        }
+      });
+      // spreading animation
+      if(active&&frame%4===0){
+        this.cracks.forEach(crack=>{
+          const last=crack[crack.length-1];
+          if(last.y<oy+BS-6){
+            crack.push({x:last.x+(Math.random()-0.5)*10,y:last.y+3+Math.random()*3});
+          }
+        });
+      }
+    }},
+
+  // 10: HEARTBEAT (grotesque)
+  {title:'脈',sub:'PULSE',
+    draw(ox,oy,t,active){
+      const cx=ox+45,cy=oy+46;
+      const brt=active?200:80;
+      // beating organic shape
+      const beat=Math.abs(Math.sin(t*2.5));
+      const scale=1+beat*0.15;
+      // heart-organ shape (not cute heart)
+      for(let a=0;a<Math.PI*2;a+=0.02){
+        const r=16*scale+Math.sin(a*2)*4+Math.sin(a*5)*2;
+        const px=(cx+Math.cos(a)*r)|0;
+        const py=(cy+Math.sin(a)*r*0.85)|0;
+        setP(px,py,brt);
+        setP(px+1,py,brt*0.3|0);
+      }
+      // veins/arteries going outward
+      for(let i=0;i<6;i++){
+        const va=i*Math.PI/3+0.3;
+        for(let r=16*scale;r<16*scale+12+Math.sin(t+i)*5;r++){
+          const wx=Math.sin(r*0.5+i)*2;
+          setP(cx+(Math.cos(va)*r+wx)|0,cy+(Math.sin(va)*r*0.85)|0,brt*(0.5-r*0.015)|0);
+        }
+      }
+      // internal crosshatch
+      crosshatch(cx-10,cy-10,20,20,3,brt*0.15*scale|0);
+      // EKG line at bottom
+      for(let x=0;x<76;x++){
+        const ex=ox+7+x;
+        const phase=(x*0.15+t*4)%(Math.PI*2);
+        let ey=oy+78;
+        if(phase>2.8&&phase<3.0)ey-=12*beat;
+        else if(phase>3.0&&phase<3.2)ey+=6*beat;
+        else if(phase>3.4&&phase<3.5)ey-=4*beat;
+        setP(ex,ey|0,brt*0.6|0);
+      }
+    }},
+
+  // 11: VOID / ABYSS
+  {title:'闇',sub:'VOID',
+    draw(ox,oy,t,active){
+      const cx=ox+45,cy=oy+46;
+      const brt=active?180:60;
+      // concentric shrinking rings into darkness
+      for(let r=32;r>2;r-=3){
+        const wobble=Math.sin(r*0.3+t)*2;
+        const opacity=r/32;
+        for(let a=0;a<Math.PI*2;a+=0.04){
+          const wr=r+Math.sin(a*4+t+r*0.1)*wobble;
+          setP(cx+(Math.cos(a)*wr)|0,cy+(Math.sin(a)*wr)|0,(brt*opacity*0.4)|0);
+        }
+      }
+      // something looking back from the void
+      const blinkCycle=(t*0.5)%6;
+      if(blinkCycle>4){
+        const openness=Math.min(1,(blinkCycle-4)*2);
+        // two tiny eyes deep in the void
+        const eb=(brt*openness*0.7)|0;
+        setP(cx-3,cy,eb);setP(cx-2,cy,eb);
+        setP(cx+2,cy,eb);setP(cx+3,cy,eb);
+      }
+      // radiating darkness lines from center
+      for(let i=0;i<16;i++){
+        const a=i*Math.PI/8+t*0.1;
+        for(let r=3;r<34;r++){
+          const fade=(1-r/34)*0.15;
+          setP(cx+(Math.cos(a)*r)|0,cy+(Math.sin(a)*r)|0,(brt*fade)|0);
+        }
+      }
+    }}
+];
+
+const tileState=tiles.map((_,i)=>({
+  idx:i,gx:STRIP+(i%COLS)*BS,gy:((i/COLS)|0)*BS,
+  flash:0,active:false,scanY:0,scanning:false
+}));
+
+function render(){
+  frame++;
+  const t=frame*0.03;
+
+  for(let i=0;i<TW*TH*4;i+=4){d[i]=0;d[i+1]=0;d[i+2]=0;d[i+3]=255;}
+
+  // ===== TILES =====
+  tileState.forEach((ts,idx)=>{
+    const ox=ts.gx,oy=ts.gy;
+    ts.flash*=0.88;if(ts.flash<0.01)ts.flash=0;
+    if(ts.scanning){ts.scanY+=3;if(ts.scanY>BS){ts.scanning=false;ts.scanY=0;}}
+
+    const pulse=Math.sin(t+idx*0.5)*0.5+0.5;
+    const bBrt=ts.active?50:(5+pulse*6|0);
+
+    // border
+    lineH(ox,ox+BS-1,oy,bBrt);lineH(ox,ox+BS-1,oy+BS-1,bBrt);
+    lineV(ox,oy,oy+BS-1,bBrt);lineV(ox+BS-1,oy,oy+BS-1,bBrt);
+
+    // corner marks
+    const cm=ts.active?100:15;
+    for(let i=0;i<5;i++){
+      setP(ox+1+i,oy+1,cm);setP(ox+1,oy+1+i,cm);
+      setP(ox+BS-2-i,oy+1,cm);setP(ox+BS-2,oy+1+i,cm);
+      setP(ox+1+i,oy+BS-2,cm);setP(ox+1,oy+BS-2-i,cm);
+      setP(ox+BS-2-i,oy+BS-2,cm);setP(ox+BS-2,oy+BS-2-i,cm);
+    }
+
+    // title
+    const tile=tiles[idx];
+    drawText(tile.title,'serif',9,ox+4,oy+3,ts.active?160:30,20,11);
+    drawText(tile.sub,'monospace',6,ox+58,oy+4,ts.active?80:15,28,8);
+    lineH(ox+2,ox+BS-3,oy+13,ts.active?30:6);
+
+    // content
+    tile.draw(ox,oy,t,ts.active||ts.flash>0.15);
+
+    // scan
+    if(ts.scanning){
+      const sy=(oy+ts.scanY)|0;
+      if(sy>0&&sy<TH){lineH(ox+1,ox+BS-2,sy,160);lineH(ox+1,ox+BS-2,sy+1,50);}
+    }
+
+    // flash
+    if(ts.flash>0){
+      const fb=(ts.flash*50)|0;
+      for(let y=oy+1;y<oy+BS-1;y++)for(let x=ox+1;x<ox+BS-1;x++)setP(x,y,fb);
+    }
+  });
+
+  // ===== SPIRAL RIPPLES (instead of circles!) =====
+  for(let ri=spirals.length-1;ri>=0;ri--){
+    const sp=spirals[ri];
+    sp.age++;
+    if(sp.age>200){spirals.splice(ri,1);continue;}
+    const maxR=sp.age*2.5;
+    const fade=Math.max(0,1-sp.age/150);
+    const brt=(220*fade)|0;
+    if(brt<3)continue;
+    // draw expanding spiral
+    const steps=sp.age*3;
+    for(let i=0;i<steps;i++){
+      const angle=i*0.08+sp.age*0.02;
+      const r=i*maxR/steps;
+      const px=(sp.cx+Math.cos(angle)*r)|0;
+      const py=(sp.cy+Math.sin(angle)*r)|0;
+      const iFade=1-i/steps*0.5;
+      setP(px,py,(brt*iFade)|0);
+    }
+  }
+
+  // ===== LEFT STRIP - dripping bars =====
+  lineV(STRIP-1,0,TH-1,12);
+  for(let seg=0;seg<12;seg++){
+    const sy=4+seg*22,sh=18;
+    const level=Math.sin(t*1.2+seg*0.8)*0.4+0.5;
+    const fillH=(level*sh)|0;
+    const brt=(12+level*45)|0;
+    for(let y=0;y<fillH;y++){
+      const py=sy+sh-1-y;
+      for(let x=4;x<STRIP-4;x++)if((x+py)%2===0)setP(x,py,brt);
+    }
+    // drip off bottom of bar
+    if(fillH>5)drip(STRIP/2|0,sy+sh,8+level*10|0,brt*0.5|0,seg*3.7);
+  }
+
+  // ===== RIGHT STRIP - horror kanji =====
+  const rsx=STRIP+COLS*BS;
+  lineV(rsx,0,TH-1,12);
+  scrollOff+=0.4;
+  for(let i=0;i<16;i++){
+    const yp=((i*20-(scrollOff%20)+TH)%TH)-20;
+    if(yp<-20||yp>TH)continue;
+    const ci=(i+Math.floor(scrollOff/20))%horrorKanji.length;
+    const dist=Math.abs(yp+10-TH/2)/(TH/2);
+    const fade=Math.max(0,1-dist*1.3);
+    const brt=(fade*35+4)|0;
+    drawText(horrorKanji[ci],'serif',14,rsx+4,yp|0,brt,28,18);
+  }
+
+  // pips
+  tileState.forEach(ts=>{
+    if(ts.flash>0.05){
+      const py=(ts.gy+BS/2)|0;
+      const b=(ts.flash*160)|0;
+      for(let dy=-1;dy<=1;dy++)for(let dx=-1;dx<=1;dx++){setP(rsx+5+dx,py+dy,b);setP(STRIP-6+dx,py+dy,b);}
+    }
+  });
+
+  // scanlines
+  for(let y=0;y<TH;y+=3)for(let x=0;x<TW;x++){
+    const pi=(y*TW+x)*4;d[pi]=Math.max(0,d[pi]-3);d[pi+1]=Math.max(0,d[pi+1]-3);d[pi+2]=Math.max(0,d[pi+2]-3);
+  }
+
+  ctx.putImageData(img,0,0);
+  requestAnimationFrame(render);
+}
+
+// ===== INPUT =====
+function getPos(e){
+  const rect=c.getBoundingClientRect();
+  const sx=TW/rect.width,sy=TH/rect.height;
+  const touches=e.touches||[{clientX:e.clientX,clientY:e.clientY}];
+  return Array.from(touches).map(t=>({x:(t.clientX-rect.left)*sx,y:(t.clientY-rect.top)*sy}));
+}
+let lastR=0;
+function onDown(e){
+  e.preventDefault();
+  const now=Date.now();
+  getPos(e).forEach(p=>{
+    if(now-lastR>40){spirals.push({cx:p.x,cy:p.y,age:0});lastR=now;}
+    tileState.forEach(ts=>{
+      if(p.x>=ts.gx&&p.x<ts.gx+BS&&p.y>=ts.gy&&p.y<ts.gy+BS){
+        ts.flash=1;ts.active=true;ts.scanning=true;ts.scanY=0;
+      }
+    });
+  });
+}
+function onUp(){tileState.forEach(t=>t.active=false);}
+function onMove(e){
+  if(e.buttons||e.touches){
+    e.preventDefault();
+    const now=Date.now();
+    getPos(e).forEach(p=>{
+      if(now-lastR>60){spirals.push({cx:p.x,cy:p.y,age:0});lastR=now;}
+    });
+  }
+}
+c.addEventListener('mousedown',onDown);c.addEventListener('mouseup',onUp);c.addEventListener('mouseleave',onUp);
+c.addEventListener('mousemove',onMove);
+c.addEventListener('touchstart',onDown,{passive:false});c.addEventListener('touchend',onUp,{passive:false});
+c.addEventListener('touchmove',onMove,{passive:false});
+
+render();
+</script>
+</body>
+</html>
