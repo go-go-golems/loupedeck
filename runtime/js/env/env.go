@@ -1,6 +1,7 @@
 package env
 
 import (
+	"github.com/go-go-golems/loupedeck/runtime/anim"
 	"github.com/go-go-golems/loupedeck/runtime/host"
 	"github.com/go-go-golems/loupedeck/runtime/reactive"
 	"github.com/go-go-golems/loupedeck/runtime/ui"
@@ -10,6 +11,7 @@ type Environment struct {
 	Reactive *reactive.Runtime
 	UI       *ui.UI
 	Host     *host.Runtime
+	Anim     *anim.Runtime
 }
 
 func Ensure(e *Environment) *Environment {
@@ -30,6 +32,9 @@ func Ensure(e *Environment) *Environment {
 	}
 	if e.Host == nil {
 		e.Host = host.New(e.UI)
+	}
+	if e.Anim == nil {
+		e.Anim = anim.New(e.Host)
 	}
 	return e
 }
