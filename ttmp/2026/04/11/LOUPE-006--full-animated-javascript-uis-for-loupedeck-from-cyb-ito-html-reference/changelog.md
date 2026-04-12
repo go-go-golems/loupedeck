@@ -52,3 +52,19 @@ Implemented Phase C as a pure-Go retained graphics package and Phase D as the fi
 - /home/manuel/code/wesen/2026-04-11--loupedeck-test/runtime/js/runtime.go — Registered the new `loupedeck/gfx` module in the owned runtime bootstrap
 - /home/manuel/code/wesen/2026-04-11--loupedeck-test/runtime/js/runtime_test.go — Added JS integration coverage that constructs, draws into, and composites `loupedeck/gfx` surfaces
 
+## 2026-04-11
+
+Implemented the first retained-surface composition slice on top of the new graphics package. Displays can now own `gfx` surfaces directly, surfaces notify their owning displays when they mutate, the retained renderer can render those attached surfaces through the existing Go-owned invalidation/writer stack, and the JS UI module can attach a `loupedeck/gfx` surface to a display via `display.surface(...)`. This is still not full multi-layer overlay composition yet, but it is the first real bridge from JS-authored graphics surfaces into retained display output.
+
+### Related Files
+
+- /home/manuel/code/wesen/2026-04-11--loupedeck-test/runtime/gfx/surface.go — Added retained surface change notifications so owning displays can become dirty when surface content changes
+- /home/manuel/code/wesen/2026-04-11--loupedeck-test/runtime/gfx/text.go — Text drawing now triggers retained surface change notifications like the other coarse drawing ops
+- /home/manuel/code/wesen/2026-04-11--loupedeck-test/runtime/ui/display.go — Displays can now own a retained `gfx.Surface` and subscribe to its mutation notifications
+- /home/manuel/code/wesen/2026-04-11--loupedeck-test/runtime/render/visual_runtime.go — Retained display rendering now prefers attached surface output over placeholder text/icon rendering
+- /home/manuel/code/wesen/2026-04-11--loupedeck-test/runtime/js/module_gfx/module.go — Exported surface unwrapping helper for cross-module use
+- /home/manuel/code/wesen/2026-04-11--loupedeck-test/runtime/js/module_ui/module.go — Added `display.surface(surface)` so JS can attach a retained graphics surface to a display
+- /home/manuel/code/wesen/2026-04-11--loupedeck-test/runtime/ui/ui_test.go — Added dirty-propagation coverage for display-owned surfaces
+- /home/manuel/code/wesen/2026-04-11--loupedeck-test/runtime/render/render_test.go — Added retained display-surface rendering coverage
+- /home/manuel/code/wesen/2026-04-11--loupedeck-test/runtime/js/runtime_test.go — Added JS integration coverage proving displays can own graphics surfaces
+

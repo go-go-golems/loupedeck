@@ -48,13 +48,14 @@
 
 ### Phase E: retained surface/layer composition
 
+- [x] Add retained display-owned surface attachment and dirty propagation
+- [x] Extend the retained renderer so attached display surfaces flow through the existing Go-owned invalidation/writer stack
+- [x] Add tests for retained display-surface rendering and dirty propagation
 - [ ] Add retained multi-layer composition support for overlays and multi-pass visuals
 - [ ] Define a stable ordering model for base surfaces, overlays, and transient effects
-- [ ] Extend the retained renderer so composed surfaces still flow through the existing Go-owned invalidation/writer stack
-- [ ] Add tests for layered composition and dirty-region propagation
-- [ ] Run `go test ./...` after the layer-composition slice
-- [ ] Commit the layer-composition slice
-- [ ] Record the layer-composition slice in the diary/changelog/tasks
+- [x] Run `go test ./...` after the first retained-surface composition slice
+- [x] Commit the first retained-surface composition slice
+- [x] Record the retained-surface composition slice in the diary/changelog/tasks
 
 ### Phase F: first cyb-ito-inspired main-scene demo
 

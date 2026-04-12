@@ -506,3 +506,82 @@ go test ./...
 ### What should be done in the future
 - Update the ticket docs and mark the Phase C and Phase D slice tasks complete.
 - Start Phase E: retained surface/layer composition so `gfx` surfaces can become actual display content.
+
+## Step 7: Bridge retained `gfx` surfaces into retained displays
+
+After the pure-Go graphics package and the first JS-facing `loupedeck/gfx` module existed, the next missing piece was obvious: a `gfx` surface could be created and mutated from JS, but it still could not become actual display content. The retained display model needed to be able to own one of those surfaces and become dirty whenever the surface changed.
+
+This slice is the first real composition bridge between the new graphics substrate and the retained UI model.
+
+### Commit
+
+**Commit (code):** `0eff01c` — `Add retained display-owned graphics surfaces`
+
+### What I did
+- Added mutation notifications to `runtime/gfx/surface.go` via surface subscriptions so a retained surface can notify an owner when coarse drawing operations change the surface.
+- Updated `runtime/gfx/text.go` so text drawing triggers the same retained-surface change notification path.
+- Extended `runtime/ui/display.go` so a retained display can now:
+  - own a `*gfx.Surface`
+  - subscribe to that surface’s change notifications
+  - mark itself dirty whenever the surface changes
+- Updated `runtime/render/visual_runtime.go` so retained display rendering now prefers the attached `gfx` surface when one exists.
+- Exported a surface unwrapping helper from:
+
+```text
+runtime/js/module_gfx/module.go
+```
+
+so other JS modules can safely consume `loupedeck/gfx` surface objects.
+- Added:
+
+```text
+display.surface(surface)
+```
+
+to:
+
+```text
+runtime/js/module_ui/module.go
+```
+
+so JS can attach a retained graphics surface directly to a display region.
+- Added tests in:
+
+```text
+runtime/ui/ui_test.go
+runtime/render/render_test.go
+runtime/js/runtime_test.go
+```
+
+covering:
+- display dirty propagation after surface mutation
+- retained display-surface rendering
+- JS integration for attaching a `loupedeck/gfx` surface to a display
+- Ran:
+
+```bash
+gofmt -w runtime/gfx/*.go runtime/ui/*.go runtime/render/*.go runtime/js/module_gfx/*.go runtime/js/module_ui/module.go runtime/js/runtime_test.go
+go test ./...
+```
+
+### Why
+- Without this bridge, `loupedeck/gfx` would remain a disconnected sandbox rather than part of the retained UI system.
+- This is the first point where JS-authored graphics content becomes actual retained display output while still preserving Go-owned rendering and invalidation behavior.
+
+### What worked
+- Displays now become dirty automatically when attached surfaces mutate.
+- The renderer now has a direct path from retained graphics surfaces to actual display images.
+- The JS API now has a meaningful bridge point: `display.surface(surface)`.
+
+### What didn't work
+- This is still only the first composition step. It does not yet provide true multi-layer overlays or a stable ordering model for several surfaces per display.
+- The current bridge is one-surface-per-display rather than a full scene-layer stack.
+
+### What I learned
+- The retained display model was already a good place to hang graphics content once surface change notifications existed.
+- The API shape remains consistent with the original design rule: JS owns retained scene state, and Go owns realization and transport.
+
+### What should be done in the future
+- Update the ticket docs and mark the first retained-surface composition slice tasks complete.
+- Continue Phase E toward true multi-layer display composition.
+- Then move on to the first cyb-ito-inspired demo scene once the composition model is rich enough.

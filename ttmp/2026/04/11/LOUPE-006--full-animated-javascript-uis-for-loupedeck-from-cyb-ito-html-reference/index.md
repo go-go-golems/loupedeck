@@ -63,6 +63,7 @@ Current completion state:
 - Design bundle uploaded to reMarkable and verified remotely
 - Phase B first slice complete: retained JS-facing display regions now exist for `left`, `main`, and `right`, and the live runner can flush all three retained display targets
 - Phase C and Phase D first slices complete: the runtime now has a pure-Go retained graphics package plus a first JS-facing `loupedeck/gfx` module for coarse surface-oriented drawing
+- Phase E first slice complete: retained displays can now own `gfx` surfaces, surface mutations dirty those displays automatically, and the renderer can flush attached display surfaces through the existing Go-owned pipeline
 
 ## Topics
 
