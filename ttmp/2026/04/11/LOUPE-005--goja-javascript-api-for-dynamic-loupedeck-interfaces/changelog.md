@@ -180,3 +180,18 @@ Completed H4 by cleaning up module wiring so the JS modules no longer depend on 
 - /home/manuel/code/wesen/2026-04-11--loupedeck-test/runtime/js/module_state/module.go — State module now resolves the environment from runtime bindings
 - /home/manuel/code/wesen/2026-04-11--loupedeck-test/runtime/js/module_ui/module.go — UI module now resolves the environment from runtime bindings
 - /home/manuel/code/wesen/2026-04-11--loupedeck-test/runtime/js/module_anim/module.go — Anim module now resolves the environment from runtime bindings
+
+## 2026-04-11
+
+Added a real hardware-backed JS live runner plus an initial example pack, then validated selected scripts on the Loupedeck Live. The new `cmd/loupe-js-live` command connects to the device, attaches the host runtime to live events, runs a JS script through the owned runtime, and continuously flushes retained UI to the main display. Added six example scripts and a non-hardware smoke test that boots each script. Hardware validation succeeded for a static hello page and for an auto-running pulse animation after one reconnect retry; the first failed pulse attempt reproduced the known serial/websocket reconnect fragility rather than a JS runtime error.
+
+### Related Files
+
+- /home/manuel/code/wesen/2026-04-11--loupedeck-test/cmd/loupe-js-live/main.go — New hardware-backed JS live runner command
+- /home/manuel/code/wesen/2026-04-11--loupedeck-test/examples/js/01-hello.js — Static hello-page example
+- /home/manuel/code/wesen/2026-04-11--loupedeck-test/examples/js/02-counter-button.js — Button-driven counter example
+- /home/manuel/code/wesen/2026-04-11--loupedeck-test/examples/js/03-knob-meter.js — Knob-driven numeric example
+- /home/manuel/code/wesen/2026-04-11--loupedeck-test/examples/js/04-touch-feedback.js — Touch-driven feedback example
+- /home/manuel/code/wesen/2026-04-11--loupedeck-test/examples/js/05-pulse-animation.js — Auto-running pulse animation example
+- /home/manuel/code/wesen/2026-04-11--loupedeck-test/examples/js/06-page-switcher.js — Multi-page switching example
+- /home/manuel/code/wesen/2026-04-11--loupedeck-test/runtime/js/examples_test.go — Smoke test that boots every example script under the owned runtime

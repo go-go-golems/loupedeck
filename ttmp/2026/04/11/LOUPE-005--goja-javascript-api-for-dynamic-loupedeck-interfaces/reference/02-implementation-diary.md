@@ -1769,3 +1769,198 @@ runtime bootstrap installs bridge bindings
 -> modules resolve environment from runtime bindings
 -> bootstrap no longer manually injects env into each module registrar
 ```
+
+## Step 16: Add the hardware-backed live runner, example script pack, and first hardware validation
+
+With H1 through H4 in place, the runtime was finally ready for the task that originally motivated the convergence work: a real hardware-backed JS runner and a small curated example pack. This step turned the runtime from “a set of internal packages and tests” into something that can actually be pointed at a `.js` file and displayed on the Loupedeck Live.
+
+I split the step into three pieces that still belonged together logically:
+
+1. add the live runner command
+2. add a reusable example script pack
+3. validate selected scripts on actual hardware
+
+That gave both a practical CLI and concrete end-user scripts to exercise it.
+
+### Prompt Context
+
+**User prompt (verbatim):** (same as Step 12)
+
+**Assistant interpretation:** Continue the next convergence tasks after owner-safe runtime work is in place, specifically the live runner and hardware-backed examples.
+
+**Inferred user intent:** Prove that the new runtime architecture is good enough to run real JS examples on actual Loupedeck hardware, not just in tests or PNG demos.
+
+**Commit (code):** `7a33654` — `Add live JS runner and example scripts`
+
+### What I did
+- Added a new hardware-backed command:
+
+```text
+cmd/loupe-js-live/main.go
+```
+
+- The command now:
+  - loads a JS file
+  - connects to a Loupedeck device
+  - attaches the host runtime to the live deck event source
+  - runs the JS script through the owned JS runtime
+  - continuously flushes retained UI to the main display
+  - supports:
+    - `--script`
+    - `--device`
+    - `--duration`
+    - `--flush-interval`
+    - `--queue-size`
+    - `--send-interval`
+    - `--exit-on-circle`
+- Added the first JS example pack:
+
+```text
+examples/js/01-hello.js
+examples/js/02-counter-button.js
+examples/js/03-knob-meter.js
+examples/js/04-touch-feedback.js
+examples/js/05-pulse-animation.js
+examples/js/06-page-switcher.js
+```
+
+- Added a non-hardware smoke test:
+
+```text
+runtime/js/examples_test.go
+```
+
+which boots every example script under the owned runtime.
+- Ran:
+
+```bash
+gofmt -w cmd/loupe-js-live/main.go runtime/js/examples_test.go
+go test ./...
+```
+
+### Hardware validation I ran
+
+#### Static hello example
+
+```bash
+timeout 20s go run ./cmd/loupe-js-live --script ./examples/js/01-hello.js --duration 4s
+```
+
+Observed:
+- first connect attempt timed out and retried
+- second connect succeeded
+- the static hello example rendered to the main display
+- exit cleared the display
+- shutdown still showed familiar close-time lifecycle noise (`Read error, exiting error="Port has been closed"`)
+
+#### Pulse animation example — first attempt
+
+```bash
+timeout 20s go run ./cmd/loupe-js-live --script ./examples/js/05-pulse-animation.js --duration 4s
+```
+
+Observed failure:
+
+```text
+connect: malformed HTTP response "\x82\t\tM\x00\x00\x01-\x00\xa1"
+exit status 1
+```
+
+This matched the already-known reconnect/handshake fragility rather than indicating a JS runtime or owner-runner failure.
+
+#### Pulse animation example — retry after short pause
+
+```bash
+sleep 2 && timeout 20s go run ./cmd/loupe-js-live --script ./examples/js/05-pulse-animation.js --duration 4s
+```
+
+Observed:
+- reconnect succeeded immediately on retry
+- the animation rendered continuously to the device
+- repeated `Draw called Display=main xoff=90 yoff=0 width=90 height=90` logs showed the retained tile being updated through the live runner
+- shutdown again produced familiar lifecycle noise, including a short `Version` callback warning on close:
+
+```text
+WARN Received short 'Version' response message_type=15 length=1 data="\x01"
+```
+
+but the actual animation path worked.
+
+### Why
+- After converging the runtime toward owner-thread safety, the next meaningful proof point had to be real hardware use.
+- The example pack gives a concrete surface for future iteration and review. It is easier to discuss runtime ergonomics against named scripts than against abstract module descriptions.
+
+### What worked
+- The live runner command worked on actual hardware.
+- The static hello example rendered successfully.
+- The auto-running pulse animation also rendered successfully on hardware after a reconnect retry.
+- All example scripts boot under the owned runtime in tests.
+- The new command fits the current retained renderer path cleanly rather than inventing a second hardware output model.
+
+### What didn't work
+- The first pulse-animation hardware run failed during connect with:
+
+```text
+malformed HTTP response "\x82\t\tM\x00\x00\x01-\x00\xa1"
+```
+
+- This is consistent with the existing reconnect/reset fragility already seen elsewhere in the project, not with a new JS runtime logic error.
+- The live runner is currently quite verbose because `Display.Draw()` logs every tile draw. That made the pulse-animation run noisy, though still interpretable.
+
+### What I learned
+- The owner-safe JS runtime is now strong enough to drive real hardware-backed scripts.
+- The next limiting factor is once again lower-level lifecycle/reconnect hygiene rather than the reactive/owned JS execution model itself.
+- The example pack should be useful both for runtime regression testing and for future API design iteration.
+
+### What was tricky to build
+- The live runner needed to balance simplicity with enough lifecycle behavior to be useful. I kept it deliberately modest: one script, one retained render loop, one attached event source, optional Circle exit, and a duration-based shutdown path.
+- Another subtle point was validation strategy. I chose a static example and an auto-running animation first because they validate the main display/render/runtime path without requiring manual human interaction during the test run.
+
+### What warrants a second pair of eyes
+- Reviewers should look at the live runner’s shutdown/clear behavior and decide whether it should grow more graceful reconnect handling or remain minimal for now.
+- The command currently flushes on a fixed interval and logs through the existing `Display.Draw()` path, which can be noisy. Reviewers may want to consider whether a quieter mode should be added before broader usage.
+
+### What should be done in the future
+- Optionally validate interactive examples (`02-counter-button.js`, `03-knob-meter.js`, `04-touch-feedback.js`, `06-page-switcher.js`) with live human interaction on hardware.
+- If desired, upload the updated LOUPE-005 implementation/convergence docs to reMarkable again.
+- Consider reducing draw-path log noise for the live runner.
+
+### Code review instructions
+- Start with:
+  - `cmd/loupe-js-live/main.go`
+  - `examples/js/*.js`
+  - `runtime/js/examples_test.go`
+- Validate locally with:
+
+```bash
+gofmt -w cmd/loupe-js-live/main.go runtime/js/examples_test.go
+go test ./...
+```
+
+- Hardware validation commands used:
+
+```bash
+timeout 20s go run ./cmd/loupe-js-live --script ./examples/js/01-hello.js --duration 4s
+
+timeout 20s go run ./cmd/loupe-js-live --script ./examples/js/05-pulse-animation.js --duration 4s
+
+sleep 2 && timeout 20s go run ./cmd/loupe-js-live --script ./examples/js/05-pulse-animation.js --duration 4s
+```
+
+### Technical details
+- The live runner’s architecture is now:
+
+```text
+connect device
+-> attach host runtime to live deck
+-> run JS script in owned runtime
+-> flush retained UI to main display on a timer
+-> exit on duration / signal / Circle (optional)
+```
+
+- The initial validated hardware examples are:
+
+```text
+01-hello.js
+05-pulse-animation.js
+```

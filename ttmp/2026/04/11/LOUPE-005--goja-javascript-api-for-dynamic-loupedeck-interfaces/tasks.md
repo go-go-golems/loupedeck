@@ -122,9 +122,9 @@
 - [x] Refit all JS callback boundaries (`onButton`, `onTouch`, `onKnob`, timers, animation, reactive JS closures) to owner-thread scheduling
 - [x] Add tests for owner-thread callback serialization and shutdown behavior
 - [x] Refactor module wiring toward runtime-scoped registration rather than ad hoc env lookups where practical
-- [ ] Add a hardware-backed JS live runner command
-- [ ] Add multiple JS example scripts for live runtime validation
-- [ ] Validate selected JS examples on actual Loupedeck Live hardware
+- [x] Add a hardware-backed JS live runner command
+- [x] Add multiple JS example scripts for live runtime validation
+- [x] Validate selected JS examples on actual Loupedeck Live hardware
 - [x] Run `go test ./...`
 - [x] Commit convergence phase H implementation work in focused steps
-- [ ] Record convergence phase H progress in diary/changelog after each focused step
+- [x] Record convergence phase H progress in diary/changelog after each focused step
