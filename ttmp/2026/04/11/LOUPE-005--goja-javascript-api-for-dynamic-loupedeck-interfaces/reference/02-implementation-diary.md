@@ -1326,3 +1326,125 @@ owner-thread discipline should be solved by runtimeowner.Runner and runtime-scop
 ```text
 Phase H: adopt go-go-goja runtime ownership before serious hardware-backed JS examples
 ```
+
+## Step 12: Start convergence phase H by porting `runtimeowner` locally and wrapping the JS runtime in an owner-backed lifecycle
+
+The first actual code step in convergence phase H was intentionally conservative. Before touching all the module callback boundaries, I wanted a reusable owner-thread primitive in this repository and a local JS runtime bootstrap that actually uses it. That gives the rest of the refactor a stable target: instead of abstractly saying “serialize JS calls somehow”, the code now has a real owner-runner and a real owned runtime object.
+
+I also made the dependency decision here. Although the long-term direction still points toward `go-go-goja`, I did **not** add a direct dependency on the full repository at this stage. Its module currently targets a newer Go version and pulls in a very large graph. For this repo and this step, the practical answer was to port the small, proven `runtimeowner` package locally first while keeping its semantics close to the upstream source.
+
+### Prompt Context
+
+**User prompt (verbatim):** "ok, work on the tasks one by one, committing appropriately, keep a diary"
+
+**Assistant interpretation:** Execute the newly added convergence-phase tasks incrementally, starting with the most foundational ones, and maintain the same code/diary/commit discipline as the earlier milestones.
+
+**Inferred user intent:** Turn the new go-go-goja convergence plan into real tracked implementation work, not just another design note.
+
+**Commit (code):** `f18977c` — `Add owner-runner bootstrap for JS runtime`
+
+### What I did
+- Chose the dependency strategy for H1:
+  - **for now:** local port of `runtimeowner`
+  - **not yet:** direct dependency on full `go-go-goja`
+- Added a new local package:
+
+```text
+pkg/runtimeowner/
+```
+
+- Ported the following concepts from `go-go-goja/pkg/runtimeowner`:
+  - `Runner`
+  - `Scheduler`
+  - `Call(...)`
+  - `Post(...)`
+  - shutdown/closed semantics
+  - panic recovery
+  - owner-context leakage protection
+- Added tests for the local port, including:
+  - scheduling success
+  - cancellation
+  - schedule rejection
+  - panic recovery
+  - shutdown behavior
+  - queued cancellation skip behavior
+  - leaked-owner-context safety
+  - concurrent stress
+- Refactored `runtime/js/runtime.go` from a bare `(*goja.Runtime, *Environment)` constructor into an owned runtime object with:
+  - `VM`
+  - `Loop`
+  - `Owner`
+  - `Env`
+  - `RunString(...)`
+  - `Close(...)`
+- Updated:
+  - `runtime/js/runtime_test.go`
+  - `cmd/loupe-js-demo/main.go`
+  to use the new owned runtime lifecycle.
+- Ran:
+
+```bash
+gofmt -w pkg/runtimeowner/*.go runtime/js/*.go cmd/loupe-js-demo/main.go
+go test ./...
+```
+
+### Why
+- The owner-runner is the smallest high-value convergence step because every later callback refit will need it.
+- Local porting keeps the current repository focused and avoids dragging in a very large dependency graph and a higher Go toolchain requirement before that is necessary.
+- Converting `runtime/js` into an owned runtime object now makes the lifecycle explicit before more features pile on top of the old bootstrap shape.
+
+### What worked
+- The local `runtimeowner` port compiled and its tests passed cleanly.
+- The refactored JS runtime still passed the existing repository integration tests after the API change.
+- The `cmd/loupe-js-demo` command updated cleanly to the owned runtime lifecycle.
+- The full repository test suite passed after the refactor.
+
+### What didn't work
+- No build or test failures occurred in the final implementation of this step.
+- The main limitation is explicit and intentional: modules still do not yet use runtime-scoped bindings or owner-thread callback posting. This step only adds the owner-runner and owned runtime shell; it does not finish the callback-boundary refit.
+
+### What I learned
+- The dependency strategy is clearer now that I inspected `go-go-goja/go.mod`: a direct dependency would currently be heavier than this repo needs for the first convergence step.
+- The owned runtime API is already cleaner than the previous bootstrap because it makes `RunString` and shutdown semantics explicit instead of leaving raw VM access as the only entrypoint.
+
+### What was tricky to build
+- The subtle architectural choice was whether to jump straight to a full `go-go-goja` engine/factory dependency. That would have been conceptually neat but operationally too large for this step. The local port preserves the important semantics without forcing a big dependency/toolchain jump yet.
+- Another subtle point was API shape. Returning only `*goja.Runtime` no longer fits once ownership and lifecycle matter. The solution was to introduce a proper `runtime/js.Runtime` object and update the small number of local call sites immediately instead of trying to hide the change behind compatibility helpers.
+
+### What warrants a second pair of eyes
+- Reviewers should confirm the dependency decision: local port now, possible direct convergence later.
+- Reviewers should also confirm that the new owned runtime API is the right base for H2/H3 rather than trying to preserve the earlier tuple-return bootstrap forever.
+
+### What should be done in the future
+- Implement H2 next: runtime-scoped bindings for owner/context/loop and Loupedeck services.
+- Then implement H3: refit all JS callback boundaries (`onButton`, `onTouch`, `onKnob`, timers, animation, reactive JS closures) through owner scheduling.
+
+### Code review instructions
+- Start with:
+  - `pkg/runtimeowner/runner.go`
+  - `pkg/runtimeowner/runner_test.go`
+  - `runtime/js/runtime.go`
+  - `runtime/js/runtime_test.go`
+  - `cmd/loupe-js-demo/main.go`
+- Validate with:
+
+```bash
+gofmt -w pkg/runtimeowner/*.go runtime/js/*.go cmd/loupe-js-demo/main.go
+go test ./...
+```
+
+### Technical details
+- The dependency decision made in this step is:
+
+```text
+use a local port of go-go-goja/pkg/runtimeowner first;
+defer direct dependency on full go-go-goja until a later convergence stage if it still makes sense
+```
+
+- The runtime bootstrap now has an explicit owner-backed lifecycle shape:
+
+```go
+rt := js.NewRuntime(env)
+defer rt.Close(ctx)
+_, err := rt.RunString(ctx, script)
+```

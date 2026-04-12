@@ -116,8 +116,8 @@
 ### Implementation convergence phase H: adopt go-go-goja runtime ownership
 - [x] Analyze `go-go-goja` runtime-owner / runtime-bridge / factory patterns for reuse
 - [x] Write a dedicated design doc for converging the Loupedeck JS runtime onto go-go-goja runtime ownership
-- [ ] Decide dependency strategy: direct dependency on `go-go-goja` vs local port of `runtimeowner`/`runtimebridge`
-- [ ] Add an owner-runner layer to the local JS runtime bootstrap
+- [x] Decide dependency strategy: direct dependency on `go-go-goja` vs local port of `runtimeowner`/`runtimebridge`
+- [x] Add an owner-runner layer to the local JS runtime bootstrap
 - [ ] Add runtime-scoped bindings for owner/context/loop and Loupedeck services
 - [ ] Refit all JS callback boundaries (`onButton`, `onTouch`, `onKnob`, timers, animation, reactive JS closures) to owner-thread scheduling
 - [ ] Add tests for owner-thread callback serialization and shutdown behavior
@@ -125,6 +125,6 @@
 - [ ] Add a hardware-backed JS live runner command
 - [ ] Add multiple JS example scripts for live runtime validation
 - [ ] Validate selected JS examples on actual Loupedeck Live hardware
-- [ ] Run `go test ./...`
-- [ ] Commit convergence phase H implementation work in focused steps
+- [x] Run `go test ./...`
+- [x] Commit convergence phase H implementation work in focused steps
 - [ ] Record convergence phase H progress in diary/changelog after each focused step

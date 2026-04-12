@@ -130,3 +130,18 @@ Analyzed the `go-go-goja` runtime-owner architecture and added a dedicated conve
 - /home/manuel/code/wesen/corporate-headquarters/go-go-goja/pkg/runtimeowner/runner.go — Source of truth for the owner-thread runner pattern we intend to adopt
 - /home/manuel/code/wesen/corporate-headquarters/go-go-goja/pkg/runtimebridge/runtimebridge.go — Source of truth for runtime-scoped owner/context bindings
 - /home/manuel/code/wesen/corporate-headquarters/go-go-goja/engine/factory.go — Source of truth for owned-runtime composition and runtime-scoped module registration
+
+## 2026-04-11
+
+Started convergence phase H in code by choosing a **local port** of `go-go-goja`'s `runtimeowner` package rather than a direct repository dependency for now, then refactored the local JS bootstrap into an owned runtime with an event loop, owner runner, `RunString(...)`, and explicit `Close(...)` lifecycle. This is the first concrete step toward making hardware-backed JS execution owner-thread safe.
+
+### Related Files
+
+- /home/manuel/code/wesen/2026-04-11--loupedeck-test/pkg/runtimeowner/errors.go — Local port of the runtimeowner error contract
+- /home/manuel/code/wesen/2026-04-11--loupedeck-test/pkg/runtimeowner/types.go — Local port of scheduler/runner type definitions
+- /home/manuel/code/wesen/2026-04-11--loupedeck-test/pkg/runtimeowner/runner.go — Local port of the owner-thread runner implementation
+- /home/manuel/code/wesen/2026-04-11--loupedeck-test/pkg/runtimeowner/runner_test.go — Local tests for owner-thread scheduling, cancellation, panic recovery, and leaked-owner-context behavior
+- /home/manuel/code/wesen/2026-04-11--loupedeck-test/pkg/runtimeowner/runner_race_test.go — Local stress test for concurrent runner calls
+- /home/manuel/code/wesen/2026-04-11--loupedeck-test/runtime/js/runtime.go — Refactored JS bootstrap into an owned runtime with `VM`, `Loop`, `Owner`, `Env`, `RunString`, and `Close`
+- /home/manuel/code/wesen/2026-04-11--loupedeck-test/runtime/js/runtime_test.go — Updated JS integration tests to run through the new owner-backed runtime API
+- /home/manuel/code/wesen/2026-04-11--loupedeck-test/cmd/loupe-js-demo/main.go — Updated the demo command to use the owned JS runtime lifecycle
