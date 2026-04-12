@@ -585,3 +585,94 @@ go test ./...
 - Update the ticket docs and mark the first retained-surface composition slice tasks complete.
 - Continue Phase E toward true multi-layer display composition.
 - Then move on to the first cyb-ito-inspired demo scene once the composition model is rich enough.
+
+## Step 8: Add the first cyb-ito-inspired multi-display JS prototype scene
+
+Once displays could own retained surfaces and JS could mutate those surfaces through `loupedeck/gfx`, the next natural milestone was a real prototype scene in `examples/js/` rather than more abstract infrastructure work.
+
+The goal here was not a perfect final art port. The goal was to prove that the runtime could already express a recognizably cyb-ito-inspired multi-display scene using the retained-region and retained-surface model now in place.
+
+### Commit
+
+**Commit (code):** `605e89d` — `Add cyb-ito JS prototype scene`
+
+### What I did
+- Added:
+
+```text
+examples/js/07-cyb-ito-prototype.js
+```
+
+- The script now:
+  - creates retained `gfx` surfaces for:
+    - `main` (`360×270`)
+    - `left` (`60×270`)
+    - `right` (`60×270`)
+  - attaches them via:
+
+```javascript
+page.display("left", display => display.surface(left));
+page.display("main", display => display.surface(main));
+page.display("right", display => display.surface(right));
+```
+
+  - renders a `12`-tile main scene using retained surfaces rather than `page.tile(...)`
+  - renders a prototype left-strip animated bar scene
+  - renders a prototype right-strip scrolling-kanji scene
+  - uses `anim.loop(...)` to update the scene continuously
+  - supports touch selection and button-based active-tile stepping in prototype form
+- Found that the prototype initially crashed during example boot tests.
+- Traced the panic to missing-field handling in:
+
+```text
+runtime/js/module_gfx/module.go
+```
+
+where omitted option fields in `gfx.text(...)` could make `boolProp(...)` dereference a nil `goja.Value`.
+- Fixed that nil-handling bug in `module_gfx`.
+- Found and fixed an additional text-layout robustness issue in:
+
+```text
+runtime/gfx/text.go
+```
+
+by clamping the computed text baseline against the face descent for small text boxes.
+- Added a regression test in:
+
+```text
+runtime/gfx/surface_test.go
+```
+
+for small-height text rendering.
+- Re-ran:
+
+```bash
+go test ./...
+```
+
+until the full example pack, including `07-cyb-ito-prototype.js`, booted cleanly.
+
+### Why
+- The runtime needed a real scene artifact to validate the direction of the new display-region and graphics work.
+- A prototype scene is a much better proving ground than more internal abstractions because it forces the API to be used the way future scripts will actually use it.
+- The prototype also flushed out real bugs in the new graphics binding and text layout paths, which is exactly what a good example should do.
+
+### What worked
+- The prototype proved that the runtime can now express a multi-display scene entirely in JS using retained surfaces.
+- The example boot test suite now covers the new scene script automatically.
+- The prototype exercise revealed and fixed real robustness bugs in the `gfx` path.
+
+### What didn't work
+- The prototype is not yet a faithful port of the imported HTML. It is structurally inspired by it, but not yet visually complete.
+- True ripple overlays and multi-layer composition are still not implemented.
+- The prototype has only basic cross-display coordination right now.
+
+### What I learned
+- The runtime is now at the point where example scenes are a better guide to next work than more speculative API discussion.
+- The first prototype scene already justified the retained-surface work because it immediately used all three display regions.
+- Small helper bugs in option decoding and text layout only became obvious once a denser scene script existed.
+
+### What should be done in the future
+- Update the ticket docs and mark the prototype scene tasks that are honestly complete.
+- Continue Phase E toward true multi-layer display composition.
+- Add a better touch-reactive overlay model next so the prototype can gain ripple and scan effects more naturally.

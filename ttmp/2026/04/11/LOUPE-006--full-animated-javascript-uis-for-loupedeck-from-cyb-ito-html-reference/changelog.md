@@ -68,3 +68,14 @@ Implemented the first retained-surface composition slice on top of the new graph
 - /home/manuel/code/wesen/2026-04-11--loupedeck-test/runtime/render/render_test.go — Added retained display-surface rendering coverage
 - /home/manuel/code/wesen/2026-04-11--loupedeck-test/runtime/js/runtime_test.go — Added JS integration coverage proving displays can own graphics surfaces
 
+## 2026-04-11
+
+Added the first cyb-ito-inspired multi-display JS prototype scene under `examples/js/07-cyb-ito-prototype.js`. The new script uses the retained display-region and `loupedeck/gfx` work from the earlier slices to render a `12`-tile main scene plus animated left/right strip content entirely through retained surfaces. This is still a prototype rather than a faithful final art port: it does not yet include ripple overlays or full multi-layer composition, but it proves that the runtime can now express a multi-display animated scene in JavaScript without bypassing Go-owned rendering.
+
+### Related Files
+
+- /home/manuel/code/wesen/2026-04-11--loupedeck-test/examples/js/07-cyb-ito-prototype.js — First cyb-ito-inspired animated JS scene spanning left, main, and right display regions
+- /home/manuel/code/wesen/2026-04-11--loupedeck-test/runtime/js/module_gfx/module.go — Fixed JS options decoding so omitted fields in `gfx.text(...)` no longer panic
+- /home/manuel/code/wesen/2026-04-11--loupedeck-test/runtime/gfx/text.go — Hardened text baseline clamping for small text boxes used by the prototype scene
+- /home/manuel/code/wesen/2026-04-11--loupedeck-test/runtime/gfx/surface_test.go — Added regression coverage for small-height text drawing used by the prototype
+

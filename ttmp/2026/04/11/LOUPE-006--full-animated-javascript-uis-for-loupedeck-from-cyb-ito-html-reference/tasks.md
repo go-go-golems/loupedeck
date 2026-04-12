@@ -59,21 +59,21 @@
 
 ### Phase F: first cyb-ito-inspired main-scene demo
 
-- [ ] Add a first JS demo script for the main animated scene
-- [ ] Port the 12-tile scene structure to the retained scene/surface model
+- [x] Add a first JS demo script for the main animated scene
+- [x] Port the 12-tile scene structure to the retained scene/surface model in prototype form
 - [ ] Add touch-driven ripple and tile activation behavior on the main display
 - [ ] Validate the main-scene demo locally via the live runner
-- [ ] Commit the main-scene demo slice
-- [ ] Record the main-scene demo slice in the diary/changelog/tasks
+- [x] Commit the main-scene demo slice
+- [x] Record the main-scene demo slice in the diary/changelog/tasks
 
 ### Phase G: left/right strip scenes
 
-- [ ] Add left-strip dripping-bar scene support
-- [ ] Add right-strip scrolling-kanji scene support
+- [x] Add left-strip dripping-bar scene support in prototype form
+- [x] Add right-strip scrolling-kanji scene support in prototype form
 - [ ] Add cross-display scene coordination such as activity pips or mirrored tile activation signals
 - [ ] Validate the multi-display animated scene locally via the live runner
-- [ ] Commit the strip-scene slice
-- [ ] Record the strip-scene slice in the diary/changelog/tasks
+- [x] Commit the strip-scene slice
+- [x] Record the strip-scene slice in the diary/changelog/tasks
 
 ### Phase H: hardware validation and tuning
 
