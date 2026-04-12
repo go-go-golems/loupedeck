@@ -2195,3 +2195,145 @@ tmux session
 -> inspect with capture-pane
 -> stop with C-c
 ```
+
+## Step 18: Write real user-facing docs for the implemented JS runtime
+
+Once the runtime existed, had owner-thread callback discipline, had a live runner, and had passed actual hardware validation, the next missing layer was straightforward user-facing documentation. Up to this point, the ticket had excellent design docs and implementation notes, but a new user still had to reconstruct the actual API surface from `runtime/js/module_*.go` and the example scripts.
+
+This step fixed that gap in two forms:
+
+1. Glazed-formatted help pages in the repo for the concrete implemented API
+2. a long-form Obsidian technical article explaining how the implementation actually works under the hood
+
+### Prompt Context
+
+**User prompt (verbatim):** "Create a detailed JS user guide / API reference in the glazed help format (see skill) in the repo. Also write a detailed technical deep dive report article in our obsidian-vault about the JS implementation of the API."
+
+**Assistant interpretation:** Produce two kinds of durable documentation: a repo-local Glazed help bundle for users of the runtime, and a vault article for engineers who need to understand the implementation details and architectural rationale.
+
+**Inferred user intent:** Move the JS runtime from “tested internal subsystem” toward “documented product surface,” while also preserving a deeper implementation explanation in the long-lived Loupedeck article series.
+
+### What I did
+- Read the Glazed help-authoring skill and the authoritative Glazed writing guidance via:
+
+```bash
+glaze help how-to-write-good-documentation-pages
+glaze help writing-help-entries
+```
+
+- Confirmed that this repo does **not** currently have a Cobra/Glazed root help system wired in, so the correct scope for this step was to author the Markdown help pages in canonical Glazed format and make them discoverable in the repo rather than pretending a Cobra integration existed.
+- Added a Glazed-formatted tutorial page:
+
+```text
+docs/help/tutorials/01-build-your-first-live-loupedeck-js-script.md
+```
+
+- Added a Glazed-formatted API reference page:
+
+```text
+docs/help/topics/01-loupedeck-js-api-reference.md
+```
+
+- Structured the tutorial as a true Glazed `Tutorial` section:
+  - what the reader will build
+  - prerequisites
+  - writing a first reactive script
+  - running it with `loupe-js-live`
+  - handling Circle exit behavior
+  - moving on to built-in examples
+  - troubleshooting and cross-references
+- Structured the API reference as a `GeneralTopic` section:
+  - actual current runtime model
+  - module overview table
+  - full surface of `loupedeck/state`
+  - full surface of `loupedeck/ui`
+  - full surface of `loupedeck/anim`
+  - full surface of `loupedeck/easing`
+  - live-runner flag reference
+  - limitations and failure modes
+- Updated:
+
+```text
+README.md
+```
+
+so the help pages are discoverable and not orphan docs.
+- Wrote a new Obsidian article:
+
+```text
+/home/manuel/code/wesen/obsidian-vault/Projects/2026/04/11/ARTICLE - Loupedeck - Goja JavaScript Runtime and API Deep Dive.md
+```
+
+- Wrote the article as a real technical deep dive rather than a release note. It explains:
+  - the owner-thread goja runtime
+  - runtime-scoped bindings
+  - the pure-Go reactive runtime
+  - the retained page/tile UI model
+  - the retained renderer bridge
+  - the host runtime and event path
+  - the animation/easing layer
+  - the actual JS API surface
+  - hardware validation status
+  - failure modes and working rules
+- Updated the ticket changelog for this documentation pass.
+
+### Why
+- The ticket already had strong design docs and implementation notes, but those documents solve a different problem than user-facing docs.
+- A user guide and API reference are for someone who wants to **use** the runtime.
+- The Obsidian article is for someone who wants to **understand and modify** the runtime.
+- Those are different audiences, and both are now relevant because the runtime is no longer purely speculative.
+
+### What worked
+- The Glazed help docs now describe the *real* API rather than the larger brainstorm API.
+- The tutorial and the API reference complement each other well: one is operational and the other is reference-oriented.
+- The Obsidian article fits neatly into the existing Loupedeck article series and uses the same durable-knowledge style as the other deep dives.
+- Updating the README prevents the new repo docs from becoming hidden side files.
+
+### What didn't work
+- There is still no Cobra/Glazed root command in this repo to load the help pages interactively. That is not a failure of the docs, but it is an intentional limitation of the current repository shape.
+- The JS API reference still has to explain placeholder icon rendering as a limitation because the JS layer does not yet expose the full Go-side asset pipeline.
+
+### What I learned
+- The design docs and the real API have diverged enough that having both an exploratory example pack and a concrete API reference is important. The API reference has to be explicit that it documents the current implementation, not every brainstormed future module.
+- The live runner flags and current module exports are now stable enough to deserve real operational documentation.
+- The best way to explain the JS implementation is still through the layered mental model: owned runtime, reactive core, retained UI, host runtime, renderer, hardware.
+
+### What was tricky to build
+- The hardest part was keeping the docs honest about the difference between the early brainstorm surface and the current implemented surface. The repo now has both, and a reader could easily confuse them if the docs were sloppy.
+- Another tricky point was scope. The Glazed skill strongly prefers real help-system integration for Cobra CLIs, but this repo is not there yet. So the right move was to author canonical help pages and make them discoverable now rather than forcing a fake integration layer.
+
+### What warrants a second pair of eyes
+- Review whether the API reference should eventually be split again when the JS layer grows an asset module or timer APIs.
+- Review whether the repo should later add a small doc embedding package so these Glazed pages can be loaded directly by a future Cobra root command without moving files around.
+
+### What should be done in the future
+- If a Cobra/Glazed root command is added later, wire these pages into it via embedded docs and `help_cmd.SetupCobraRootCommand(...)`.
+- Revisit the API reference when JS asset support or JS timers are added.
+- Optionally upload the new runtime article or a corresponding ticket bundle to reMarkable.
+
+### Code review instructions
+- Read the new user-facing docs first:
+  - `docs/help/tutorials/01-build-your-first-live-loupedeck-js-script.md`
+  - `docs/help/topics/01-loupedeck-js-api-reference.md`
+- Then read the implementation deep dive:
+  - `/home/manuel/code/wesen/obsidian-vault/Projects/2026/04/11/ARTICLE - Loupedeck - Goja JavaScript Runtime and API Deep Dive.md`
+- Cross-check the reference sections against the concrete implementation files:
+  - `runtime/js/module_state/module.go`
+  - `runtime/js/module_ui/module.go`
+  - `runtime/js/module_anim/module.go`
+  - `runtime/js/module_easing/module.go`
+  - `cmd/loupe-js-live/main.go`
+
+### Technical details
+- The new repo help bundle currently consists of:
+
+```text
+docs/help/tutorials/01-build-your-first-live-loupedeck-js-script.md
+docs/help/topics/01-loupedeck-js-api-reference.md
+```
+
+- The new vault article currently lives at:
+
+```text
+/home/manuel/code/wesen/obsidian-vault/Projects/2026/04/11/ARTICLE - Loupedeck - Goja JavaScript Runtime and API Deep Dive.md
+```

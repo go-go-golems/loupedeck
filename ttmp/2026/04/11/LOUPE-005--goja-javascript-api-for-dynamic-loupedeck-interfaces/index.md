@@ -86,6 +86,7 @@ Current completion state:
 - Milestone F complete: animation/easing packages and JS modules (`loupedeck/anim`, `loupedeck/easing`)
 - Milestone G complete: retained replay semantics for reconnect-safe redraws
 - Convergence phase H complete for the first pass: local `runtimeowner` and `runtimebridge` ports, owner-safe callback serialization, runtime-scoped module wiring, a live hardware-backed JS runner, an initial example pack, and hardware validation for both non-interactive and interactive example scripts are now in place
+- Repo-local user docs now exist in Glazed help format, covering both a step-by-step live-runner guide and the concrete implemented JS API reference
 - Diary actively maintained with per-milestone and per-phase commits plus validation evidence
 
 ## Topics

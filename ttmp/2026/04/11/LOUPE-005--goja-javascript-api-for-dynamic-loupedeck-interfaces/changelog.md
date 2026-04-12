@@ -208,3 +208,14 @@ Extended the live-runner validation from the initial static/animation smoke chec
 - /home/manuel/code/wesen/2026-04-11--loupedeck-test/examples/js/03-knob-meter.js — Human-validated `Knob1` reactive state example
 - /home/manuel/code/wesen/2026-04-11--loupedeck-test/examples/js/06-page-switcher.js — Human-validated retained page switching example
 - /home/manuel/code/wesen/2026-04-11--loupedeck-test/ttmp/2026/04/11/LOUPE-005--goja-javascript-api-for-dynamic-loupedeck-interfaces/reference/01-javascript-api-example-scripts.md — Updated to distinguish exploratory API sketches from the concrete live example pack that now exists in the repo
+
+## 2026-04-11
+
+Added real end-user documentation for the implemented JS runtime in two places: Glazed-formatted help pages inside the repo and a durable Obsidian technical deep dive. The repo now contains a step-by-step user guide/tutorial for the live runner plus a detailed API reference for the currently implemented modules (`loupedeck/state`, `loupedeck/ui`, `loupedeck/anim`, `loupedeck/easing`). The vault now contains a deep implementation article that explains the owner-thread runtime, reactive core, retained UI, animation layer, and live hardware path as one coherent architecture.
+
+### Related Files
+
+- /home/manuel/code/wesen/2026-04-11--loupedeck-test/docs/help/tutorials/01-build-your-first-live-loupedeck-js-script.md — Glazed-formatted step-by-step user guide for writing and running a live Loupedeck JS script
+- /home/manuel/code/wesen/2026-04-11--loupedeck-test/docs/help/topics/01-loupedeck-js-api-reference.md — Glazed-formatted API reference for the current JS runtime modules and live runner
+- /home/manuel/code/wesen/2026-04-11--loupedeck-test/README.md — Repository discoverability update linking the new help pages
+- /home/manuel/code/wesen/obsidian-vault/Projects/2026/04/11/ARTICLE - Loupedeck - Goja JavaScript Runtime and API Deep Dive.md — Durable technical article covering the implemented JS runtime architecture and API internals

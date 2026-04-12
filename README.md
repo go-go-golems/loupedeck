@@ -45,6 +45,15 @@ Other devices may partially work through the existing protocol abstractions, but
 go test ./...
 ```
 
+## JavaScript runtime docs
+
+The repository now includes Glazed-formatted help pages for the current goja-based Loupedeck runtime under:
+
+- `docs/help/tutorials/01-build-your-first-live-loupedeck-js-script.md` — step-by-step user guide for writing and running a real script on hardware
+- `docs/help/topics/01-loupedeck-js-api-reference.md` — detailed API reference for `loupedeck/state`, `loupedeck/ui`, `loupedeck/anim`, `loupedeck/easing`, and the live runner
+
+These pages are authored in Glazed help format so they can be loaded into a future Cobra/Glazed root help system when this repo grows one.
+
 For the detailed architecture and implementation plan, see:
 
 - `ttmp/2026/04/11/LOUPE-003--backpressure-safe-go-go-golems-loupedeck-package-refactor/design-doc/01-go-go-golems-loupedeck-package-backpressure-safe-architecture-and-implementation-guide.md`
