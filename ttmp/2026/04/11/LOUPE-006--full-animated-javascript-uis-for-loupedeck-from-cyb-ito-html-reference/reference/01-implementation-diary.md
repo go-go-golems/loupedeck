@@ -216,3 +216,149 @@ remarquee cloud ls "/ai/2026/04/11/LOUPE-006" --long --non-interactive
 ### Delivery result
 - reMarkable remote dir: `/ai/2026/04/11/LOUPE-006`
 - uploaded document: `LOUPE-006 Full animated JavaScript UIs from cyb-ito reference`
+
+## Step 4: Implement the first retained display-region slice
+
+With the design package in place, I started the implementation at the exact point the ticket recommended: not with `gfx`, not with pixel drawing, and not with a full cyb-ito port, but with retained display-region groundwork.
+
+The goal of this slice was to teach the runtime that a page can own more than the main `4×3` tile grid. Specifically, it needed to gain first-class retained regions for:
+
+- `left`
+- `main`
+- `right`
+
+without breaking the already-working `page.tile(...)` model used by the existing examples and tests.
+
+### Prompt Context
+
+**User prompt (verbatim):** "add detailed tasks to the ticket if you haven't yet, then go through them one by one, comitting at appropriate intervals, and keep a diary"
+
+**Assistant interpretation:** Expand the ticket into implementation-sized subtasks, then begin executing them in focused slices with commits and diary updates instead of leaving the work at the design-only stage.
+
+**Inferred user intent:** Turn LOUPE-006 from a planning ticket into an active implementation track with clear milestone boundaries and continuity.
+
+**Commit (planning):** `3ab0609` — `Expand LOUPE-006 implementation tasks`
+
+**Commit (code):** `051a62d` — `Add retained JS display regions`
+
+### What I did
+- Expanded `tasks.md` into detailed Phase B/C/D/E/F/G/H implementation checkpoints.
+- Added a new retained display type:
+
+```text
+runtime/ui/display.go
+```
+
+with:
+- `DisplayLeft`, `DisplayMain`, `DisplayRight`
+- retained text/icon/visible state
+- reactive bindings for those properties
+- main-display tile ownership via `display.AddTile(...)`
+- display dirty tracking
+- Updated:
+
+```text
+runtime/ui/page.go
+```
+
+so pages now own named displays rather than only a flat tile map.
+- Preserved compatibility by keeping:
+
+```text
+page.AddTile(...)
+page.Tile(...)
+page.Tiles(...)
+```
+
+but making them delegate to the retained `main` display.
+- Updated:
+
+```text
+runtime/ui/ui.go
+```
+
+so the UI runtime now tracks both:
+- dirty tiles
+- dirty displays
+
+and filters both against the active page.
+- Updated:
+
+```text
+runtime/ui/tile.go
+```
+
+so tiles now hang off a retained display instead of a page-level tile map.
+- Extended the JS UI module in:
+
+```text
+runtime/js/module_ui/module.go
+```
+
+with:
+- `page.display(name, fn)`
+- display-level `text(...)`, `icon(...)`, `visible(...)`
+- main-display `display.tile(...)`
+- Extended the retained renderer bridge in:
+
+```text
+runtime/render/visual_runtime.go
+```
+
+so it can flush side-display placeholders as full retained display images while still flushing main-grid tiles independently.
+- Updated the live runner in:
+
+```text
+cmd/loupe-js-live/main.go
+```
+
+so it now:
+- acquires `left`, `main`, and `right` hardware displays
+- flushes all retained display targets
+- clears all three on exit rather than only `main`
+- Added tests in:
+
+```text
+runtime/ui/ui_test.go
+runtime/render/render_test.go
+runtime/js/runtime_test.go
+```
+
+covering:
+- retained display dirty filtering
+- side-display rendering
+- JS `page.display("left", ...)` integration
+- Ran:
+
+```bash
+gofmt -w runtime/ui/*.go runtime/render/*.go runtime/js/module_ui/module.go runtime/js/runtime_test.go cmd/loupe-js-live/main.go
+go test ./...
+```
+
+and all tests passed.
+
+### Why
+- The design guide said display regions must come before `gfx`, and that turned out to be correct in practice.
+- Without this slice, the future `loupedeck/gfx` module would still have nowhere structurally appropriate to attach its retained surfaces.
+- Preserving `page.tile(...)` compatibility was important because the current JS runtime examples are still valuable and should not be broken just to add scene generality.
+
+### What worked
+- The retained model now has a correct structural place for left/right display content.
+- The existing tile API still works.
+- The renderer can now flush side displays through the same retained-to-Go-owned-render path.
+- The live runner is no longer hardcoded to only the main display.
+- The new tests proved the slice without requiring hardware yet.
+
+### What didn't work
+- This slice still uses placeholder display rendering for side displays. That is expected: the point here was structural groundwork, not final cyb-ito visuals.
+- There is still no `loupedeck/gfx` module yet, so JS cannot draw procedural graphics into those display regions yet.
+
+### What I learned
+- The smallest correct next step really was structural. The retained scene model needed to understand multiple displays before any serious visual API work could make sense.
+- Preserving the existing main-tile API as a delegation layer is a clean compatibility strategy.
+- The live runner was easier to generalize than expected once the retained renderer accepted a target map instead of a single main-display target.
+
+### What should be done in the future
+- Update the ticket docs and mark the Phase B slice tasks complete.
+- Start Phase C: add the pure-Go retained graphics/surface package.
+- Keep Phase D (`loupedeck/gfx`) separate from Phase C so the pure-Go semantics can be tested before the goja binding layer is added.

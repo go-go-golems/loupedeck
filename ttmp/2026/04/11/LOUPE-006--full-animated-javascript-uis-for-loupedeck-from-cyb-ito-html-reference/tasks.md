@@ -14,16 +14,16 @@
 
 ### Phase B: retained display-region groundwork
 
-- [ ] Add retained UI model support for named display regions: `left`, `main`, and `right`
-- [ ] Keep `page.tile(...)` working by delegating it to the retained `main` display region
-- [ ] Add retained per-display dirty tracking without breaking existing tile dirty semantics
-- [ ] Extend the retained renderer bridge so it can flush `left`, `main`, and `right` display regions
-- [ ] Update `cmd/loupe-js-live` to flush all retained display regions rather than only the main display
-- [ ] Add Go tests for retained display-region activation, dirty filtering, and rendering
-- [ ] Add JS integration tests for `ui.page(...).display(...)` and `ui.show(...)`
-- [ ] Run `go test ./...` after the display-region slice
-- [ ] Commit the display-region slice
-- [ ] Record the display-region slice in the diary/changelog/tasks
+- [x] Add retained UI model support for named display regions: `left`, `main`, and `right`
+- [x] Keep `page.tile(...)` working by delegating it to the retained `main` display region
+- [x] Add retained per-display dirty tracking without breaking existing tile dirty semantics
+- [x] Extend the retained renderer bridge so it can flush `left`, `main`, and `right` display regions
+- [x] Update `cmd/loupe-js-live` to flush all retained display regions rather than only the main display
+- [x] Add Go tests for retained display-region activation, dirty filtering, and rendering
+- [x] Add JS integration tests for `ui.page(...).display(...)` and `ui.show(...)`
+- [x] Run `go test ./...` after the display-region slice
+- [x] Commit the display-region slice
+- [x] Record the display-region slice in the diary/changelog/tasks
 
 ### Phase C: pure-Go retained graphics package
 

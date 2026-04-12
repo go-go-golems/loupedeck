@@ -61,6 +61,7 @@ Current completion state:
 - Initial diary entry written
 - Ticket validated with `docmgr doctor`
 - Design bundle uploaded to reMarkable and verified remotely
+- Phase B first slice complete: retained JS-facing display regions now exist for `left`, `main`, and `right`, and the live runner can flush all three retained display targets
 
 ## Topics
 
