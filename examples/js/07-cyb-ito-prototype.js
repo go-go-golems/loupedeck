@@ -15,11 +15,12 @@ const right = gfx.surface(SIDE_W, SIDE_H);
 
 const phase = state.signal(0);
 const scroll = state.signal(0);
-const active = state.signal(-1);
+const active = state.signal(0);
+const lastEvent = state.signal("BOOT");
 
-const titles = ["眼", "渦", "歯", "溶", "穴", "狂", "蟲", "砂", "歪", "裂", "脈", "闇"];
-const subs = ["EYE", "SPIRAL", "TEETH", "MELT", "HOLE", "FACE", "WORM", "NOISE", "WARP", "CRACK", "PULSE", "VOID"];
-const kanji = "呪螺旋恐怖闇影穴裂溶歪狂蝕腐朽這寄生喰渦巻沈黙叫骸".split("");
+const titles = ["01", "02", "03", "04", "05", "06", "07", "08", "09", "10", "11", "12"];
+const subs = ["EYE", "SPIN", "TEETH", "MELT", "HOLE", "FACE", "WORM", "NOISE", "WARP", "CRACK", "PULSE", "VOID"];
+const sideText = ["EYE", "SPIN", "TEETH", "MELT", "HOLE", "FACE", "WORM", "NOISE", "WARP", "CRACK", "PULSE", "VOID", "TOUCH", "B1", "B2", "LIVE"];
 
 function clamp(v, min, max) {
   return Math.max(min, Math.min(max, v));
@@ -34,31 +35,36 @@ function tileRect(idx) {
 function drawTile(idx, t, activeIdx) {
   const { x, y } = tileRect(idx);
   const isActive = idx === activeIdx;
-  const base = isActive ? 24 : 10;
-  const border = isActive ? 120 : 32;
   const pulse = Math.floor((Math.sin(t * Math.PI * 2 + idx * 0.4) * 0.5 + 0.5) * 28);
 
-  main.fillRect(x, y, TILE, TILE, base);
-  main.line(x, y, x + TILE - 1, y, border);
-  main.line(x, y + TILE - 1, x + TILE - 1, y + TILE - 1, border);
-  main.line(x, y, x, y + TILE - 1, border);
-  main.line(x + TILE - 1, y, x + TILE - 1, y + TILE - 1, border);
+  main.fillRect(x, y, TILE, TILE, isActive ? 72 : 8);
+  main.fillRect(x + 6, y + 6, TILE - 12, TILE - 12, isActive ? 8 : 0);
+  main.line(x, y, x + TILE - 1, y, isActive ? 255 : 24);
+  main.line(x, y + TILE - 1, x + TILE - 1, y + TILE - 1, isActive ? 255 : 24);
+  main.line(x, y, x, y + TILE - 1, isActive ? 255 : 24);
+  main.line(x + TILE - 1, y, x + TILE - 1, y + TILE - 1, isActive ? 255 : 24);
+  main.line(x + 1, y + 1, x + TILE - 2, y + 1, isActive ? 180 : 0);
+  main.line(x + 1, y + TILE - 2, x + TILE - 2, y + TILE - 2, isActive ? 180 : 0);
+  main.line(x + 1, y + 1, x + 1, y + TILE - 2, isActive ? 180 : 0);
+  main.line(x + TILE - 2, y + 1, x + TILE - 2, y + TILE - 2, isActive ? 180 : 0);
 
-  main.line(x + 2, y + 13, x + TILE - 3, y + 13, isActive ? 40 : 18);
-  main.crosshatch(x + 6, y + 20, TILE - 12, TILE - 28, isActive ? 3 : 4, 12 + pulse);
+  main.crosshatch(x + 10, y + 18, TILE - 20, TILE - 34, isActive ? 5 : 7, isActive ? 28 + pulse : 10 + pulse);
 
   const cx = x + 45;
   const cy = y + 48;
-  const r = 10 + Math.floor(Math.sin(t * Math.PI * 2 * 0.7 + idx) * 4);
-  main.line(cx - r, cy, cx + r, cy, 70 + pulse);
-  main.line(cx, cy - r, cx, cy + r, 60 + pulse);
-  main.fillRect(cx - 2, cy - 2, 4, 4, isActive ? 180 : 90 + pulse);
+  const r = isActive ? 18 : 10 + Math.floor(Math.sin(t * Math.PI * 2 * 0.7 + idx) * 4);
+  main.line(cx - r, cy, cx + r, cy, isActive ? 230 : 70 + pulse);
+  main.line(cx, cy - r, cx, cy + r, isActive ? 230 : 60 + pulse);
+  main.fillRect(cx - (isActive ? 5 : 2), cy - (isActive ? 5 : 2), isActive ? 10 : 4, isActive ? 10 : 4, isActive ? 255 : 90 + pulse);
 
   const scanY = y + 20 + ((Math.floor(t * 80) + idx * 5) % (TILE - 28));
-  main.fillRect(x + 3, scanY, TILE - 6, 1, isActive ? 150 : 60);
+  main.fillRect(x + 8, scanY, TILE - 16, 2, isActive ? 255 : 50);
 
-  main.text(titles[idx], { x: x + 4, y: y + 2, width: 22, height: 12, brightness: isActive ? 190 : 80 });
-  main.text(subs[idx], { x: x + 40, y: y + 3, width: 46, height: 10, brightness: isActive ? 110 : 40, center: true });
+  main.text(titles[idx], { x: x + 6, y: y + 4, width: 24, height: 12, brightness: isActive ? 255 : 90, center: true });
+  main.text(subs[idx], { x: x + 28, y: y + 4, width: 54, height: 12, brightness: isActive ? 220 : 60, center: true });
+  if (isActive) {
+    main.text("ACTIVE", { x: x + 12, y: y + 66, width: 66, height: 12, brightness: 255, center: true });
+  }
 }
 
 function renderMain() {
@@ -68,13 +74,24 @@ function renderMain() {
   for (let i = 0; i < 12; i++) {
     drawTile(i, t, activeIdx);
   }
+  const row = Math.floor(activeIdx / 4) + 1;
+  const col = (activeIdx % 4) + 1;
+  main.fillRect(96, 118, 168, 34, 0);
+  main.line(96, 118, 263, 118, 255);
+  main.line(96, 151, 263, 151, 255);
+  main.line(96, 118, 96, 151, 255);
+  main.line(263, 118, 263, 151, 255);
+  main.text(`SEL ${titles[activeIdx]} R${row}C${col}`, { x: 102, y: 121, width: 156, height: 12, brightness: 255, center: true });
+  main.text(lastEvent.get(), { x: 102, y: 135, width: 156, height: 12, brightness: 190, center: true });
 }
 
 function renderLeft() {
   left.clear(0);
   const t = phase.get();
-  for (let seg = 0; seg < 12; seg++) {
-    const sy = 4 + seg * 22;
+  left.text("B1", { x: 8, y: 2, width: 44, height: 12, brightness: 220, center: true });
+  left.text("B2", { x: 8, y: 16, width: 44, height: 12, brightness: 220, center: true });
+  for (let seg = 0; seg < 10; seg++) {
+    const sy = 40 + seg * 22;
     const sh = 18;
     const level = Math.sin(t * Math.PI * 2 * 1.2 + seg * 0.8) * 0.4 + 0.5;
     const fillH = Math.floor(level * sh);
@@ -93,8 +110,8 @@ function renderRight() {
   for (let i = 0; i < 16; i++) {
     const y = ((i * 20 - (off % 20) + SIDE_H) % SIDE_H) - 20;
     if (y < -18 || y > SIDE_H) continue;
-    const ci = (i + Math.floor(off / 20)) % kanji.length;
-    right.text(kanji[ci], { x: 12, y, width: 32, height: 18, brightness: 50 + (i % 3) * 20, center: true });
+    const ci = (i + Math.floor(off / 20)) % sideText.length;
+    right.text(sideText[ci], { x: 6, y, width: 48, height: 12, brightness: 50 + (i % 3) * 20, center: true });
   }
 }
 
@@ -116,8 +133,10 @@ ui.page("cyb-ito-proto", page => {
   });
 });
 
-function activate(idx) {
-  active.set(clamp(idx, 0, 11));
+function activate(idx, reason) {
+  const next = clamp(idx, 0, 11);
+  active.set(next);
+  lastEvent.set(`${reason} -> ${titles[next]}`);
   renderAll();
 }
 
@@ -126,13 +145,13 @@ function activate(idx) {
   "Touch5", "Touch6", "Touch7", "Touch8",
   "Touch9", "Touch10", "Touch11", "Touch12",
 ].forEach((name, idx) => {
-  ui.onTouch(name, () => activate(idx));
+  ui.onTouch(name, () => activate(idx, name));
 });
 
-ui.onButton("Button1", () => activate((active.get() + 11 + 12) % 12));
-ui.onButton("Button2", () => activate((active.get() + 1) % 12));
+ui.onButton("Button1", () => activate((active.get() + 11 + 12) % 12, "B1"));
+ui.onButton("Button2", () => activate((active.get() + 1) % 12, "B2"));
 
-renderAll();
+activate(0, "BOOT");
 anim.loop(1200, t => {
   phase.set(t);
   scroll.set((scroll.get() + 1) % (SIDE_H + 20));
