@@ -9,6 +9,7 @@ import (
 	"log/slog"
 	"math"
 	"os"
+	"strings"
 	"time"
 
 	loupedeck "github.com/go-go-golems/loupedeck"
@@ -32,8 +33,16 @@ const (
 	animBlink
 )
 
-type animatedIcon struct {
-	Spec      buttonSpec
+type controlAction int
+
+const (
+	actionExit controlAction = iota
+	actionPrevBank
+	actionNextBank
+	actionToggleCycle
+)
+
+type preparedIcon struct {
 	Name      string
 	Sprite    *image.RGBA
 	Mode      animationMode
@@ -43,6 +52,11 @@ type animatedIcon struct {
 	BaseScale float64
 	Invert    bool
 	Border    color.RGBA
+}
+
+type animatedIcon struct {
+	Spec buttonSpec
+	preparedIcon
 }
 
 var grid = []buttonSpec{
@@ -73,6 +87,9 @@ func main() {
 	libraryPath := flag.String("library", defaultLibraryPath, "path to imported icon-library HTML")
 	fps := flag.Float64("fps", 12, "target animation fps")
 	duration := flag.Duration("duration", 0, "optional max runtime (0 = run until Circle)")
+	pageEvery := flag.Duration("page-every", 0, "auto-cycle bank interval (0 disables automatic paging)")
+	offset := flag.Int("offset", 0, "starting icon offset within the selected icon list")
+	iconsFlag := flag.String("icons", "", "comma-separated icon names to use, in order")
 	flag.Parse()
 
 	if *fps <= 0 {
@@ -85,10 +102,23 @@ func main() {
 		fmt.Fprintf(os.Stderr, "load library: %v\n", err)
 		os.Exit(1)
 	}
-	if len(lib.Icons) < len(grid) {
-		fmt.Fprintf(os.Stderr, "need at least %d icons, got %d\n", len(grid), len(lib.Icons))
+	selected, err := resolveIconIndexes(lib, *iconsFlag)
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "select icons: %v\n", err)
 		os.Exit(1)
 	}
+	if len(selected) == 0 {
+		fmt.Fprintln(os.Stderr, "no icons selected")
+		os.Exit(1)
+	}
+	selected = rotateIndexes(selected, *offset)
+
+	prepared, err := buildPreparedIcons(lib, selected)
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "prepare animated icons: %v\n", err)
+		os.Exit(1)
+	}
+	banks := totalBanks(len(prepared), len(grid))
 
 	writerOptions := loupedeck.WriterOptions{QueueSize: 1024, SendInterval: 0}
 	deck, err := loupedeck.ConnectAutoWithWriterAndRenderOptions(writerOptions, nil)
@@ -109,32 +139,63 @@ func main() {
 		os.Exit(1)
 	}
 
-	icons, err := buildAnimatedIcons(lib)
-	if err != nil {
-		fmt.Fprintf(os.Stderr, "prepare animated icons: %v\n", err)
-		os.Exit(1)
-	}
-
 	listenErrCh := make(chan error, 1)
 	go func() {
 		listenErrCh <- deck.Listen()
 	}()
 
-	exitCh := make(chan struct{}, 1)
-	deck.OnButton(loupedeck.Circle, func(b loupedeck.Button, s loupedeck.ButtonStatus) {
-		slog.Info("Circle exit requested")
+	controlCh := make(chan controlAction, 16)
+	sendControl := func(action controlAction) {
 		select {
-		case exitCh <- struct{}{}:
+		case controlCh <- action:
 		default:
 		}
+	}
+
+	deck.OnButton(loupedeck.Circle, func(b loupedeck.Button, s loupedeck.ButtonStatus) {
+		sendControl(actionExit)
+	})
+	deck.OnButton(loupedeck.Button1, func(b loupedeck.Button, s loupedeck.ButtonStatus) {
+		sendControl(actionPrevBank)
+	})
+	deck.OnButton(loupedeck.Button2, func(b loupedeck.Button, s loupedeck.ButtonStatus) {
+		sendControl(actionNextBank)
+	})
+	deck.OnButton(loupedeck.Button3, func(b loupedeck.Button, s loupedeck.ButtonStatus) {
+		sendControl(actionToggleCycle)
+	})
+	deck.OnTouchUp(loupedeck.Touch1, func(t loupedeck.TouchButton, s loupedeck.ButtonStatus, x, y uint16) {
+		sendControl(actionPrevBank)
+	})
+	deck.OnTouchUp(loupedeck.Touch12, func(t loupedeck.TouchButton, s loupedeck.ButtonStatus, x, y uint16) {
+		sendControl(actionNextBank)
+	})
+	deck.OnTouchUp(loupedeck.Touch6, func(t loupedeck.TouchButton, s loupedeck.ButtonStatus, x, y uint16) {
+		sendControl(actionToggleCycle)
 	})
 
-	fmt.Printf("Starting animated SVG button demo library=%s icon_count=%d fps=%.2f\n", *libraryPath, len(lib.Icons), *fps)
+	fmt.Printf("Starting animated SVG button demo library=%s selected_icons=%d banks=%d fps=%.2f controls=[Button1/Touch1 prev, Button2/Touch12 next, Button3/Touch6 toggle-cycle, Circle exit]\n",
+		*libraryPath,
+		len(prepared),
+		banks,
+		*fps,
+	)
 
-	ticker := time.NewTicker(time.Duration(float64(time.Second) / *fps))
-	defer ticker.Stop()
+	currentBank := 0
+	cyclingEnabled := *pageEvery > 0 && banks > 1
+	icons := makeBank(prepared, currentBank)
+	announceBank(currentBank, banks, icons, cyclingEnabled, *pageEvery)
+
+	animationTicker := time.NewTicker(time.Duration(float64(time.Second) / *fps))
+	defer animationTicker.Stop()
+
+	var pageTicker *time.Ticker
+	if *pageEvery > 0 {
+		pageTicker = time.NewTicker(*pageEvery)
+		defer pageTicker.Stop()
+	}
+
 	started := time.Now()
-
 	renderAll(mainDisplay, icons, 0)
 
 	for {
@@ -145,42 +206,193 @@ func main() {
 			}
 			clearMainDisplay(mainDisplay)
 			return
-		case <-exitCh:
-			clearMainDisplay(mainDisplay)
-			return
-		case <-ticker.C:
+		case action := <-controlCh:
+			nowElapsed := time.Since(started).Seconds()
+			switch action {
+			case actionExit:
+				clearMainDisplay(mainDisplay)
+				return
+			case actionPrevBank:
+				if banks > 1 {
+					currentBank = mod(currentBank-1, banks)
+					icons = makeBank(prepared, currentBank)
+					announceBank(currentBank, banks, icons, cyclingEnabled, *pageEvery)
+					renderAll(mainDisplay, icons, nowElapsed)
+				}
+			case actionNextBank:
+				if banks > 1 {
+					currentBank = mod(currentBank+1, banks)
+					icons = makeBank(prepared, currentBank)
+					announceBank(currentBank, banks, icons, cyclingEnabled, *pageEvery)
+					renderAll(mainDisplay, icons, nowElapsed)
+				}
+			case actionToggleCycle:
+				if pageTicker != nil && banks > 1 {
+					cyclingEnabled = !cyclingEnabled
+					announceBank(currentBank, banks, icons, cyclingEnabled, *pageEvery)
+				}
+			}
+		case <-animationTicker.C:
 			elapsed := time.Since(started).Seconds()
 			renderAll(mainDisplay, icons, elapsed)
 			if *duration > 0 && time.Since(started) >= *duration {
 				clearMainDisplay(mainDisplay)
 				return
 			}
+		case <-pageTick(pageTicker):
+			if cyclingEnabled && banks > 1 {
+				currentBank = mod(currentBank+1, banks)
+				icons = makeBank(prepared, currentBank)
+				announceBank(currentBank, banks, icons, cyclingEnabled, *pageEvery)
+				renderAll(mainDisplay, icons, time.Since(started).Seconds())
+			}
 		}
 	}
 }
 
-func buildAnimatedIcons(lib *loupedeck.SVGIconLibrary) ([]animatedIcon, error) {
-	icons := make([]animatedIcon, 0, len(grid))
-	for i, spec := range grid {
-		base, err := lib.Icons[i].Rasterize(64)
+func buildPreparedIcons(lib *loupedeck.SVGIconLibrary, order []int) ([]preparedIcon, error) {
+	icons := make([]preparedIcon, 0, len(order))
+	for position, idx := range order {
+		base, err := lib.Icons[idx].Rasterize(64)
 		if err != nil {
-			return nil, fmt.Errorf("rasterize %q: %w", lib.Icons[i].Name, err)
+			return nil, fmt.Errorf("rasterize %q: %w", lib.Icons[idx].Name, err)
 		}
 		cropped := cropVisible(base)
-		icons = append(icons, animatedIcon{
-			Spec:      spec,
-			Name:      lib.Icons[i].Name,
+		icons = append(icons, preparedIcon{
+			Name:      lib.Icons[idx].Name,
 			Sprite:    cropped,
-			Mode:      animationMode(i % 4),
-			Speed:     0.75 + float64(i%5)*0.17,
-			Phase:     float64(i) * 0.47,
-			InnerBox:  62 + (i % 3),
-			BaseScale: 0.92 + float64(i%4)*0.025,
-			Invert:    i%5 == 0,
-			Border:    borderPalette[i%len(borderPalette)],
+			Mode:      animationMode(position % 4),
+			Speed:     0.75 + float64(position%5)*0.17,
+			Phase:     float64(position) * 0.47,
+			InnerBox:  62 + (position % 3),
+			BaseScale: 0.92 + float64(position%4)*0.025,
+			Invert:    position%5 == 0,
+			Border:    borderPalette[position%len(borderPalette)],
 		})
 	}
 	return icons, nil
+}
+
+func resolveIconIndexes(lib *loupedeck.SVGIconLibrary, iconsFlag string) ([]int, error) {
+	if strings.TrimSpace(iconsFlag) == "" {
+		indexes := make([]int, len(lib.Icons))
+		for i := range lib.Icons {
+			indexes[i] = i
+		}
+		return indexes, nil
+	}
+	lookup := map[string]int{}
+	for i, icon := range lib.Icons {
+		lookup[strings.ToLower(strings.TrimSpace(icon.Name))] = i
+	}
+	parts := strings.Split(iconsFlag, ",")
+	indexes := make([]int, 0, len(parts))
+	for _, part := range parts {
+		name := strings.ToLower(strings.TrimSpace(part))
+		if name == "" {
+			continue
+		}
+		idx, ok := lookup[name]
+		if !ok {
+			return nil, fmt.Errorf("icon %q not found in library", part)
+		}
+		indexes = append(indexes, idx)
+	}
+	if len(indexes) == 0 {
+		return nil, fmt.Errorf("icons flag did not resolve to any icons")
+	}
+	return indexes, nil
+}
+
+func rotateIndexes(indexes []int, offset int) []int {
+	if len(indexes) == 0 {
+		return nil
+	}
+	offset = mod(offset, len(indexes))
+	rotated := make([]int, 0, len(indexes))
+	rotated = append(rotated, indexes[offset:]...)
+	rotated = append(rotated, indexes[:offset]...)
+	return rotated
+}
+
+func totalBanks(total, pageSize int) int {
+	if total <= 0 || pageSize <= 0 {
+		return 0
+	}
+	return (total + pageSize - 1) / pageSize
+}
+
+func makeBank(prepared []preparedIcon, bank int) []animatedIcon {
+	icons := make([]animatedIcon, 0, len(grid))
+	start := bank * len(grid)
+	for slot, spec := range grid {
+		idx := start + slot
+		if idx >= len(prepared) {
+			icons = append(icons, animatedIcon{Spec: spec, preparedIcon: blankPreparedIcon(slot)})
+			continue
+		}
+		icons = append(icons, animatedIcon{Spec: spec, preparedIcon: prepared[idx]})
+	}
+	return icons
+}
+
+func blankPreparedIcon(slot int) preparedIcon {
+	return preparedIcon{
+		Name:      "",
+		Sprite:    nil,
+		Mode:      animationMode(slot % 4),
+		Speed:     1,
+		Phase:     float64(slot) * 0.25,
+		InnerBox:  60,
+		BaseScale: 1,
+		Invert:    false,
+		Border:    borderPalette[slot%len(borderPalette)],
+	}
+}
+
+func announceBank(bank, banks int, icons []animatedIcon, cycling bool, every time.Duration) {
+	first, last := bankSummaryNames(icons)
+	status := "off"
+	if cycling {
+		status = fmt.Sprintf("on(%s)", every)
+	}
+	fmt.Printf("Bank %d/%d auto-cycle=%s first=%q last=%q\n", bank+1, banks, status, first, last)
+}
+
+func bankSummaryNames(icons []animatedIcon) (string, string) {
+	first, last := "", ""
+	for _, icon := range icons {
+		if icon.Name == "" {
+			continue
+		}
+		if first == "" {
+			first = icon.Name
+		}
+		last = icon.Name
+	}
+	if first == "" {
+		first = "(empty)"
+		last = "(empty)"
+	}
+	return first, last
+}
+
+func mod(v, n int) int {
+	if n == 0 {
+		return 0
+	}
+	v %= n
+	if v < 0 {
+		v += n
+	}
+	return v
+}
+
+func pageTick(t *time.Ticker) <-chan time.Time {
+	if t == nil {
+		return nil
+	}
+	return t.C
 }
 
 func renderAll(display *loupedeck.Display, icons []animatedIcon, elapsed float64) {
@@ -196,6 +408,11 @@ func renderFrame(icon animatedIcon, elapsed float64) image.Image {
 	im := image.NewRGBA(image.Rect(0, 0, tile, tile))
 	stdraw.Draw(im, im.Bounds(), &image.Uniform{bg}, image.Point{}, stdraw.Src)
 	drawMacFrame(im, fg, icon.Border, elapsed, icon)
+
+	if icon.Sprite == nil {
+		drawPlaceholder(im, fg, icon.Spec.Button)
+		return im
+	}
 
 	phase := elapsed*icon.Speed + icon.Phase
 	scale := icon.BaseScale
@@ -265,6 +482,31 @@ func drawMacFrame(dst *image.RGBA, fg, accent color.RGBA, elapsed float64, icon 
 			dst.Set(x, barY+yy, accent)
 			dst.Set(x+1, barY+yy, accent)
 			dst.Set(x+2, barY+yy, accent)
+		}
+	}
+}
+
+func drawPlaceholder(dst *image.RGBA, fg color.RGBA, button loupedeck.TouchButton) {
+	midY := dst.Bounds().Dy() / 2
+	for x := 24; x < dst.Bounds().Dx()-24; x++ {
+		dst.Set(x, midY, fg)
+		dst.Set(x, midY+1, fg)
+	}
+	switch button {
+	case loupedeck.Touch1:
+		for i := 0; i < 10; i++ {
+			dst.Set(24+i, midY-i/2, fg)
+			dst.Set(24+i, midY+i/2, fg)
+		}
+	case loupedeck.Touch12:
+		for i := 0; i < 10; i++ {
+			dst.Set(dst.Bounds().Dx()-25-i, midY-i/2, fg)
+			dst.Set(dst.Bounds().Dx()-25-i, midY+i/2, fg)
+		}
+	case loupedeck.Touch6:
+		for i := 0; i < 10; i++ {
+			dst.Set(dst.Bounds().Dx()/2-6+i, midY-8, fg)
+			dst.Set(dst.Bounds().Dx()/2-6+i, midY+8, fg)
 		}
 	}
 }
