@@ -44,6 +44,11 @@ func main() {
 		fmt.Fprintln(os.Stderr, "missing --script")
 		os.Exit(2)
 	}
+	if extras := flag.Args(); len(extras) > 0 {
+		fmt.Fprintf(os.Stderr, "unexpected positional arguments after flags: %q\n", extras)
+		fmt.Fprintln(os.Stderr, "hint: did you mean to pass a flag like --send-interval instead of a bare argument?")
+		os.Exit(2)
+	}
 	script, err := os.ReadFile(*scriptPath)
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "read script: %v\n", err)
@@ -62,6 +67,7 @@ func main() {
 		os.Exit(1)
 	}
 	defer func() {
+		slog.Info("closing loupedeck connection")
 		if err := deckConn.Close(); err != nil {
 			slog.Warn("close failed", "error", err)
 		}
@@ -178,6 +184,15 @@ func main() {
 	defer rt.Env.Present.Close()
 
 	slog.Info("Loupedeck JS live runner started", "script", *scriptPath, "duration", *duration, "send_interval", *sendInterval, "log_render_stats", *logRenderStats, "log_writer_stats", *logWriterStats, "log_js_stats", *logJSStats, "log_js_trace", *logJSTrace, "log_go_trace", *logGoTrace, "trace_limit", *traceLimit)
+	exitRunner := func(reason string, attrs ...any) {
+		logAttrs := []any{"reason", reason, "script", *scriptPath}
+		logAttrs = append(logAttrs, attrs...)
+		slog.Info("Loupedeck JS live runner exiting", logAttrs...)
+		if *traceDumpOnExit {
+			dumpMetricsWindow("final")
+		}
+		clearDisplays(displays)
+	}
 	for {
 		select {
 		case <-statsTick:
@@ -197,29 +212,19 @@ func main() {
 		case err := <-listenErrCh:
 			if err != nil {
 				fmt.Fprintf(os.Stderr, "listen: %v\n", err)
+				exitRunner("listen-error", "error", err)
+			} else {
+				exitRunner("listen-stopped")
 			}
-			if *traceDumpOnExit {
-				dumpMetricsWindow("final")
-			}
-			clearDisplays(displays)
 			return
-		case <-sigCh:
-			if *traceDumpOnExit {
-				dumpMetricsWindow("final")
-			}
-			clearDisplays(displays)
+		case sig := <-sigCh:
+			exitRunner("signal", "signal", sig.String())
 			return
 		case <-exitCh:
-			if *traceDumpOnExit {
-				dumpMetricsWindow("final")
-			}
-			clearDisplays(displays)
+			exitRunner("circle-button")
 			return
 		case <-timeout:
-			if *traceDumpOnExit {
-				dumpMetricsWindow("final")
-			}
-			clearDisplays(displays)
+			exitRunner("timeout", "duration", *duration)
 			return
 		}
 	}
