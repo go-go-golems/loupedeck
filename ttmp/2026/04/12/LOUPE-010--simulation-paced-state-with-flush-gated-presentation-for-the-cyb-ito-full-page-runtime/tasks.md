@@ -17,12 +17,12 @@
 
 ## Phase B: JS environment and module wiring
 
-- [ ] Add presenter ownership to `runtime/js/env/env.go`
-- [ ] Register a new JS module for presentation control in `runtime/js/runtime.go`
-- [ ] Add `runtime/js/module_present/module.go`
-- [ ] Expose `present.onFrame(fn)`
-- [ ] Expose `present.invalidate(reason)`
-- [ ] Add JS runtime tests proving JS frame callbacks and invalidation semantics work correctly
+- [x] Add presenter ownership to `runtime/js/env/env.go`
+- [x] Register a new JS module for presentation control in `runtime/js/runtime.go`
+- [x] Add `runtime/js/module_present/module.go`
+- [x] Expose `present.onFrame(fn)`
+- [x] Expose `present.invalidate(reason)`
+- [x] Add JS runtime tests proving JS frame callbacks and invalidation semantics work correctly
 
 ## Phase C: live-runner refactor
 

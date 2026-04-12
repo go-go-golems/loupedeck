@@ -21,3 +21,15 @@ Implemented Phase A of `LOUPE-010`: the pure-Go one-frame-in-flight presenter ru
 - /home/manuel/code/wesen/2026-04-11--loupedeck-test/runtime/present/runtime_test.go — Tests for coalescing, serial presentation, and shutdown behavior
 - /home/manuel/code/wesen/2026-04-11--loupedeck-test/ttmp/2026/04/12/LOUPE-010--simulation-paced-state-with-flush-gated-presentation-for-the-cyb-ito-full-page-runtime/tasks.md — Marked Phase A complete and recorded the initial scripts archive
 
+## 2026-04-12
+
+Implemented Phase B of `LOUPE-010`: JS environment ownership and the new `loupedeck/present` module. The environment now owns a presenter runtime, the owned JS runtime registers a new native module, and JS can now register a frame callback with `present.onFrame(fn)` and request presentation with `present.invalidate(reason)`. Runtime tests were added to prove that JS frame callbacks are invoked with the correct reason and that repeated invalidations coalesce to the latest reason across a blocked flush boundary. The full repository test suite passed after this change.
+
+### Related Files
+
+- /home/manuel/code/wesen/2026-04-11--loupedeck-test/runtime/js/env/env.go — Added presenter ownership to the runtime environment
+- /home/manuel/code/wesen/2026-04-11--loupedeck-test/runtime/js/runtime.go — Registered the new `loupedeck/present` module
+- /home/manuel/code/wesen/2026-04-11--loupedeck-test/runtime/js/module_present/module.go — New JS presentation module exposing `onFrame` and `invalidate`
+- /home/manuel/code/wesen/2026-04-11--loupedeck-test/runtime/js/runtime_test.go — Added tests proving frame-callback execution and latest-reason invalidation semantics
+- /home/manuel/code/wesen/2026-04-11--loupedeck-test/ttmp/2026/04/12/LOUPE-010--simulation-paced-state-with-flush-gated-presentation-for-the-cyb-ito-full-page-runtime/tasks.md — Marked Phase B complete
+

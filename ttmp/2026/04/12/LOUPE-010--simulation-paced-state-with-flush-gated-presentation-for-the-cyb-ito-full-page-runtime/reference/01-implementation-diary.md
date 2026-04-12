@@ -140,3 +140,64 @@ go test ./...
 ### What should be done in the future
 - Implement Phase B next: environment ownership plus the JS `loupedeck/present` module.
 - Then wire the live runner and migrate the full-page example onto the new presenter path.
+
+## Step 3: Add presenter ownership to the JS environment and expose `loupedeck/present`
+
+With the pure-Go presenter runtime in place, the next step was to make it reachable from JavaScript. That required two things: the environment needed to own a presenter instance, and the owned JS runtime needed a new native module that lets scripts register a frame callback and invalidate presentation without directly calling `renderAll(...)` from the animation loop.
+
+### What I did
+- Updated:
+  - `runtime/js/env/env.go`
+  - `runtime/js/runtime.go`
+- Added a new module:
+  - `runtime/js/module_present/module.go`
+- The environment now owns:
+  - `Present *present.Runtime`
+- The JS runtime now registers:
+  - `loupedeck/present`
+- The new JS module exposes:
+  - `present.onFrame(fn)`
+  - `present.invalidate(reason)`
+- The `onFrame` callback is wired through the owner-thread runtime model, so frame callbacks still execute safely on the JS owner thread.
+- Added tests in `runtime/js/runtime_test.go` proving:
+  - JS can register a frame callback and receive the correct reason string
+  - repeated invalidations coalesce to the latest reason across a blocked flush
+- Archived a new ticket-local script:
+  - `scripts/03-go-test-phase-b-present-module.sh`
+- Ran:
+
+```bash
+gofmt -w runtime/js/env/env.go runtime/js/runtime.go runtime/js/runtime_test.go runtime/js/module_present/module.go
+go test ./runtime/js/...
+go test ./...
+```
+
+### Why
+- The full-page scene cannot migrate to the correct architecture until JavaScript has a way to separate simulation updates from frame production.
+- Wiring the presenter through the environment keeps the structure consistent with the rest of the runtime.
+- Owner-thread callback settlement is still mandatory; changing the presentation model does not relax the goja safety rules.
+
+### What worked
+- The new JS-facing API now exists and works under test.
+- Invalidations can be requested from JavaScript without forcing immediate rendering.
+- The coalescing rule already holds across the JS bridge, not just inside the pure-Go presenter tests.
+
+### What didn’t work
+- This slice still does not change the live-runner behavior yet, because the presenter is not the main presentation driver until the live runner is refactored.
+- The existing example scripts are not yet using the new module.
+
+### What I learned
+- The new presentation API fits the existing runtime ownership model naturally.
+- Testing coalescing through the JS bridge was worthwhile because it proves the semantics survive owner-thread settlement rather than only existing in the pure-Go layer.
+
+### What was tricky to build
+- The most delicate part was making sure `present.onFrame` stores a callback that settles onto the owner thread correctly and gracefully no-ops if the runtime is already closed.
+- Another small but real issue was the test shape: because multiple snippets run in the same VM, the second snippet could not safely redeclare `present` with `const`.
+
+### What warrants a second pair of eyes
+- Once the full-page scene is migrated, someone should review whether `present.invalidate(reason)` wants stronger reason semantics than a plain string.
+- If later we need richer presentation APIs like `invalidateLatest()` or explicit present stats, those should still be layered on top of this minimal model rather than replacing it.
+
+### What should be done in the future
+- Refactor the live runner next so the presenter becomes the primary frame-production path.
+- Then migrate the full-page cyb-ito scene to `loupedeck/present` and rerun the trace comparison.

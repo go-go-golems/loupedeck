@@ -7,12 +7,14 @@ import (
 	"github.com/dop251/goja"
 	"github.com/dop251/goja_nodejs/eventloop"
 	"github.com/dop251/goja_nodejs/require"
+	"github.com/go-go-golems/loupedeck/pkg/jsmetrics"
 	"github.com/go-go-golems/loupedeck/pkg/runtimebridge"
 	"github.com/go-go-golems/loupedeck/pkg/runtimeowner"
 	envpkg "github.com/go-go-golems/loupedeck/runtime/js/env"
 	"github.com/go-go-golems/loupedeck/runtime/js/module_anim"
 	"github.com/go-go-golems/loupedeck/runtime/js/module_easing"
 	"github.com/go-go-golems/loupedeck/runtime/js/module_gfx"
+	"github.com/go-go-golems/loupedeck/runtime/js/module_present"
 	"github.com/go-go-golems/loupedeck/runtime/js/module_state"
 	"github.com/go-go-golems/loupedeck/runtime/js/module_ui"
 )
@@ -40,6 +42,8 @@ func NewRuntime(env *envpkg.Environment) *Runtime {
 	module_easing.Register(registry)
 	module_anim.Register(registry)
 	module_gfx.Register(registry)
+	module_present.Register(registry)
+	jsmetrics.RegisterModules(registry, "loupedeck")
 	registry.Enable(vm)
 
 	owner := runtimeowner.NewRunner(vm, loop, runtimeowner.Options{
@@ -52,7 +56,8 @@ func NewRuntime(env *envpkg.Environment) *Runtime {
 		Loop:    loop,
 		Owner:   owner,
 		Values: map[string]any{
-			envpkg.BindingKeyEnvironment: env,
+			envpkg.BindingKeyEnvironment:  env,
+			jsmetrics.BindingKeyCollector: env.Metrics,
 		},
 	})
 

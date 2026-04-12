@@ -5,6 +5,8 @@ import (
 	"github.com/go-go-golems/loupedeck/pkg/runtimebridge"
 	"github.com/go-go-golems/loupedeck/runtime/anim"
 	"github.com/go-go-golems/loupedeck/runtime/host"
+	"github.com/go-go-golems/loupedeck/runtime/metrics"
+	"github.com/go-go-golems/loupedeck/runtime/present"
 	"github.com/go-go-golems/loupedeck/runtime/reactive"
 	"github.com/go-go-golems/loupedeck/runtime/ui"
 )
@@ -16,6 +18,8 @@ type Environment struct {
 	UI       *ui.UI
 	Host     *host.Runtime
 	Anim     *anim.Runtime
+	Present  *present.Runtime
+	Metrics  *metrics.Collector
 }
 
 func Lookup(vm *goja.Runtime) (*Environment, bool) {
@@ -48,6 +52,12 @@ func Ensure(e *Environment) *Environment {
 	}
 	if e.Anim == nil {
 		e.Anim = anim.New(e.Host)
+	}
+	if e.Present == nil {
+		e.Present = present.New()
+	}
+	if e.Metrics == nil {
+		e.Metrics = metrics.New()
 	}
 	return e
 }

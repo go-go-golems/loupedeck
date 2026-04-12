@@ -2,6 +2,7 @@ package js
 
 import (
 	"sync"
+	"sync/atomic"
 	"testing"
 	"time"
 
@@ -464,6 +465,112 @@ func TestSceneMetricsModuleProvidesReusableHelpers(t *testing.T) {
 	}
 	if got := snap.Trace[1].Name; got != "demo.renderAll.end" {
 		t.Fatalf("expected second scene trace event demo.renderAll.end, got %q", got)
+	}
+}
+
+func TestPresentModuleRegistersFrameCallbackAndInvalidates(t *testing.T) {
+	env := envpkg.Ensure(nil)
+	rt := NewRuntime(env)
+	defer rt.Close(nil)
+	done := make(chan string, 1)
+	env.Present.SetFlushFunc(func() (int, error) {
+		done <- "flushed"
+		return 1, nil
+	})
+	env.Present.Start(rt.Context())
+
+	_, err := rt.RunString(nil, `
+		const present = require("loupedeck/present");
+		const metrics = require("loupedeck/metrics");
+		present.onFrame(reason => {
+		  metrics.trace("present.frame", { reason });
+		});
+		present.invalidate("initial");
+	`)
+	if err != nil {
+		t.Fatalf("run script: %v", err)
+	}
+
+	select {
+	case <-done:
+	case <-time.After(2 * time.Second):
+		t.Fatal("timed out waiting for presenter flush")
+	}
+
+	snap := rt.Env.Metrics.Snapshot()
+	if len(snap.Trace) != 1 {
+		t.Fatalf("expected one trace event from frame callback, got %d", len(snap.Trace))
+	}
+	if got := snap.Trace[0].Name; got != "present.frame" {
+		t.Fatalf("expected frame trace event, got %q", got)
+	}
+	if got := snap.Trace[0].Fields["reason"]; got != "initial" {
+		t.Fatalf("expected frame reason initial, got %q", got)
+	}
+}
+
+func TestPresentModuleCoalescesInvalidationsToLatestReason(t *testing.T) {
+	env := envpkg.Ensure(nil)
+	rt := NewRuntime(env)
+	defer rt.Close(nil)
+	firstFlushStarted := make(chan struct{}, 1)
+	releaseFirstFlush := make(chan struct{})
+	secondFlushDone := make(chan struct{}, 1)
+	var flushCount int32
+	env.Present.SetFlushFunc(func() (int, error) {
+		count := atomic.AddInt32(&flushCount, 1)
+		if count == 1 {
+			firstFlushStarted <- struct{}{}
+			<-releaseFirstFlush
+		}
+		if count == 2 {
+			secondFlushDone <- struct{}{}
+		}
+		return 1, nil
+	})
+	env.Present.Start(rt.Context())
+
+	_, err := rt.RunString(nil, `
+		const present = require("loupedeck/present");
+		const metrics = require("loupedeck/metrics");
+		present.onFrame(reason => {
+		  metrics.trace("present.frame", { reason });
+		});
+		present.invalidate("initial");
+	`)
+	if err != nil {
+		t.Fatalf("run script: %v", err)
+	}
+	select {
+	case <-firstFlushStarted:
+	case <-time.After(2 * time.Second):
+		t.Fatal("timed out waiting for first flush start")
+	}
+
+	_, err = rt.RunString(nil, `
+		present.invalidate("loop-1");
+		present.invalidate("loop-2");
+		present.invalidate("loop-3");
+	`)
+	if err != nil {
+		t.Fatalf("run script 2: %v", err)
+	}
+	close(releaseFirstFlush)
+	select {
+	case <-secondFlushDone:
+	case <-time.After(2 * time.Second):
+		t.Fatal("timed out waiting for second flush done")
+	}
+
+	snap := rt.Env.Metrics.Snapshot()
+	if len(snap.Trace) != 2 {
+		t.Fatalf("expected two frame trace events, got %d", len(snap.Trace))
+	}
+	if got := snap.Trace[0].Fields["reason"]; got != "initial" {
+		t.Fatalf("expected first frame reason initial, got %q", got)
+	}
+	if got := snap.Trace[1].Fields["reason"]; got != "loop-3" {
+		t.Fatalf("expected second frame reason loop-3, got %q", got)
 	}
 }
 
