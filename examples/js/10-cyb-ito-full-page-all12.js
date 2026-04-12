@@ -14,6 +14,14 @@ const TOP = 3;
 const LABEL_Y = 6;
 const LABEL_H = 16;
 const DIVIDER_Y = 22;
+const KANJI_TILE_DX = -10;
+const KANJI_TILE_DY = 5;
+const KANJI_HUD_DX = -10;
+const KANJI_HUD_DY = 5;
+const SIDEBAR_KANJI_X = 8;
+const SIDEBAR_KANJI_Y = 5;
+const SIDEBAR_KANJI_W = 40;
+const SIDEBAR_KANJI_H = 24;
 const CJK_FONT_PATH = "/usr/share/fonts/opentype/noto/NotoSansCJK-Regular.ttc";
 
 function loadOptionalFont(path, opts) {
@@ -24,8 +32,9 @@ function loadOptionalFont(path, opts) {
   }
 }
 
-const KANJI_FONT = loadOptionalFont(CJK_FONT_PATH, { size: 16, dpi: 72, index: 0 });
-const KANJI_FONT_SMALL = loadOptionalFont(CJK_FONT_PATH, { size: 12, dpi: 72, index: 0 });
+const KANJI_FONT = loadOptionalFont(CJK_FONT_PATH, { size: 18, dpi: 72, index: 0 });
+const KANJI_FONT_SMALL = loadOptionalFont(CJK_FONT_PATH, { size: 14, dpi: 72, index: 0 });
+const KANJI_FONT_SIDEBAR = loadOptionalFont(CJK_FONT_PATH, { size: 20, dpi: 72, index: 0 }) || KANJI_FONT;
 
 const frame = gfx.surface(MAIN_W, MAIN_H);
 const baseLayer = gfx.surface(MAIN_W, MAIN_H);
@@ -169,7 +178,7 @@ function drawTileFrame(surface, x, y, isActive) {
 }
 
 function drawTileChrome(surface, idx, x, y, isActive) {
-  drawText(surface, tileKanji[idx], x + 17, y + LABEL_Y - 2, isActive ? 210 : 85, 20, 16, KANJI_FONT);
+  drawText(surface, tileKanji[idx], x + 17 + KANJI_TILE_DX, y + LABEL_Y - 2 + KANJI_TILE_DY, isActive ? 235 : 110, 24, 20, KANJI_FONT);
   drawText(surface, tileLabels[idx], x + 58, y + LABEL_Y + 1, isActive ? 140 : 55, 48, 12);
   lineH(surface, x + 2, x + TILE - 3, y + DIVIDER_Y, isActive ? 28 : 8);
 }
@@ -652,8 +661,8 @@ function renderRightStrip(activeIdx) {
       const ci = (i + Math.floor(off / 20)) % horrorKanji.length;
       const dist = Math.abs(y + 10 - SIDE_H / 2) / (SIDE_H / 2);
       const fade = Math.max(0, 1 - dist * 1.3);
-      const brt = (fade * 35 + 4) | 0;
-      drawText(rightStrip, horrorKanji[ci], 30, y, brt, 30, 18, KANJI_FONT_SMALL || KANJI_FONT);
+      const brt = (fade * 120 + 36) | 0;
+      drawText(rightStrip, horrorKanji[ci], SIDEBAR_KANJI_X, y + SIDEBAR_KANJI_Y, brt, SIDEBAR_KANJI_W, SIDEBAR_KANJI_H, KANJI_FONT_SIDEBAR);
     }
 
     const activeY = tileRect(activeIdx).y + (TILE / 2) | 0;
@@ -674,7 +683,7 @@ function renderHUDLayer(activeIdx, eventText) {
     hudLayer.clear(0);
     hudLayer.fillRect(x + 28, y + 68, 34, 10, 16);
     drawText(hudLayer, eventText, 315, 248, 120, 42, 14);
-    drawText(hudLayer, tileKanji[activeIdx], 282, 229, 110, 18, 16, KANJI_FONT_SMALL || KANJI_FONT);
+    drawText(hudLayer, tileKanji[activeIdx], 282 + KANJI_HUD_DX, 229 + KANJI_HUD_DY, 150, 24, 20, KANJI_FONT_SMALL || KANJI_FONT);
     drawText(hudLayer, tileLabels[activeIdx], 324, 232, 70, 54, 12);
   });
 }
