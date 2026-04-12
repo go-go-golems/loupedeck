@@ -50,10 +50,10 @@ Current completion state:
 - Presenter-driven single full-page flush model preserved
 - First FX slice added: scanlines, grain/noise, and active-tile sweep/ripple overlays
 - Color-tinted display-layer support added for overlays
-- Selected tile now uses a red accent layer
-- A large touch-triggered spiral ripple overlay now spans the whole screen
-- `go test ./...` passed after the accent/ripple runtime extension and scene update
-- Hardware smoke validation was previously successful for the layered compositor slice; the new red/ripple slice is ready for user verification via the archived interactive run script
+- Selected tile now uses a red accent layer that preserves the underlying mini-app/art instead of covering it with a red mask
+- A large touch-triggered spiral ripple overlay now uses the touch position and is tuned to read across the whole screen
+- `go test ./...` passed after the accent/ripple runtime extension and the follow-up scene tuning
+- Hardware smoke validation was previously successful for the layered compositor slice; the current red/ripple tuning is ready for user verification via the archived interactive run script
 
 ## Topics
 

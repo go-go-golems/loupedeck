@@ -47,6 +47,16 @@
 - [x] Run `docmgr doctor --ticket LOUPE-011 --stale-after 30`
 - [ ] Commit the bookkeeping slice
 
+## Phase G: selected-tile tint correction and true fullscreen ripple tuning
+
+- [x] Change the selected tile so the underlying mini-app/art remains visible and is tinted red rather than covered by a red mask
+- [x] Make the touch ripple use the touch position and travel across the whole canvas instead of reading as a tile-local effect
+- [x] Run `go test ./...`
+- [x] Commit the code slice
+- [x] Update the diary and ticket bookkeeping
+- [x] Run `docmgr doctor --ticket LOUPE-011 --stale-after 30`
+- [ ] Commit the bookkeeping slice
+
 ## Future work candidates after the current slices
 
 - [ ] Cache static base/chrome layers instead of rebuilding everything every frame

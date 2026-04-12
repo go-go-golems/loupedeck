@@ -15,3 +15,5 @@
 - Updated the full-page scene so the selected tile is highlighted through a red accent layer rather than forcing the entire base frame into a color path.
 - Added a large touch-triggered spiral ripple overlay that spans the whole screen while preserving the presenter-driven single-frame flush model.
 - Added an interactive ticket-local run script for user verification: `scripts/05-run-red-ripple-scene-interactive.sh`.
+- Tuned the selected-tile accent so the actual mini-app/art remains visible while being tinted red instead of being partially covered by a red overlay (`a78d513` — `Tune red accent rendering and fullscreen touch ripple`).
+- Tuned the touch ripple so it uses the touch location and reads as a true fullscreen spiral/ring effect rather than a mostly tile-local accent.

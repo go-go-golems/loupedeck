@@ -14,7 +14,9 @@ RelatedFiles:
     - Path: ../../../../../../../../../../../tmp/loupe-cyb-ito-layered-011-success-1776029307.log
       Note: Hardware evidence log for the first successful layered full-page smoke run
     - Path: examples/js/10-cyb-ito-full-page-all12.js
-      Note: Primary code file changed in Step 2
+      Note: |-
+        Primary code file changed in Step 2
+        Corrected active-tile tint composition and strengthened fullscreen touch ripple
     - Path: runtime/js/module_ui/module.go
       Note: JS UI layer API now accepts optional color options
     - Path: runtime/render/visual_runtime.go
@@ -31,6 +33,7 @@ LastUpdated: 2026-04-12T17:20:07.233054427-04:00
 WhatFor: Use this diary to understand what was changed, why, what worked, what failed, and how to review the layered full-frame scene work.
 WhenToUse: Use when continuing, reviewing, or validating the LOUPE-011 layered full-frame effects implementation.
 ---
+
 
 
 
@@ -285,4 +288,85 @@ Now add the huge spiral ripple effect that goes across the entire screen when to
   - `/home/manuel/code/wesen/2026-04-11--loupedeck-test/runtime/ui/display.go`
   - `/home/manuel/code/wesen/2026-04-11--loupedeck-test/runtime/render/visual_runtime.go`
   - `/home/manuel/code/wesen/2026-04-11--loupedeck-test/runtime/js/module_ui/module.go`
+  - `/home/manuel/code/wesen/2026-04-11--loupedeck-test/examples/js/10-cyb-ito-full-page-all12.js`
+
+## Step 4: Correct the red selected-tile rendering and make the touch ripple read across the whole canvas
+
+After the previous slice, the user gave two very specific visual corrections. First, the selected tile should still show the same mini-app/art, only tinted red; it should not look like a red cover panel that hides the tile content. Second, the touch ripple should read as a full-canvas event, not as something that mostly lives inside the touched tile.
+
+This step is therefore a scene-tuning correction pass, not a new architecture pass. The presenter-driven model and the tint-capable accent layer both stayed the same; I only changed how the scene uses them.
+
+### Prompt Context
+
+**User prompt (verbatim):** "ok, but the selected tile should be th enormal application, except it's tinted red. here the icon of the animaion / the mini app disappears.
+
+Furthermore, the spiral ripple touch should spread actoss the entire canvas, not just the entire tile."
+
+**Assistant interpretation:** Keep the current red accent feature, but render the selected tile’s actual art/chrome through the accent layer so the app stays visible, and strengthen the touch ripple so it clearly travels across the whole canvas.
+
+**Inferred user intent:** The user wants the new visual effects to feel like faithful enhancements to the cyb-ito scene rather than masks that obscure the art or localized flourishes that do not read at the full-screen level.
+
+**Commit (code):** `a78d513` — `Tune red accent rendering and fullscreen touch ripple`
+
+### What I did
+- Updated `/home/manuel/code/wesen/2026-04-11--loupedeck-test/examples/js/10-cyb-ito-full-page-all12.js` so:
+  - the normal grayscale `sceneLayer` and `chromeLayer` skip the active tile
+  - the `accentLayer` now renders the active tile’s real frame, chrome, and art instead of painting a mostly solid red overlay over it
+- Changed the touch ripple trigger path so it accepts the touch event coordinates and maps them into the main canvas space.
+- Strengthened the fullscreen ripple renderer:
+  - more spiral arms
+  - more steps per arm
+  - longer outward travel
+  - additional expanding rings
+  - longer duration (`1200ms`)
+- Kept the underlying runtime architecture the same.
+- Ran `go test ./...`.
+
+### Why
+- The user feedback was precise and correct: the previous red accent implementation read like a red cover effect instead of a red-tinted active application tile.
+- The previous ripple logic was technically full-surface, but visually it was still too weak/localized. That meant the implementation met the letter of the design better than the actual on-device perception.
+- This step corrects the visuals without forcing another runtime expansion.
+
+### What worked
+- The selected tile now has a better composition model: the active tile is rendered in the accent layer itself, so its content remains visible.
+- The ripple now uses the actual touch position instead of only the tile center fallback when coordinates are available.
+- The tests still pass after the tuning.
+
+### What didn't work
+- I still did not run the hardware test myself in this step because the user explicitly said I did not need to; this remains prepared-for-user-validation rather than independently revalidated by me.
+
+### What I learned
+- The difference between “technically layered” and “visually reading correctly on hardware” is important. The previous slice had the right mechanism but the wrong perceptual result.
+- For effect-heavy scenes like this one, user feedback on what the effect actually looks like is as important as any internal architectural cleanliness.
+
+### What was tricky to build
+- The tricky part was fixing the selected-tile tint without tearing down the current layering model. The clean fix was not to reduce the red overlay opacity; it was to move the active tile’s real rendering into the red-tinted accent layer and stop duplicating it underneath in grayscale.
+- The ripple tuning was also tricky because “across the whole canvas” is a perceptual target, not just a geometric one. I had to make the spiral arms denser and the expanding ring front much stronger so the effect would plausibly read at full-screen scale.
+
+### What warrants a second pair of eyes
+- The touch coordinate mapping assumes the `ui.onTouch` event coordinates are meaningful relative to the touched tile. That is likely correct, but it is worth verifying on hardware.
+- The ripple may now be too strong or too busy, depending on device perception.
+
+### What should be done in the future
+- Get direct hardware feedback on whether the selected tile tint now preserves the mini-app art correctly.
+- Get direct hardware feedback on whether the fullscreen ripple is now big enough and not too visually noisy.
+- If needed, tune intensity/duration rather than changing architecture again.
+
+### Code review instructions
+- Start in `/home/manuel/code/wesen/2026-04-11--loupedeck-test/examples/js/10-cyb-ito-full-page-all12.js`.
+- Focus on:
+  - `renderChromeLayer(...)`
+  - `renderSceneLayer(...)`
+  - `triggerTouchRipple(...)`
+  - `drawSelectedTileAccent(...)`
+  - `drawFullscreenSpiralRipple(...)`
+  - `renderAccentLayer(...)`
+- Validate with:
+  - `go test ./...`
+  - then run the interactive scene script on hardware.
+
+### Technical details
+- Interactive user test script:
+  - `/home/manuel/code/wesen/2026-04-11--loupedeck-test/ttmp/2026/04/12/LOUPE-011--layered-full-frame-effects-on-the-presenter-driven-cyb-ito-runtime/scripts/05-run-red-ripple-scene-interactive.sh`
+- Main code file for this tuning pass:
   - `/home/manuel/code/wesen/2026-04-11--loupedeck-test/examples/js/10-cyb-ito-full-page-all12.js`
