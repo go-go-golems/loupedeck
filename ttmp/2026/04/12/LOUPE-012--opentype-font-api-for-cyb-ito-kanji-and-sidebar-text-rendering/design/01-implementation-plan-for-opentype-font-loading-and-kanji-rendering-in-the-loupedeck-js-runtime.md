@@ -10,13 +10,20 @@ Topics:
 DocType: design
 Intent: long-term
 Owners: []
-RelatedFiles: []
+RelatedFiles:
+    - Path: examples/js/07-cyb-ito-prototype.js
+      Note: First cyb-ito example using the new CJK font API
+    - Path: runtime/gfx/font.go
+      Note: New Go-side font loading/caching layer designed and implemented under this ticket
+    - Path: runtime/js/module_gfx/module.go
+      Note: JS font API bridge and text font option
 ExternalSources: []
-Summary: "Plan the addition of a JS-facing OpenType font API so cyb-ito scenes can render proper kanji and sidebar text through the retained gfx surface pipeline."
+Summary: Plan the addition of a JS-facing OpenType font API so cyb-ito scenes can render proper kanji and sidebar text through the retained gfx surface pipeline.
 LastUpdated: 2026-04-12T18:15:00-04:00
-WhatFor: "Use this document when implementing real font loading and CJK-capable text rendering for the Loupedeck JS runtime."
-WhenToUse: "Use when adding `gfx.font(...)`, font caching, kanji rendering, or cyb-ito sidebar/title text support."
+WhatFor: Use this document when implementing real font loading and CJK-capable text rendering for the Loupedeck JS runtime.
+WhenToUse: Use when adding `gfx.font(...)`, font caching, kanji rendering, or cyb-ito sidebar/title text support.
 ---
+
 
 # Implementation plan for OpenType font loading and kanji rendering in the Loupedeck JS runtime
 

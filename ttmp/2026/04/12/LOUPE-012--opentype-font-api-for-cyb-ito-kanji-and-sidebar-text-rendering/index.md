@@ -40,7 +40,14 @@ Current completion state:
 - Implementation plan written
 - Detailed task list written
 - Diary created
-- Code work not yet started
+- Go-side font loader/cache implemented in `runtime/gfx`
+- `.ttf/.otf` and `.ttc` collection loading supported
+- JS `gfx.font(path, opts)` API implemented
+- `surface.text(..., { font })` support implemented with `basicfont.Face7x13` fallback
+- JS runtime tests now prove both generic font-handle use and collection-font kanji rendering
+- First cyb-ito integration completed in `examples/js/07-cyb-ito-prototype.js`
+- The prototype now uses a CJK font to render actual kanji tile labels and a kanji sidebar scroller
+- `go test ./...` passes after the first three implementation phases
 
 ## Topics
 

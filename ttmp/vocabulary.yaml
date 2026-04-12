@@ -31,6 +31,18 @@ topics:
       description: Benchmarking and measurement workflows
     - slug: performance
       description: Performance analysis and tuning work
+    - slug: analysis
+      description: Code analysis and architectural assessment documentation
+    - slug: architecture
+      description: System architecture, design patterns, and structural organization
+    - slug: code-quality
+      description: Code quality assessment, refactoring, and technical debt analysis
+    - slug: refactoring
+      description: Code restructuring, reorganization, and improvement efforts
+    - slug: fonts
+      description: Font loading, rasterization, font APIs, and typography work
+    - slug: unicode
+      description: Unicode, CJK, and non-ASCII text rendering topics
 docTypes:
     - slug: design-doc
       description: Structured rationale and architecture notes
