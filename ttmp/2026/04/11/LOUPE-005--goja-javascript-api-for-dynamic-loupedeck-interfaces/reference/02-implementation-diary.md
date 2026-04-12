@@ -15,6 +15,10 @@ Owners: []
 RelatedFiles:
     - Path: ttmp/2026/04/11/LOUPE-005--goja-javascript-api-for-dynamic-loupedeck-interfaces/design-doc/01-brainstorm-goja-javascript-api-approaches-for-dynamic-loupedeck-interfaces.md
       Note: Main design brainstorm doc for the JS API direction
+    - Path: ttmp/2026/04/11/LOUPE-005--goja-javascript-api-for-dynamic-loupedeck-interfaces/design-doc/02-textbook-reactive-goja-ui-runtime-for-dynamic-loupedeck-interfaces.md
+      Note: Intern-oriented conceptual deep dive for the preferred reactive design
+    - Path: ttmp/2026/04/11/LOUPE-005--goja-javascript-api-for-dynamic-loupedeck-interfaces/design-doc/03-implementation-plan-reactive-goja-ui-runtime-for-dynamic-loupedeck-interfaces.md
+      Note: Intern-oriented phased implementation plan for building the preferred runtime
     - Path: ttmp/2026/04/11/LOUPE-005--goja-javascript-api-for-dynamic-loupedeck-interfaces/reference/01-javascript-api-example-scripts.md
       Note: Example-script reference pack for multiple API styles and scenarios
     - Path: renderer.go
@@ -22,10 +26,10 @@ RelatedFiles:
     - Path: writer.go
       Note: Current transport ownership layer that the JS API must not bypass
 ExternalSources: []
-Summary: Chronological diary for the goja JavaScript API design ticket, including ticket creation, design-space mapping, and example-script brainstorming.
+Summary: Chronological diary for the goja JavaScript API design ticket, including ticket creation, design-space mapping, example-script brainstorming, and intern-oriented textbook/implementation-plan authoring.
 LastUpdated: 2026-04-11T20:40:45-04:00
-WhatFor: Preserve the exact design framing, commands, and rationale behind the first brainstorming pass for a future scriptable Loupedeck runtime.
-WhenToUse: Use when resuming the JS API design work or when reviewing why a hybrid retained/timeline/state model was favored in the brainstorm.
+WhatFor: Preserve the exact design framing, commands, and rationale behind the early planning passes for a future scriptable Loupedeck runtime.
+WhenToUse: Use when resuming the JS API design work or when reviewing why a hybrid retained/timeline/state model was favored and how the reactive implementation should be phased.
 ---
 
 # Diary
@@ -136,3 +140,122 @@ retained page/tile model + explicit state helpers + first-class animation/timeli
 ```
 
 - This keeps transport and low-level rendering policy in Go while letting scripts describe dynamic behavior elegantly.
+
+## Step 2: Write the reactive textbook and the detailed execution plan for a new intern
+
+After the first brainstorm pass, the next request was not for more alternatives but for something much more operational: a teaching document that explains the preferred reactive design in textbook form, and then an execution plan that a new intern could actually follow to build it in the right order.
+
+This changed the character of the ticket. The first documents were “what are the possible API shapes?” documents. The new documents are “what exactly do we mean by the reactive model, what does mutating a signal mean, and what is the implementation order that preserves transport safety?” documents. That is a very different deliverable, and it is much more directly useful to the person who will eventually build the system.
+
+### Prompt Context
+
+**User prompt (verbatim):** "write a detailed textbook course document about the implementation of the reactive version, what mutate signals means, etc... 
+
+Create a detailed textbook that is very detailed for a new intern, explaining all the parts of the system needed to understand what it is, with prose paragraphs and bullet point sand pseudocode and diagrams and api references and file
+  references.
+  It should be very clear and detailed. Store in the ticket and the nupload to remarkable."
+
+**Assistant interpretation:** Add a deep intern-oriented textbook for the preferred reactive runtime, add a concrete implementation plan for building it, update ticket bookkeeping, and upload the expanded design package to the reMarkable.
+
+**Inferred user intent:** Move the ticket from broad ideation to execution-ready onboarding material, so a new engineer can understand the reactive model and then implement it in the correct order without rediscovering the architecture.
+
+**Commit (code):** N/A — documentation and delivery step.
+
+### What I did
+- Added a new textbook-style design doc:
+
+```text
+design-doc/02-textbook-reactive-goja-ui-runtime-for-dynamic-loupedeck-interfaces.md
+```
+
+- Wrote it as a course-style explanation covering:
+  - why reactive state is preferred here
+  - what a signal is
+  - what “mutate a signal” means semantically
+  - how computed values and dependency tracking work
+  - how retained UI nodes participate in the reactive graph
+  - how animations should mutate state or retained properties rather than transport
+  - how the runtime layers stack on top of the existing renderer/writer
+- Added a new execution-plan design doc:
+
+```text
+design-doc/03-implementation-plan-reactive-goja-ui-runtime-for-dynamic-loupedeck-interfaces.md
+```
+
+- Broke the implementation into explicit phases:
+  1. narrow first stable JS slice
+  2. pure-Go reactive core
+  3. retained UI model
+  4. retained visual realization
+  5. bridge into current renderer/writer
+  6. host event runtime shell
+  7. pure-Go animation/easing engine
+  8. goja bindings
+  9. first end-to-end example
+  10. reconnect replay later
+- Added concrete package/file proposals, tests, acceptance criteria, and PR-sized milestone boundaries.
+- Updated the ticket `index.md`, `tasks.md`, and `changelog.md` to include the new docs and reflect that several implementation-planning decisions are now intentionally made.
+
+### Why
+- The earlier brainstorm doc was useful for choosing a direction, but it was still too broad for a new engineer to implement from directly.
+- The intern needs two different kinds of documents:
+  1. a conceptual textbook to understand the system and vocabulary
+  2. an execution plan to know what to build first and why
+- The request explicitly emphasized signals and mutation semantics, so the textbook needed to explain not just API names but the propagation model underneath them.
+
+### What worked
+- The textbook naturally clarified several important design decisions that were only implicit in the brainstorm, especially:
+  - signals as explicit state cells with propagation semantics
+  - batching as a first-class requirement, not a later optimization
+  - host-owned animation timelines as the correct default
+  - goja adapters as thin bindings over pure-Go domain logic
+- The implementation plan now gives a concrete and reviewable build order rather than a vague “we should probably do hybrid retained state”.
+- The two-document structure (conceptual deep dive + phased execution plan) fits intern onboarding well.
+
+### What didn't work
+- No tooling failed during authoring.
+- The only limitation is that the new plan still intentionally leaves some detailed semantic choices open for later implementation passes, such as exact `computed` evaluation policy (lazy vs eager) and reconnect script semantics.
+
+### What I learned
+- Once the reactive model is explained carefully, the implementation order becomes much easier to justify. The strongest recurring rule is: **do semantic work in pure Go before binding it into goja**.
+- The phrase “mutate a signal” really does need an explicit textbook explanation. Without that, it is too easy for a new engineer to think of signals as just wrapper variables instead of runtime-visible state cells with dependency propagation.
+- The implementation plan benefits from being framed in PR-sized milestones, because this system has many layers and it would be easy to create an unreviewable mega-branch otherwise.
+
+### What was tricky to build
+- The hardest part was writing a document that is detailed enough for an intern without drifting into an accidental code dump or fake certainty. The solution was to stay very explicit about semantics, responsibilities, and sequencing while still marking a few choices as open questions.
+- Another tricky point was keeping the textbook grounded in the current repository rather than inventing an imaginary framework. That is why the documents repeatedly reference `display.go`, `renderer.go`, `writer.go`, `svg_icons.go`, and `cmd/loupe-svg-buttons/main.go`.
+
+### What warrants a second pair of eyes
+- A reviewer should challenge the exact first-slice boundary proposed in the execution plan and confirm whether animations belong in the first or second goja milestone.
+- The proposed package layout is sensible, but the team may prefer a flatter or more nested arrangement depending on repository conventions.
+
+### What should be done in the future
+- Run `docmgr doctor` again after the new docs are in place.
+- Commit the expanded ticket docs.
+- Upload the expanded bundle to the reMarkable.
+- Later, turn `design-doc/03-...` into a narrower implementation RFC for the very first coding slice.
+
+### Code review instructions
+- Read in this order:
+  - `design-doc/02-textbook-reactive-goja-ui-runtime-for-dynamic-loupedeck-interfaces.md`
+  - `design-doc/03-implementation-plan-reactive-goja-ui-runtime-for-dynamic-loupedeck-interfaces.md`
+  - `design-doc/01-brainstorm-goja-javascript-api-approaches-for-dynamic-loupedeck-interfaces.md`
+  - `reference/01-javascript-api-example-scripts.md`
+- Cross-check architecture references in:
+  - `display.go`
+  - `renderer.go`
+  - `writer.go`
+  - `svg_icons.go`
+
+### Technical details
+- The most important implementation-order rule in the new plan is:
+
+```text
+pure Go reactive core -> retained UI model -> retained visuals -> renderer bridge -> host runtime shell -> goja adapters -> animations/easing JS surface
+```
+
+- The most important conceptual rule in the textbook is:
+
+```text
+mutating a signal means changing a state cell and propagating invalidation through a dependency graph, not drawing directly to the device
+```

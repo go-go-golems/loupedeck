@@ -23,11 +23,15 @@ RelatedFiles:
       Note: Current dynamic-ish button bank demo that motivates a scriptable higher-level runtime
     - Path: svg_icons.go
       Note: Existing asset pipeline that a JS API may want to expose as icons/images instead of raw SVG strings
+    - Path: ttmp/2026/04/11/LOUPE-005--goja-javascript-api-for-dynamic-loupedeck-interfaces/design-doc/02-textbook-reactive-goja-ui-runtime-for-dynamic-loupedeck-interfaces.md
+      Note: Intern-oriented conceptual deep dive for the preferred reactive design
+    - Path: ttmp/2026/04/11/LOUPE-005--goja-javascript-api-for-dynamic-loupedeck-interfaces/design-doc/03-implementation-plan-reactive-goja-ui-runtime-for-dynamic-loupedeck-interfaces.md
+      Note: Intern-oriented execution roadmap for implementing the preferred reactive runtime in phases
 ExternalSources: []
-Summary: Brainstorm and design ticket for adding a goja-based JavaScript API above the current Loupedeck Go rendering and transport layers, with special focus on dynamic interfaces, animation models, and easing-driven timelines.
+Summary: Design ticket for adding a goja-based JavaScript API above the current Loupedeck Go rendering and transport layers, now including a broad brainstorm, example scripts, a reactive-runtime textbook, and a detailed phased implementation plan for a new engineer.
 LastUpdated: 2026-04-11T20:40:45-04:00
 WhatFor: Track the design work for a future embedded JavaScript runtime that can build dynamic animated interfaces on the Loupedeck without exposing raw transport details.
-WhenToUse: Use when evaluating how a goja scripting layer should map onto the current renderer/writer stack or when looking for example JS APIs and animation scenarios.
+WhenToUse: Use when evaluating how a goja scripting layer should map onto the current renderer/writer stack, onboarding a new engineer to the preferred reactive approach, or finding example JS APIs and implementation phases.
 ---
 
 # Goja JavaScript API for dynamic Loupedeck interfaces
@@ -47,6 +51,8 @@ The ticket focuses on:
 ## Key Links
 
 - **Brainstorm design doc**: `design-doc/01-brainstorm-goja-javascript-api-approaches-for-dynamic-loupedeck-interfaces.md`
+- **Reactive textbook**: `design-doc/02-textbook-reactive-goja-ui-runtime-for-dynamic-loupedeck-interfaces.md`
+- **Implementation plan**: `design-doc/03-implementation-plan-reactive-goja-ui-runtime-for-dynamic-loupedeck-interfaces.md`
 - **Example scripts**: `reference/01-javascript-api-example-scripts.md`
 - **Diary**: `reference/02-implementation-diary.md`
 
@@ -56,8 +62,10 @@ Current status: **active**
 
 Current completion state:
 - Ticket created
-- Brainstorm/design document written
+- Broad brainstorm design document written
 - Example-script reference written
+- Reactive textbook written
+- Detailed phased implementation plan written
 - Diary started
 - Implementation intentionally not started yet
 
