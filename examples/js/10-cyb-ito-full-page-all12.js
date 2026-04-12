@@ -8,10 +8,24 @@ const sceneMetrics = require("loupedeck/scene-metrics").create("scene");
 const TILE = 90;
 const MAIN_W = 360;
 const MAIN_H = 270;
+const SIDE_W = 60;
+const SIDE_H = 270;
 const TOP = 3;
 const LABEL_Y = 6;
 const LABEL_H = 16;
 const DIVIDER_Y = 22;
+const CJK_FONT_PATH = "/usr/share/fonts/opentype/noto/NotoSansCJK-Regular.ttc";
+
+function loadOptionalFont(path, opts) {
+  try {
+    return gfx.font(path, opts);
+  } catch (_err) {
+    return null;
+  }
+}
+
+const KANJI_FONT = loadOptionalFont(CJK_FONT_PATH, { size: 16, dpi: 72, index: 0 });
+const KANJI_FONT_SMALL = loadOptionalFont(CJK_FONT_PATH, { size: 12, dpi: 72, index: 0 });
 
 const frame = gfx.surface(MAIN_W, MAIN_H);
 const baseLayer = gfx.surface(MAIN_W, MAIN_H);
@@ -20,8 +34,12 @@ const sceneLayer = gfx.surface(MAIN_W, MAIN_H);
 const fxLayer = gfx.surface(MAIN_W, MAIN_H);
 const hudLayer = gfx.surface(MAIN_W, MAIN_H);
 const accentLayer = gfx.surface(MAIN_W, MAIN_H);
+const leftStrip = gfx.surface(SIDE_W, SIDE_H);
+const rightStrip = gfx.surface(SIDE_W, SIDE_H);
 
 const phase = state.signal(0);
+const stripScroll = state.signal(0);
+const frameCounter = state.signal(0);
 const active = state.signal(0);
 const lastEvent = state.signal("BOOT");
 const touchRipple = state.signal(0);
@@ -45,6 +63,23 @@ const tileLabels = [
   "PULSE",
   "VOID",
 ];
+
+const tileKanji = [
+  "眼",
+  "渦",
+  "歯",
+  "溶",
+  "穴",
+  "狂",
+  "蟲",
+  "砂",
+  "歪",
+  "裂",
+  "脈",
+  "闇",
+];
+
+const horrorKanji = "呪螺旋恐怖闇影穴裂溶歪狂蝕腐朽這寄生喰渦巻沈黙叫骸".split("");
 
 function fract(v) {
   return v - Math.floor(v);
@@ -84,8 +119,10 @@ function fillDisk(surface, cx, cy, r, v) {
   }
 }
 
-function drawText(surface, text, x, y, brightness, width, height) {
-  surface.text(text, { x, y, width, height, brightness, center: true });
+function drawText(surface, text, x, y, brightness, width, height, font) {
+  const opts = { x, y, width, height, brightness, center: true };
+  if (font) opts.font = font;
+  surface.text(text, opts);
 }
 
 function drawSpiral(surface, cx, cy, turns, size, brt, speed, t, thick) {
@@ -98,6 +135,20 @@ function drawSpiral(surface, cx, cy, turns, size, brt, speed, t, thick) {
     const fade = 1 - i / steps * 0.3;
     addP(surface, px, py, brt * fade);
     if (thick > 1) addP(surface, px + 1, py, brt * fade * 0.5);
+  }
+}
+
+function drip(surface, x, startY, len, brt, seed) {
+  const wobble = Math.sin(seed * 7.7 + frameCounter.get() * 0.02) * 2;
+  for (let i = 0; i < len; i++) {
+    const fade = 1 - i / len;
+    const wx = (x + Math.sin(i * 0.15 + wobble) * 1.5) | 0;
+    addP(surface, wx, startY + i, brt * fade);
+    if (i > len - 5) {
+      addP(surface, wx - 1, startY + i, brt * fade * 0.6);
+      addP(surface, wx + 1, startY + i, brt * fade * 0.6);
+      if (i > len - 3) addP(surface, wx, startY + i + 1, brt * fade * 0.4);
+    }
   }
 }
 
@@ -118,7 +169,8 @@ function drawTileFrame(surface, x, y, isActive) {
 }
 
 function drawTileChrome(surface, idx, x, y, isActive) {
-  drawText(surface, tileLabels[idx], x + 45, y + LABEL_Y, isActive ? 170 : 65, 74, LABEL_H);
+  drawText(surface, tileKanji[idx], x + 17, y + LABEL_Y - 2, isActive ? 210 : 85, 20, 16, KANJI_FONT);
+  drawText(surface, tileLabels[idx], x + 58, y + LABEL_Y + 1, isActive ? 140 : 55, 48, 12);
   lineH(surface, x + 2, x + TILE - 3, y + DIVIDER_Y, isActive ? 28 : 8);
 }
 
@@ -556,13 +608,74 @@ function renderAccentLayer(tick, activeIdx, t) {
   });
 }
 
+function renderLeftStrip(tick, activeIdx) {
+  leftStrip.batch(() => {
+    leftStrip.clear(0);
+    lineV(leftStrip, SIDE_W - 1, 0, SIDE_H - 1, 12);
+    for (let seg = 0; seg < 12; seg++) {
+      const sy = 4 + seg * 22;
+      const sh = 18;
+      const level = Math.sin(tick * Math.PI * 2 * 1.2 + seg * 0.8) * 0.4 + 0.5;
+      const fillH = (level * sh) | 0;
+      const brt = (12 + level * 45) | 0;
+      for (let yy = 0; yy < fillH; yy++) {
+        const py = sy + sh - 1 - yy;
+        for (let x = 8; x < SIDE_W - 8; x++) {
+          if ((x + py) % 2 === 0) leftStrip.set(x, py, brt);
+        }
+      }
+      if (fillH > 5) {
+        drip(leftStrip, (SIDE_W / 2) | 0, sy + sh, (8 + level * 10) | 0, (brt * 0.5) | 0, seg * 3.7);
+      }
+    }
+
+    const activeY = tileRect(activeIdx).y + (TILE / 2) | 0;
+    const pip = (16 + touchRipple.get() * 120) | 0;
+    if (pip > 18) {
+      for (let dy = -1; dy <= 1; dy++) {
+        for (let dx = -1; dx <= 1; dx++) {
+          addP(leftStrip, SIDE_W - 6 + dx, activeY + dy, pip);
+        }
+      }
+    }
+  });
+}
+
+function renderRightStrip(activeIdx) {
+  rightStrip.batch(() => {
+    rightStrip.clear(0);
+    lineV(rightStrip, 0, 0, SIDE_H - 1, 12);
+    const off = stripScroll.get();
+    for (let i = 0; i < 16; i++) {
+      const y = ((i * 20 - (off % 20) + SIDE_H) % SIDE_H) - 20;
+      if (y < -20 || y > SIDE_H) continue;
+      const ci = (i + Math.floor(off / 20)) % horrorKanji.length;
+      const dist = Math.abs(y + 10 - SIDE_H / 2) / (SIDE_H / 2);
+      const fade = Math.max(0, 1 - dist * 1.3);
+      const brt = (fade * 35 + 4) | 0;
+      drawText(rightStrip, horrorKanji[ci], 30, y, brt, 30, 18, KANJI_FONT_SMALL || KANJI_FONT);
+    }
+
+    const activeY = tileRect(activeIdx).y + (TILE / 2) | 0;
+    const pip = (16 + touchRipple.get() * 120) | 0;
+    if (pip > 18) {
+      for (let dy = -1; dy <= 1; dy++) {
+        for (let dx = -1; dx <= 1; dx++) {
+          addP(rightStrip, 5 + dx, activeY + dy, pip);
+        }
+      }
+    }
+  });
+}
+
 function renderHUDLayer(activeIdx, eventText) {
   const { x, y } = tileRect(activeIdx);
   hudLayer.batch(() => {
     hudLayer.clear(0);
     hudLayer.fillRect(x + 28, y + 68, 34, 10, 16);
     drawText(hudLayer, eventText, 315, 248, 120, 42, 14);
-    drawText(hudLayer, tileLabels[activeIdx], 315, 232, 70, 54, 12);
+    drawText(hudLayer, tileKanji[activeIdx], 282, 229, 110, 18, 16, KANJI_FONT_SMALL || KANJI_FONT);
+    drawText(hudLayer, tileLabels[activeIdx], 324, 232, 70, 54, 12);
   });
 }
 
@@ -597,6 +710,8 @@ function renderAll(reason) {
     renderSceneLayer(t, activeIdx);
     renderFXLayer(tick);
     renderAccentLayer(tick, activeIdx, t);
+    renderLeftStrip(tick, activeIdx);
+    renderRightStrip(activeIdx);
     renderHUDLayer(activeIdx, eventText);
     composeFrame();
   });
@@ -620,9 +735,15 @@ function setActive(idx, why, isTouch, localX, localY) {
 }
 
 ui.page("full-page-all12", page => {
+  page.display("left", display => {
+    display.surface(leftStrip);
+  });
   page.display("main", display => {
     display.surface(frame);
     display.layer("accent", accentLayer, { r: 255, g: 32, b: 32 });
+  });
+  page.display("right", display => {
+    display.surface(rightStrip);
   });
 });
 
@@ -646,5 +767,7 @@ anim.loop(1400, t => {
   });
   sceneMetrics.recordLoopTick();
   phase.set(t);
+  frameCounter.set(frameCounter.get() + 1);
+  stripScroll.set((stripScroll.get() + 0.4) % (horrorKanji.length * 20));
   present.invalidate("loop");
 });
