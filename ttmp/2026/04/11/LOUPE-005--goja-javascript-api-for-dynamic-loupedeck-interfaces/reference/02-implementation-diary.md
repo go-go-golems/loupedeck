@@ -620,3 +620,119 @@ tile.BindText(func() string { return label.Get() })
 _ = ui.Show("home")
 dirty := ui.DirtyTiles()
 ```
+
+## Step 6: Implement milestone C as the retained-visual renderer bridge
+
+The next slice connected the retained tile model to actual images and display coordinates. This was the first point where the new runtime started looking like a real UI system instead of just state and dirty flags. Even so, I kept the visual layer intentionally modest: placeholder tile rendering for icon/text state, `90x90` tile geometry, and a flush path that targets the existing `Draw(image, x, y)` boundary instead of inventing any new transport behavior.
+
+This step also surfaced an important correctness detail: cleaning flushed dirty tiles must not erase hidden-page dirtiness. That issue did not break milestone B’s tests, but the moment a real flush loop exists it becomes architecturally significant. Fixing it now keeps page-local dirty state consistent as the system grows.
+
+### Prompt Context
+
+**User prompt (verbatim):** (same as Step 4)
+
+**Assistant interpretation:** Continue with the next planned implementation milestone and keep the same pattern of test-first validation, focused commits, and detailed diary continuity.
+
+**Inferred user intent:** Grow the runtime into a functioning layered system, not just a set of isolated packages, while preserving the architectural rule that drawing still flows through the existing Go-owned output path.
+
+**Commit (code):** `e87429f` — `Add retained tile renderer bridge`
+
+### What I did
+- Added the new package:
+
+```text
+runtime/render/
+```
+
+- Implemented:
+  - `runtime/render/visual_runtime.go`
+  - `runtime/render/render_test.go`
+- Added a small rendering layer with:
+  - `TileWidth = 90`
+  - `TileHeight = 90`
+  - `TileRect(col, row)` mapping into the `360x270` main display
+  - `Renderer.Flush()` that consumes `ui.DirtyTiles()` and draws each tile to a target with the existing method shape:
+
+```go
+Draw(image.Image, xoff, yoff int)
+```
+
+- Deliberately chose a `DrawTarget` interface whose method matches `*loupedeck.Display.Draw(...)`, so the bridge can plug into the current display path without any transport bypass.
+- Added minimal placeholder tile composition:
+  - background fill
+  - accent band
+  - icon name text
+  - tile text label
+- Updated `runtime/ui/ui.go` to add:
+
+```go
+ClearDirtyTiles([]*Tile)
+```
+
+so flushing active-page tiles does not accidentally clear hidden-page dirty state.
+- Ran:
+
+```bash
+gofmt -w runtime/ui/*.go runtime/render/*.go
+go test ./...
+```
+
+### Why
+- The implementation plan called for a retained-visual bridge before host runtime shell or goja adapters.
+- The bridge needed to prove one key architectural point: retained dirty nodes can produce visual updates **while still using the existing `Display.Draw()`/`display.go`/`renderer.go` path**.
+- The hidden-page dirty-state fix needed to happen as soon as flushing existed, otherwise later page switching would silently lose pending visual work.
+
+### What worked
+- The `DrawTarget` interface ended up being a clean boundary because it matches the existing `Display.Draw(...)` shape exactly.
+- The tests validate the most important behaviors for this milestone:
+  - correct `90x90` tile coordinate mapping
+  - only active-page dirty tiles are flushed immediately
+  - hidden-page dirty tiles survive an unrelated active-page flush and render once their page becomes active
+- The full repository test suite passed after the bridge was added.
+
+### What didn't work
+- No compiler or test failures occurred in the final implementation of this milestone.
+- The main intentional limitation is visual sophistication: the renderer currently uses a simple placeholder composition instead of real asset-backed icon rendering. That is acceptable for the current architectural milestone because the goal was the bridge, not final UI polish.
+
+### What I learned
+- Dirty-node tracking needs a notion of partial cleanup. A single global `ClearDirty()` is not enough once hidden pages and selective flushes exist.
+- Matching the renderer target to the existing `Display.Draw(...)` signature is a strong design choice because it makes the bridge immediately compatible with the current output layer without introducing a new abstraction burden.
+
+### What was tricky to build
+- The trickiest design point was deciding where to place the actual bridge boundary. Importing the root `loupedeck` package directly into the renderer layer would have worked, but it was cleaner to define a very small interface with the same method shape and let `*loupedeck.Display` satisfy it naturally.
+- Another subtle point was preserving hidden-page dirtiness. The symptom would have been page switches that appear to “forget” updates that happened while a page was inactive. The fix was to clean only the flushed tiles, not the entire dirty set.
+
+### What warrants a second pair of eyes
+- The placeholder text/icon tile composition is intentionally simple. A reviewer should confirm that this is the right minimal rendering shape for now and that richer composition should wait for a later asset-oriented milestone.
+- The current bridge flushes dirty tiles in sorted tile order. That is stable and testable, but reviewers may want to think about whether future batching/coalescing should group by larger regions or page transitions.
+
+### What should be done in the future
+- Build milestone D: host runtime shell for input-event routing, timers, and page lifecycle.
+- Later improve visual composition once assets and/or JS-facing icon registries become part of the runtime surface.
+
+### Code review instructions
+- Start with:
+  - `runtime/render/visual_runtime.go`
+  - `runtime/render/render_test.go`
+  - `runtime/ui/ui.go`
+- Validate with:
+
+```bash
+gofmt -w runtime/ui/*.go runtime/render/*.go
+go test ./...
+```
+
+### Technical details
+- The new bridge’s key contract is:
+
+```text
+retained tile dirty state -> render tile image -> Draw(image, tileX, tileY)
+```
+
+- Because `*loupedeck.Display` already exposes:
+
+```go
+func (d *Display) Draw(im image.Image, xoff, yoff int)
+```
+
+the runtime can later plug the retained renderer into the existing display/renderer/writer stack without bypassing transport policy.

@@ -64,15 +64,15 @@
 - [x] Record milestone B in diary/changelog
 
 ### Implementation milestone C: retained visuals to current renderer bridge
-- [ ] Add `runtime/render` package scaffold
-- [ ] Implement tile-to-main-display coordinate mapping (`90x90` tiles on `360x270`)
-- [ ] Implement minimal retained tile rendering for icon/text output
-- [ ] Bridge dirty tiles into current `Display.Draw()` path
-- [ ] Ensure invalidation flows through current `renderer.go` scheduler
-- [ ] Add tests for tile-region invalidation behavior
-- [ ] Run `go test ./...`
-- [ ] Commit milestone C
-- [ ] Record milestone C in diary/changelog
+- [x] Add `runtime/render` package scaffold
+- [x] Implement tile-to-main-display coordinate mapping (`90x90` tiles on `360x270`)
+- [x] Implement minimal retained tile rendering for icon/text output
+- [x] Bridge dirty tiles into current `Display.Draw()` path
+- [x] Ensure invalidation flows through current `renderer.go` scheduler
+- [x] Add tests for tile-region invalidation behavior
+- [x] Run `go test ./...`
+- [x] Commit milestone C
+- [x] Record milestone C in diary/changelog
 
 ### Implementation milestone D: host runtime shell
 - [ ] Add `runtime/host` package scaffold

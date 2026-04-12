@@ -55,3 +55,14 @@ Implemented milestone B as a pure-Go retained UI layer on top of `runtime/reacti
 - /home/manuel/code/wesen/2026-04-11--loupedeck-test/runtime/ui/page.go — Page model and `4x3` tile coordinate validation/lookup
 - /home/manuel/code/wesen/2026-04-11--loupedeck-test/runtime/ui/tile.go — Tile state, static setters, reactive bindings, and dirty marking
 - /home/manuel/code/wesen/2026-04-11--loupedeck-test/runtime/ui/ui_test.go — Unit tests for page activation, hidden-page filtering, static properties, and reactive tile property updates
+
+## 2026-04-11
+
+Implemented milestone C as a retained-tile visual bridge in `runtime/render`, including `90x90` tile-to-main-display coordinate mapping, minimal icon/text tile rendering, and a flush path that can target any `Draw(image, x, y)` implementation — including the existing `*loupedeck.Display` output path that already flows through `display.go` and the current render scheduler.
+
+### Related Files
+
+- /home/manuel/code/wesen/2026-04-11--loupedeck-test/runtime/render/visual_runtime.go — Retained visual renderer, tile rectangle mapping, placeholder tile composition, and flush logic
+- /home/manuel/code/wesen/2026-04-11--loupedeck-test/runtime/render/render_test.go — Tests for tile-coordinate mapping, flush behavior, and preservation of hidden-page dirty tiles
+- /home/manuel/code/wesen/2026-04-11--loupedeck-test/runtime/ui/ui.go — Added `ClearDirtyTiles(...)` so active-page flushes do not erase hidden-page dirty state
+- /home/manuel/code/wesen/2026-04-11--loupedeck-test/display.go — Existing `Display.Draw(image, x, y)` path that the new render layer is designed to plug into without bypassing transport ownership
