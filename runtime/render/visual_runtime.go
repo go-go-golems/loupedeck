@@ -102,8 +102,8 @@ func (r *Renderer) renderDisplay(display *ui.Display) image.Image {
 		return im
 	}
 
-	if surface := display.Surface(); surface != nil {
-		return surface.ToRGBA(r.Theme.Foreground, r.Theme.Background)
+	if surface := display.Surface(); surface != nil || len(display.Layers()) > 0 {
+		return r.renderDisplayLayers(display)
 	}
 
 	accentHeight := 8
@@ -118,6 +118,25 @@ func (r *Renderer) renderDisplay(display *ui.Display) image.Image {
 	}
 	if text := display.Text(); text != "" {
 		drawCenteredLabel(im, text, im.Bounds().Dy()/2+12, r.Theme.Foreground)
+	}
+	return im
+}
+
+func (r *Renderer) renderDisplayLayers(display *ui.Display) image.Image {
+	bounds := displayBounds(display)
+	im := image.NewRGBA(bounds)
+	draw.Draw(im, im.Bounds(), &image.Uniform{r.Theme.Background}, image.Point{}, draw.Src)
+	if display == nil {
+		return im
+	}
+	if surface := display.Surface(); surface != nil {
+		draw.Draw(im, im.Bounds(), surface.ToRGBA(r.Theme.Foreground, color.Transparent), image.Point{}, draw.Over)
+	}
+	for _, layer := range display.Layers() {
+		if layer == nil || layer.Surface() == nil {
+			continue
+		}
+		draw.Draw(im, im.Bounds(), layer.Surface().ToRGBA(r.Theme.Foreground, color.Transparent), image.Point{}, draw.Over)
 	}
 	return im
 }

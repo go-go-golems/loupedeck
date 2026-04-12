@@ -299,6 +299,39 @@ func TestDisplayCanOwnGfxSurface(t *testing.T) {
 	}
 }
 
+func TestDisplayCanOwnNamedGfxLayer(t *testing.T) {
+	rt := NewRuntime(nil)
+	defer rt.Close(nil)
+	env := rt.Env
+
+	_, err := rt.RunString(nil, `
+		const ui = require("loupedeck/ui");
+		const gfx = require("loupedeck/gfx");
+		const base = gfx.surface(360, 270);
+		const overlay = gfx.surface(360, 270);
+		base.fillRect(0, 0, 5, 5, 80);
+		overlay.fillRect(10, 10, 5, 5, 160);
+		ui.page("home", page => {
+		  page.display("main", display => {
+		    display.surface(base);
+		    display.layer("overlay", overlay);
+		  });
+		});
+		ui.show("home");
+	`)
+	if err != nil {
+		t.Fatalf("run script: %v", err)
+	}
+
+	main := env.UI.Page("home").Display("main")
+	if main == nil || main.Layer("overlay") == nil || main.Layer("overlay").Surface() == nil {
+		t.Fatal("expected main display to own a named overlay layer")
+	}
+	if got := main.Layer("overlay").Surface().At(10, 10); got == 0 {
+		t.Fatal("expected overlay layer content to remain attached to display")
+	}
+}
+
 func TestCloseRemovesRuntimeBridgeBindings(t *testing.T) {
 	rt := NewRuntime(nil)
 	if _, ok := runtimebridge.Lookup(rt.VM); !ok {

@@ -164,3 +164,36 @@ func TestFlushDrawsDisplaySurfaceContent(t *testing.T) {
 		t.Fatal("expected rendered surface pixel to be non-zero")
 	}
 }
+
+func TestFlushCompositesDisplayLayersAboveBaseSurface(t *testing.T) {
+	rt := reactive.NewRuntime()
+	uiRuntime := ui.New(rt)
+	page := uiRuntime.AddPage("home")
+	main := page.AddDisplay(ui.DisplayMain)
+	base := gfx.NewSurface(MainDisplayWidth, MainDisplayHeight)
+	fx := gfx.NewSurface(MainDisplayWidth, MainDisplayHeight)
+	base.FillRect(0, 0, 4, 4, 90)
+	fx.FillRect(12, 12, 4, 4, 180)
+	main.SetSurface(base)
+	main.SetLayer("fx", fx)
+	if err := uiRuntime.Show("home"); err != nil {
+		t.Fatalf("show home: %v", err)
+	}
+	target := &fakeTarget{}
+	r := NewWithDisplays(uiRuntime, map[string]DrawTarget{ui.DisplayMain: target})
+	flushed := r.Flush()
+	if flushed != 1 {
+		t.Fatalf("expected one flushed composed main display, got %d", flushed)
+	}
+	if len(target.calls) != 1 {
+		t.Fatalf("expected one main display draw call, got %d", len(target.calls))
+	}
+	_, _, _, a0 := target.calls[0].im.At(0, 0).RGBA()
+	_, _, _, a1 := target.calls[0].im.At(12, 12).RGBA()
+	if a0 == 0 {
+		t.Fatal("expected base surface pixel to be present")
+	}
+	if a1 == 0 {
+		t.Fatal("expected overlay layer pixel to be present")
+	}
+}

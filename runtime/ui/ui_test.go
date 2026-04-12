@@ -189,3 +189,42 @@ func TestDisplaySurfaceMutationMarksDisplayDirty(t *testing.T) {
 		t.Fatalf("expected surface mutation to mark left display dirty, got %#v", dirty)
 	}
 }
+
+func TestDisplayLayerMutationMarksDisplayDirty(t *testing.T) {
+	ui := New(nil)
+	page := ui.AddPage("home")
+	main := page.AddDisplay(DisplayMain)
+	overlay := gfx.NewSurface(16, 16)
+	main.SetLayer("overlay", overlay)
+	if err := ui.Show("home"); err != nil {
+		t.Fatalf("show home: %v", err)
+	}
+	ui.ClearDirty()
+	overlay.FillRect(0, 0, 4, 4, 100)
+	dirty := ui.DirtyDisplays()
+	if len(dirty) != 1 || dirty[0] != main {
+		t.Fatalf("expected layer mutation to mark main display dirty, got %#v", dirty)
+	}
+}
+
+func TestDisplayLayerOrderIsStable(t *testing.T) {
+	ui := New(nil)
+	page := ui.AddPage("home")
+	main := page.AddDisplay(DisplayMain)
+	main.SetLayer("basefx", gfx.NewSurface(4, 4))
+	main.SetLayer("scan", gfx.NewSurface(4, 4))
+	main.SetLayer("scan", gfx.NewSurface(4, 4))
+	main.SetLayer("ripple", gfx.NewSurface(4, 4))
+	layers := main.Layers()
+	if len(layers) != 3 {
+		t.Fatalf("expected 3 layers, got %d", len(layers))
+	}
+	if layers[0].Name != "basefx" || layers[1].Name != "scan" || layers[2].Name != "ripple" {
+		t.Fatalf("unexpected layer order: %#v %#v %#v", layers[0].Name, layers[1].Name, layers[2].Name)
+	}
+	main.SetLayer("scan", nil)
+	layers = main.Layers()
+	if len(layers) != 2 || layers[0].Name != "basefx" || layers[1].Name != "ripple" {
+		t.Fatalf("unexpected layer order after removal: %#v", layers)
+	}
+}

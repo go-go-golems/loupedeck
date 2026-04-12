@@ -34,12 +34,27 @@ type Display struct {
 	configured bool
 	surface    *gfx.Surface
 	surfaceSub gfx.Subscription
+	layers     map[string]*DisplayLayer
+	layerOrder []string
 
 	textSub    reactive.Subscription
 	iconSub    reactive.Subscription
 	visibleSub reactive.Subscription
 
 	tiles map[TileCoord]*Tile
+}
+
+type DisplayLayer struct {
+	Name       string
+	surface    *gfx.Surface
+	surfaceSub gfx.Subscription
+}
+
+func (l *DisplayLayer) Surface() *gfx.Surface {
+	if l == nil {
+		return nil
+	}
+	return l.surface
 }
 
 func (d *Display) Text() string {
@@ -136,6 +151,69 @@ func (d *Display) SetSurface(surface *gfx.Surface) {
 		})
 	}
 	d.markDirty()
+}
+
+func (d *Display) SetLayer(name string, surface *gfx.Surface) {
+	if name == "" {
+		panic("ui: display layer name must not be empty")
+	}
+	d.configured = true
+	if d.layers == nil {
+		d.layers = map[string]*DisplayLayer{}
+	}
+	if layer, ok := d.layers[name]; ok {
+		if layer.surfaceSub != nil {
+			_ = layer.surfaceSub.Close()
+			layer.surfaceSub = nil
+		}
+		if surface == nil {
+			delete(d.layers, name)
+			for i, existing := range d.layerOrder {
+				if existing == name {
+					d.layerOrder = append(d.layerOrder[:i], d.layerOrder[i+1:]...)
+					break
+				}
+			}
+			d.markDirty()
+			return
+		}
+		layer.surface = surface
+		layer.surfaceSub = surface.OnChange(func() {
+			d.markDirty()
+		})
+		d.markDirty()
+		return
+	}
+	if surface == nil {
+		return
+	}
+	layer := &DisplayLayer{Name: name, surface: surface}
+	layer.surfaceSub = surface.OnChange(func() {
+		d.markDirty()
+	})
+	d.layers[name] = layer
+	d.layerOrder = append(d.layerOrder, name)
+	d.markDirty()
+}
+
+func (d *Display) Layer(name string) *DisplayLayer {
+	if d == nil || d.layers == nil {
+		return nil
+	}
+	return d.layers[name]
+}
+
+func (d *Display) Layers() []*DisplayLayer {
+	if d == nil || len(d.layerOrder) == 0 {
+		return nil
+	}
+	ret := make([]*DisplayLayer, 0, len(d.layerOrder))
+	for _, name := range d.layerOrder {
+		if layer := d.layers[name]; layer != nil {
+			ret = append(ret, layer)
+		}
+	}
+	return ret
 }
 
 func (d *Display) AddTile(col, row int) *Tile {

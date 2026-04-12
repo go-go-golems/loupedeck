@@ -245,7 +245,22 @@ func displayObject(bindings runtimebridge.Bindings, ownerCtx context.Context, ru
 		return goja.Undefined()
 	})
 	_ = obj.Set("surface", func(call goja.FunctionCall) goja.Value {
-		display.SetSurface(module_gfx.SurfaceFromValue(call.Argument(0), runtime))
+		arg := call.Argument(0)
+		if goja.IsNull(arg) || goja.IsUndefined(arg) {
+			display.SetSurface(nil)
+		} else {
+			display.SetSurface(module_gfx.SurfaceFromValue(arg, runtime))
+		}
+		return goja.Undefined()
+	})
+	_ = obj.Set("layer", func(call goja.FunctionCall) goja.Value {
+		name := call.Argument(0).String()
+		arg := call.Argument(1)
+		if goja.IsNull(arg) || goja.IsUndefined(arg) {
+			display.SetLayer(name, nil)
+		} else {
+			display.SetLayer(name, module_gfx.SurfaceFromValue(arg, runtime))
+		}
 		return goja.Undefined()
 	})
 	_ = obj.Set("tile", func(call goja.FunctionCall) goja.Value {

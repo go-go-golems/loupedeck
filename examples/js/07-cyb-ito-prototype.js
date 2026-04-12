@@ -10,6 +10,7 @@ const SIDE_W = 60;
 const SIDE_H = 270;
 
 const main = gfx.surface(MAIN_W, MAIN_H);
+const mainFX = gfx.surface(MAIN_W, MAIN_H);
 const left = gfx.surface(SIDE_W, SIDE_H);
 const right = gfx.surface(SIDE_W, SIDE_H);
 
@@ -17,6 +18,7 @@ const phase = state.signal(0);
 const scroll = state.signal(0);
 const active = state.signal(0);
 const lastEvent = state.signal("BOOT");
+const ripple = state.signal(0);
 
 const titles = ["01", "02", "03", "04", "05", "06", "07", "08", "09", "10", "11", "12"];
 const subs = ["EYE", "SPIN", "TEETH", "MELT", "HOLE", "FACE", "WORM", "NOISE", "WARP", "CRACK", "PULSE", "VOID"];
@@ -85,6 +87,23 @@ function renderMain() {
   main.text(lastEvent.get(), { x: 102, y: 135, width: 156, height: 12, brightness: 190, center: true });
 }
 
+function renderMainFX() {
+  mainFX.clear(0);
+  const activeIdx = active.get();
+  const p = ripple.get();
+  if (p <= 0) return;
+  const { x, y } = tileRect(activeIdx);
+  const cx = x + 45;
+  const cy = y + 45;
+  const radius = 10 + Math.floor((1 - p) * 34);
+  const bright = Math.floor(80 + p * 150);
+  mainFX.line(cx - radius, cy, cx + radius, cy, bright);
+  mainFX.line(cx, cy - radius, cx, cy + radius, bright);
+  mainFX.line(cx - radius, cy - radius, cx + radius, cy + radius, Math.floor(bright * 0.5));
+  mainFX.line(cx - radius, cy + radius, cx + radius, cy - radius, Math.floor(bright * 0.5));
+  mainFX.fillRect(x + 4, y + 4, TILE - 8, 3, Math.floor(bright * 0.6));
+}
+
 function renderLeft() {
   left.clear(0);
   const t = phase.get();
@@ -117,6 +136,7 @@ function renderRight() {
 
 function renderAll() {
   renderMain();
+  renderMainFX();
   renderLeft();
   renderRight();
 }
@@ -127,6 +147,7 @@ ui.page("cyb-ito-proto", page => {
   });
   page.display("main", display => {
     display.surface(main);
+    display.layer("fx", mainFX);
   });
   page.display("right", display => {
     display.surface(right);
@@ -136,6 +157,7 @@ ui.page("cyb-ito-proto", page => {
 function activate(idx, reason) {
   const next = clamp(idx, 0, 11);
   active.set(next);
+  ripple.set(1);
   lastEvent.set(`${reason} -> ${titles[next]}`);
   renderAll();
 }
@@ -155,6 +177,7 @@ activate(0, "BOOT");
 anim.loop(1200, t => {
   phase.set(t);
   scroll.set((scroll.get() + 1) % (SIDE_H + 20));
+  ripple.set(Math.max(0, ripple.get() - 0.08));
   renderAll();
 });
 
