@@ -39,3 +39,16 @@ Implemented the first Phase B runtime slice: retained JS-facing display regions 
 - /home/manuel/code/wesen/2026-04-11--loupedeck-test/runtime/render/render_test.go — Added retained side-display render tests
 - /home/manuel/code/wesen/2026-04-11--loupedeck-test/runtime/js/runtime_test.go — Added JS integration coverage proving `page.display("left", ...)` works through the runtime
 
+## 2026-04-11
+
+Implemented Phase C as a pure-Go retained graphics package and Phase D as the first JS-facing graphics module. The new `runtime/gfx` package introduces Go-owned grayscale/additive retained surfaces with clear, fill, line, crosshatch, text, and additive compositing operations. The new `loupedeck/gfx` module exposes those surfaces to JS in a coarse, surface-oriented way rather than as a raw per-pixel transport API. This gives the runtime the first real graphics substrate needed for cyb-ito-style procedural scenes while preserving the rule that JavaScript describes scene work and Go still owns rendering semantics.
+
+### Related Files
+
+- /home/manuel/code/wesen/2026-04-11--loupedeck-test/runtime/gfx/surface.go — New retained grayscale/additive surface model with clear, fill, line, crosshatch, composite, and RGBA export helpers
+- /home/manuel/code/wesen/2026-04-11--loupedeck-test/runtime/gfx/text.go — Go-owned text rasterization onto retained surfaces using a basic font face
+- /home/manuel/code/wesen/2026-04-11--loupedeck-test/runtime/gfx/surface_test.go — Focused unit tests for surface clearing, saturating add, line drawing, crosshatch, compositing, and text drawing
+- /home/manuel/code/wesen/2026-04-11--loupedeck-test/runtime/js/module_gfx/module.go — First JS-facing `loupedeck/gfx` module exposing retained surfaces and coarse draw operations
+- /home/manuel/code/wesen/2026-04-11--loupedeck-test/runtime/js/runtime.go — Registered the new `loupedeck/gfx` module in the owned runtime bootstrap
+- /home/manuel/code/wesen/2026-04-11--loupedeck-test/runtime/js/runtime_test.go — Added JS integration coverage that constructs, draws into, and composites `loupedeck/gfx` surfaces
+

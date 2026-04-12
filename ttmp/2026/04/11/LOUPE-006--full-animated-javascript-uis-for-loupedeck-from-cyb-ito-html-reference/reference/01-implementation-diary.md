@@ -362,3 +362,147 @@ and all tests passed.
 - Update the ticket docs and mark the Phase B slice tasks complete.
 - Start Phase C: add the pure-Go retained graphics/surface package.
 - Keep Phase D (`loupedeck/gfx`) separate from Phase C so the pure-Go semantics can be tested before the goja binding layer is added.
+
+## Step 5: Add the pure-Go retained graphics package
+
+After the retained display-region slice was in place, the next correct step was the one the design guide had recommended from the start: build the graphics semantics in pure Go before exposing them to goja.
+
+The purpose of this slice was not to finish the cyb-ito port. It was to establish the first real graphics substrate that future JS scene code can target without dropping down to pixels or transport writes.
+
+### Commit
+
+**Commit (code):** `33a278b` — `Add retained graphics surface package`
+
+### What I did
+- Added a new package:
+
+```text
+runtime/gfx/
+```
+
+- Added:
+
+```text
+runtime/gfx/surface.go
+runtime/gfx/text.go
+runtime/gfx/surface_test.go
+```
+
+- Implemented a retained grayscale/additive `Surface` with:
+  - `NewSurface(width, height)`
+  - `Clear(v)`
+  - `Set(x, y, v)`
+  - `Add(x, y, v)`
+  - `FillRect(...)`
+  - `Line(...)`
+  - `Crosshatch(...)`
+  - `CompositeAdd(...)`
+  - `ToRGBA(...)`
+- Added a `TextOptions` model and a `Surface.Text(...)` helper that rasterizes text in Go using `basicfont.Face7x13`.
+- Added focused tests covering:
+  - surface clear and saturating add
+  - line endpoint drawing
+  - crosshatch marking
+  - additive composition
+  - text drawing producing visible pixels
+- Ran:
+
+```bash
+gofmt -w runtime/gfx/*.go
+go test ./...
+```
+
+### Why
+- This slice establishes graphics semantics in a testable pure-Go package before goja bindings enter the picture.
+- It proves that the runtime can have Go-owned retained surfaces without yet deciding the final JS syntax for every future scene primitive.
+- It keeps the project honest about ownership: even though the future animated scene is script-facing, the actual raster substrate remains Go-owned.
+
+### What worked
+- The new package is small but already meaningful.
+- The surface operations line up with the first useful subset of the imported cyb-ito reference: fill, lines, crosshatching, text, additive composition.
+- The tests are focused and green, which means the surface semantics can now evolve independently of JS integration.
+
+### What didn't work
+- This slice intentionally does not yet expose graphics to JS.
+- It also does not yet implement every possible future primitive from the imported HTML, such as spirals or drip effects.
+
+### What I learned
+- The graphics package needed to exist before the JS module. That sequencing still feels correct in practice.
+- Even a very small retained surface model already clarifies the next runtime shape substantially.
+
+## Step 6: Add the first JS-facing `loupedeck/gfx` module
+
+With the pure-Go graphics semantics in place, the next slice was the JS binding layer. This step intentionally exposed the new surfaces to JS in a **coarse, retained, surface-oriented** form, not as a raw immediate-mode pixel API.
+
+### Commit
+
+**Commit (code):** `b4f343e` — `Add JS graphics surface module`
+
+### What I did
+- Added:
+
+```text
+runtime/js/module_gfx/module.go
+```
+
+- Registered the module from:
+
+```text
+runtime/js/runtime.go
+```
+
+under:
+
+```text
+require("loupedeck/gfx")
+```
+
+- Exposed a first JS-facing surface object with methods such as:
+  - `width()`
+  - `height()`
+  - `clear(...)`
+  - `fillRect(...)`
+  - `line(...)`
+  - `crosshatch(...)`
+  - `text(...)`
+  - `compositeAdd(...)`
+  - `at(...)`
+- Added JS integration coverage in:
+
+```text
+runtime/js/runtime_test.go
+```
+
+that:
+- constructs a surface from JS
+- draws lines, crosshatching, text, and an overlay surface
+- composites the overlay
+- samples brightness via `at(...)`
+- verifies width reporting
+- Ran:
+
+```bash
+gofmt -w runtime/js/module_gfx/*.go runtime/js/runtime.go runtime/js/runtime_test.go
+go test ./...
+```
+
+### Why
+- The purpose of this slice was to give JS a real graphics surface to target before layer composition or a full scene demo exists.
+- Exposing surfaces in a retained way preserves the architecture: JS can describe graphics work, but it is still interacting with Go-owned surfaces rather than transport or framebuffer protocol messages.
+
+### What worked
+- The first `loupedeck/gfx` module is now real and tested.
+- The API is coarse and surface-oriented rather than pixel-loop-oriented, which matches the design intent.
+- The module registration dropped into the owned runtime cleanly without new owner-thread complexity because the operations are synchronous surface mutations.
+
+### What didn't work
+- This slice still does not connect surfaces to display regions. That is the next layer: retained surface/layer composition.
+- The current module exposes an `at(...)` helper primarily for testing and debugging. That is fine for now, but it should not become the center of the public authoring model.
+
+### What I learned
+- Once `runtime/gfx` existed, the JS binding layer was straightforward.
+- The runtime now has the first real substrate for cyb-ito-style scene authoring: JS can build retained surfaces, but the system still does not give JS any transport escape hatch.
+
+### What should be done in the future
+- Update the ticket docs and mark the Phase C and Phase D slice tasks complete.
+- Start Phase E: retained surface/layer composition so `gfx` surfaces can become actual display content.

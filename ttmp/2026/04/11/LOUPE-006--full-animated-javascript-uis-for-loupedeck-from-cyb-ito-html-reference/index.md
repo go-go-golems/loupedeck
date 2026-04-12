@@ -62,6 +62,7 @@ Current completion state:
 - Ticket validated with `docmgr doctor`
 - Design bundle uploaded to reMarkable and verified remotely
 - Phase B first slice complete: retained JS-facing display regions now exist for `left`, `main`, and `right`, and the live runner can flush all three retained display targets
+- Phase C and Phase D first slices complete: the runtime now has a pure-Go retained graphics package plus a first JS-facing `loupedeck/gfx` module for coarse surface-oriented drawing
 
 ## Topics
 

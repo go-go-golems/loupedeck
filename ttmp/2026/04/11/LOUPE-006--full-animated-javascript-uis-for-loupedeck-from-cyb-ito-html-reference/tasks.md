@@ -27,24 +27,24 @@
 
 ### Phase C: pure-Go retained graphics package
 
-- [ ] Add a pure-Go `runtime/gfx` package for retained grayscale/additive surfaces
-- [ ] Define a surface model that supports efficient clear, text, line, crosshatch, and compositing operations
-- [ ] Keep graphics semantics Go-owned rather than JS-per-pixel
-- [ ] Add focused unit tests for the graphics package
-- [ ] Run `go test ./...` after the graphics package slice
-- [ ] Commit the graphics package slice
-- [ ] Record the graphics package slice in the diary/changelog/tasks
+- [x] Add a pure-Go `runtime/gfx` package for retained grayscale/additive surfaces
+- [x] Define a surface model that supports efficient clear, text, line, crosshatch, and compositing operations
+- [x] Keep graphics semantics Go-owned rather than JS-per-pixel
+- [x] Add focused unit tests for the graphics package
+- [x] Run `go test ./...` after the graphics package slice
+- [x] Commit the graphics package slice
+- [x] Record the graphics package slice in the diary/changelog/tasks
 
 ### Phase D: JS-facing graphics module
 
-- [ ] Add `runtime/js/module_gfx/module.go`
-- [ ] Register `loupedeck/gfx` from `runtime/js/runtime.go`
-- [ ] Expose retained surfaces and coarse drawing ops to JS
-- [ ] Preserve owner-thread safety for any JS callbacks/closures involved in graphics composition
-- [ ] Add JS integration tests for the `loupedeck/gfx` surface API
-- [ ] Run `go test ./...` after the JS graphics module slice
-- [ ] Commit the JS graphics module slice
-- [ ] Record the JS graphics module slice in the diary/changelog/tasks
+- [x] Add `runtime/js/module_gfx/module.go`
+- [x] Register `loupedeck/gfx` from `runtime/js/runtime.go`
+- [x] Expose retained surfaces and coarse drawing ops to JS
+- [x] Preserve owner-thread safety for any JS callbacks/closures involved in graphics composition
+- [x] Add JS integration tests for the `loupedeck/gfx` surface API
+- [x] Run `go test ./...` after the JS graphics module slice
+- [x] Commit the JS graphics module slice
+- [x] Record the JS graphics module slice in the diary/changelog/tasks
 
 ### Phase E: retained surface/layer composition
 
