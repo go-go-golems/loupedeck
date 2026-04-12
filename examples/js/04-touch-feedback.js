@@ -7,14 +7,17 @@ ui.page("touch", page => {
   page.tile(0, 0, tile => {
     tile.text("TOUCH1");
   });
-  page.tile(1, 0, tile => {
-    tile.text("TOUCH6");
-  });
-  page.tile(2, 0, tile => {
-    tile.text("TOUCH12");
-  });
+
   page.tile(3, 0, tile => {
     tile.text(() => last.get());
+  });
+
+  page.tile(1, 1, tile => {
+    tile.text("TOUCH6");
+  });
+
+  page.tile(3, 2, tile => {
+    tile.text("TOUCH12");
   });
 });
 
