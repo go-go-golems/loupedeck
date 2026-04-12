@@ -1679,3 +1679,93 @@ host events / animation callbacks / reactive JS closures
 ```go
 ownerCtx := runtimeowner.OwnerContext(bindings.Owner, bindings.Context)
 ```
+
+## Step 15: Complete H4 by moving module environment lookup onto runtime-scoped bindings
+
+After H3, the callback semantics were much better, but the module registration shape still carried some of the original ad hoc bootstrap style: `runtime/js/runtime.go` was still explicitly threading the environment into each module's `Register(...)` call. That worked, but it was not the runtime-scoped registration discipline I wanted as the convergence target.
+
+This step cleaned that up. The environment is now discoverable through the runtime bridge, and the JS modules resolve it from there instead of relying on constructor-time env threading. This brings the local module setup materially closer to the `go-go-goja` pattern without forcing a bigger factory refactor yet.
+
+### Prompt Context
+
+**User prompt (verbatim):** (same as Step 12)
+
+**Assistant interpretation:** Continue to the next convergence-phase cleanup after callback serialization, tightening the runtime/module boundary so the local bootstrap depends less on ad hoc registration wiring.
+
+**Inferred user intent:** Keep moving the local runtime toward the `go-go-goja` architecture, not just at the callback layer but also in how modules acquire runtime-scoped services.
+
+**Commit (code):** `b4c72b7` — `Refactor JS modules to use runtime bindings`
+
+### What I did
+- Extended `runtime/js/env/env.go` with:
+  - `BindingKeyEnvironment`
+  - `Lookup(vm *goja.Runtime) (*Environment, bool)`
+- Updated `runtime/js/runtime.go` so that it:
+  - stores the environment in the runtime bridge under the typed binding key constant
+  - stops passing `env` into each module registration function
+- Changed module registration signatures so that:
+  - `module_state.Register(...)`
+  - `module_ui.Register(...)`
+  - `module_anim.Register(...)`
+  no longer take the environment as an explicit parameter
+- Updated those modules to resolve the environment from runtime-scoped bindings via `envpkg.Lookup(runtime)`.
+- Ran:
+
+```bash
+gofmt -w runtime/js/env/*.go runtime/js/*.go runtime/js/module_state/*.go runtime/js/module_ui/*.go runtime/js/module_anim/*.go
+
+go test ./...
+```
+
+### Why
+- The runtime bridge already existed after H2, so continuing to manually pass environment references into every module registrar was unnecessary and less aligned with the long-term architecture.
+- This is a small but meaningful structural cleanup that makes future module registration/refactoring easier.
+
+### What worked
+- The refactor was small and clean.
+- The full repository test suite still passed.
+- The registration surface in `runtime/js/runtime.go` is now simpler and less coupled to per-module environment plumbing.
+
+### What didn't work
+- No build or test failures occurred in this step.
+- This does not yet implement a full `go-go-goja`-style runtime module registrar or factory composition model. It is an incremental cleanup, not the final convergence endpoint.
+
+### What I learned
+- The runtime bridge is already doing enough useful work that module registration can become thinner quickly once the environment lookup is typed and centralized.
+- The local runtime is now at a good intermediate state: owner-safe callback boundaries plus runtime-scoped service lookup, without yet needing a large bootstrap rewrite.
+
+### What was tricky to build
+- The main subtlety was deciding where the typed environment lookup should live. Putting it in `runtime/js/env` keeps the concept close to the environment type itself, which is cleaner than having modules inspect generic binding maps directly everywhere.
+- Another subtle point was avoiding over-engineering this step into a premature factory abstraction. The right move here was a small cleanup that clearly improves architecture without blocking the next practical step: a live runner and example scripts.
+
+### What warrants a second pair of eyes
+- Reviewers should confirm that `envpkg.Lookup(runtime)` is a good transitional abstraction and that a fuller runtime-module registrar/factory refactor can wait until later.
+- The current setup still uses explicit local registration in `runtime/js/runtime.go`; that is acceptable now, but the team may later want to formalize a runtime-scoped registrar interface.
+
+### What should be done in the future
+- Build H5 next: the hardware-backed JS live runner command.
+- Then add H6: multiple example scripts and actual hardware validation.
+
+### Code review instructions
+- Start with:
+  - `runtime/js/env/env.go`
+  - `runtime/js/runtime.go`
+  - `runtime/js/module_state/module.go`
+  - `runtime/js/module_ui/module.go`
+  - `runtime/js/module_anim/module.go`
+- Validate with:
+
+```bash
+gofmt -w runtime/js/env/*.go runtime/js/*.go runtime/js/module_state/*.go runtime/js/module_ui/*.go runtime/js/module_anim/*.go
+
+go test ./...
+```
+
+### Technical details
+- The module registration shape after this step is now conceptually:
+
+```text
+runtime bootstrap installs bridge bindings
+-> modules resolve environment from runtime bindings
+-> bootstrap no longer manually injects env into each module registrar
+```

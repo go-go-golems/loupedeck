@@ -168,3 +168,15 @@ Completed H3 by refitting the live JS callback boundaries onto the owner-runner 
 - /home/manuel/code/wesen/2026-04-11--loupedeck-test/runtime/js/module_state/module.go — Refit computed/watch/update reactive JS closures to owner-aware execution paths
 - /home/manuel/code/wesen/2026-04-11--loupedeck-test/runtime/js/runtime_test.go — Added tests covering asynchronous button callback application, concurrent event serialization, and no-op callback behavior after runtime close
 - /home/manuel/code/wesen/2026-04-11--loupedeck-test/pkg/runtimeowner/runner.go — Added public owner-context helper used by module code at known owner-thread entry points
+
+## 2026-04-11
+
+Completed H4 by cleaning up module wiring so the JS modules no longer depend on ad hoc environment threading from `runtime/js/runtime.go`. Instead, the environment is now resolved from runtime-scoped bindings, which brings the local module bootstrap closer to the runtime-scoped registration discipline used in `go-go-goja`.
+
+### Related Files
+
+- /home/manuel/code/wesen/2026-04-11--loupedeck-test/runtime/js/env/env.go — Added typed environment lookup from runtime-scoped bindings and a binding-key constant
+- /home/manuel/code/wesen/2026-04-11--loupedeck-test/runtime/js/runtime.go — Simplified module registration to stop hand-threading env into each module registrar
+- /home/manuel/code/wesen/2026-04-11--loupedeck-test/runtime/js/module_state/module.go — State module now resolves the environment from runtime bindings
+- /home/manuel/code/wesen/2026-04-11--loupedeck-test/runtime/js/module_ui/module.go — UI module now resolves the environment from runtime bindings
+- /home/manuel/code/wesen/2026-04-11--loupedeck-test/runtime/js/module_anim/module.go — Anim module now resolves the environment from runtime bindings
