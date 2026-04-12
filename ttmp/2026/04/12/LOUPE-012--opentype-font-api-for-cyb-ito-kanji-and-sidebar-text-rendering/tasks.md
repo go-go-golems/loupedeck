@@ -62,3 +62,5 @@
 - [x] Use image analysis tooling where possible to inspect the rendered preview
 - [x] Record the transient image-analysis API failure and keep the preview workflow anyway
 - [x] Apply one small preview-driven kanji position adjustment and rerun `go test ./...`
+- [x] Fix the main-grid English label clipping found in the preview by shortening/moving the tile chrome labels
+- [x] Export a new preview and confirm via image analysis that the English labels now fit cleanly

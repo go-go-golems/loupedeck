@@ -37,3 +37,13 @@
   - `expected loop to update visible text, got "0"`
   - rerunning `go test ./...` passed.
 - Applied one additional small preview-driven kanji Y-offset adjustment and reran the full suite successfully.
+- Fixed the main-grid English label clipping found in the preview by:
+  - introducing dedicated `tileChromeLabels` abbreviations for the tile chrome,
+  - moving the tile chrome English text box left,
+  - keeping the longer `tileLabels` array for internal naming where useful.
+- Exported a third preview artifact:
+  - `/tmp/loupe-cyb-ito-preview-v3.png`
+- A later image-analysis pass on `preview-v3` succeeded and reported:
+  - the English labels now fit cleanly with visible padding,
+  - the right-side kanji strip remains clearly visible,
+  - the tile kanji alignment looks reasonably consistent.

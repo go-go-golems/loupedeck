@@ -548,3 +548,76 @@ I implemented that workflow as a ticket-local helper script rather than as ad ho
 - Transient image-analysis failures observed:
   - `Trace-Id: 062b522e7b896a43b44612a9ac938fb4`
   - `Trace-Id: 062b524763cac70a5474bc1b4a8d7764`
+
+## Step 8: Fix the preview-detected English label clipping in the tile chrome
+
+Once the preview workflow existed, it immediately paid off: the image review pointed out that the English labels in the upper-right of each tile were being clipped by the tile borders. That was not a font-rendering bug at all; it was a tile-chrome layout bug. The English label text box was simply too far to the right for a `90x90` tile.
+
+This made for a good small follow-up slice. The fix was to treat the tile chrome label as its own layout concern, separate from the longer internal label names already used elsewhere in the scene. I kept the longer names for internal naming/metrics use and introduced shorter visible labels specifically for the tile chrome.
+
+### Prompt Context
+
+**User prompt (verbatim):** "3."
+
+**Assistant interpretation:** Take the third suggested next step: fix the English label clipping issue that the preview had revealed.
+
+**Inferred user intent:** The user wants the preview-export workflow to feed back into real scene polish, not just exist as a debugging curiosity.
+
+### What I did
+- Updated `/home/manuel/code/wesen/2026-04-11--loupedeck-test/examples/js/10-cyb-ito-full-page-all12.js`.
+- Added `tileChromeLabels` with shorter visible tile-chrome strings.
+- Updated `drawTileChrome(...)` so the English label now:
+  - uses `tileChromeLabels[idx]`
+  - starts farther left
+  - uses a narrower, tile-fitting text box
+- Ran:
+  - `go test ./...`
+- Regenerated the preview:
+  - `go run ./ttmp/2026/04/12/LOUPE-012--opentype-font-api-for-cyb-ito-kanji-and-sidebar-text-rendering/scripts/06-render-scene-preview.go --script ./examples/js/10-cyb-ito-full-page-all12.js --out /tmp/loupe-cyb-ito-preview-v3.png --wait 400ms`
+- Ran image analysis successfully on `/tmp/loupe-cyb-ito-preview-v3.png`.
+
+### Why
+- The preview had surfaced a real visual defect in the tile chrome, so fixing it was the highest-value next polishing step.
+- The tile chrome does not need the longest possible English labels. Shorter visible labels are a reasonable fit for the small hardware tile header area.
+
+### What worked
+- The clipping fix was small and localized.
+- `go test ./...` passed after the layout change.
+- The new preview was generated successfully.
+- The image-analysis result was positive and explicit:
+  - English labels now fit cleanly with padding
+  - right strip remains visible
+  - tile kanji alignment still looks reasonable
+
+### What didn't work
+- When I tried to make a new focused code commit for this exact slice, Git reported a clean working tree:
+  - `nothing to commit, working tree clean`
+- That meant the file state was already fully clean by the time I checked, so this slice is recorded through the resulting preview artifact and ticket bookkeeping rather than a new standalone code commit hash.
+
+### What I learned
+- The preview exporter is already useful enough to catch subtle but important header-layout issues that are easy to miss while focusing on fonts and kanji.
+- Separating internal scene labels from visible tile-chrome labels is a good pattern for tiny UI surfaces.
+
+### What was tricky to build
+- The subtlety here was that `surface.text(...)` in the current helper uses a bounded raster box. So even if the string itself is fine, placing the text box too far right causes clipping at the tile edge. The fix was not about the renderer but about choosing a better visible label set and a better text-box origin.
+
+### What warrants a second pair of eyes
+- The visible abbreviation set (`tileChromeLabels`) should get a final human aesthetic pass on hardware, especially for consistency across the 12 tiles.
+
+### What should be done in the future
+- If needed, also tune the HUD English label/kanji balance now that the tile chrome is cleaner.
+
+### Code review instructions
+- Review `/home/manuel/code/wesen/2026-04-11--loupedeck-test/examples/js/10-cyb-ito-full-page-all12.js`.
+- Focus on:
+  - `tileChromeLabels`
+  - `drawTileChrome(...)`
+- Validate with:
+  - `go test ./...`
+  - `go run ./ttmp/2026/04/12/LOUPE-012--opentype-font-api-for-cyb-ito-kanji-and-sidebar-text-rendering/scripts/06-render-scene-preview.go --script ./examples/js/10-cyb-ito-full-page-all12.js --out /tmp/loupe-cyb-ito-preview-v3.png --wait 400ms`
+
+### Technical details
+- Successful image-analysis result on `preview-v3` reported:
+  - English labels fit cleanly within tiles
+  - right-side kanji strip remains clearly visible
+  - tile kanji alignment appears reasonably consistent

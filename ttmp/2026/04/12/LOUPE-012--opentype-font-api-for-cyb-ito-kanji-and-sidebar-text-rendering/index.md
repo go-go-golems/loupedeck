@@ -53,7 +53,9 @@ Current completion state:
 - The right-strip kanji have been tuned for better visibility: larger, brighter, and moved left inside the `60px` strip
 - The main-grid and HUD kanji have been shifted lower/left based on hardware feedback
 - A ticket-local offscreen preview exporter now renders the JS scene to a stitched `480x270` PNG for visual inspection without hardware
-- Preview artifacts now exist at `/tmp/loupe-cyb-ito-preview.png` and `/tmp/loupe-cyb-ito-preview-v2.png`
+- Preview artifacts now exist at `/tmp/loupe-cyb-ito-preview.png`, `/tmp/loupe-cyb-ito-preview-v2.png`, and `/tmp/loupe-cyb-ito-preview-v3.png`
+- Preview-driven tuning also fixed the main-grid English label clipping by shortening and moving the tile chrome labels left
+- Image analysis on `preview-v3` confirmed that the English labels now fit cleanly, the right strip remains visible, and the tile kanji alignment looks reasonable
 - `go test ./...` passes after the preview-driven tuning slice
 
 ## Topics
