@@ -950,3 +950,63 @@ go run ./cmd/loupe-js-live --script ./examples/js/07-cyb-ito-prototype.js --dura
 - Split the current shared `fx` overlay into more semantically focused layers if needed, such as ripple vs scan/status.
 - Continue making the prototype more like the imported cyb-ito scene while preserving Go-owned rendering/composition.
 - Add a focused measurement pass for layered animation workload once the scene becomes denser.
+
+## Step 12: Pivot from generic scene polish to fidelity-first tile ports
+
+After the broader layered prototype existed, the user pushed the work back toward the original `cyb-ito.html` source itself, with a clear prioritization: the tile graphics matter most right now, while strips and other scene extras can wait. That changed the next objective from “general scene refinement” to “port a few tiles faithfully enough that we can learn what the final porting workflow should be.”
+
+This was the correct pivot. Up to this point, the prototype had proven the retained-scene architecture, but the visuals were still mostly only source-inspired. The next step needed to show whether we could actually reproduce the source tile art language.
+
+### Prompt Context
+
+**User prompt (verbatim):** "ok, let's focus on the tiles. all the rest is less important and can be done later. Let's startwith porting 2-3 tiles first. strip should be 60px. beecause of the bezel, the visible top of each tile is like 3 px down, btw."
+
+**Assistant interpretation:** Stop prioritizing full-scene polish for now, focus on faithful tile art reproduction, use the hardware side-strip width as `60px`, and account for the tile-top visibility inset while porting the first few tiles.
+
+**Inferred user intent:** Establish a believable fidelity path by porting a few tiles well before spending more time on the rest of the scene.
+
+### What I did
+- Added low-level JS pixel helpers to `loupedeck/gfx`:
+  - `surface.set(x, y, v)`
+  - `surface.add(x, y, v)`
+- Extended JS integration coverage so those helpers are exercised in tests.
+- Reworked `examples/js/07-cyb-ito-prototype.js` to port the first three tiles toward the original HTML source:
+  - `EYE`
+  - `SPIRAL`
+  - `TEETH`
+- Added a visible-top inset constant so tile content is pushed down to match the hardware bezel reality:
+
+```javascript
+const VISIBLE_TOP_INSET = 3;
+```
+
+- Discovered that the live runner was still producing misleading color artifacts. The real issue was not the tile code itself; it was the retained grayscale conversion. `gfx.Surface.ToRGBA(...)` had been treating the stored grayscale value as alpha while keeping RGB at full foreground color, which made any nonzero pixel effectively look like flat white or otherwise misleading after device conversion.
+- Fixed `runtime/gfx/surface.go` so retained brightness is now encoded into RGB itself, with full alpha, instead of using alpha as the brightness channel.
+- Forced `cmd/loupe-js-live/main.go` to use a pure monochrome theme during tile-port evaluation so the scene can be judged as grayscale art rather than as a colored UI.
+- Temporarily disabled extra scene effect layers in the prototype so the tile art could be judged more clearly without scan/ripple/HUD noise.
+
+### Why
+- Faithful tile porting needs low-level additive pixel control, which the earlier coarse graphics API intentionally did not emphasize.
+- The 3px top visibility note from hardware matters because subtle raster compositions can be thrown off by just a few hidden rows.
+- Evaluating tile fidelity while still sending full-scene effects and misleading brightness conversion would have wasted time, because the wrong thing would be blamed when visuals looked off.
+
+### What worked
+- The first three tiles can now be expressed more directly in JS using source-style additive raster operations.
+- The source porting work immediately uncovered a real grayscale rendering bug in the Go-side conversion path.
+- The tile work now has a much clearer next step: stop using whole-display flushes for tile-port iteration and move to true `90×90` subimage blits.
+
+### What didn't work
+- The first hardware runs of the tile-port pass were still confusing because the earlier grayscale conversion made many pixels appear too uniformly bright.
+- The `TEETH` tile in particular remained hard to judge when the whole main display path and extra overlays were still in play.
+- Full-screen flushes are simply the wrong evaluation surface for careful tile-fidelity work.
+
+### What I learned
+- We are now past the stage where only scene-wide prototypes are useful. Tile fidelity work needs a more surgical workflow.
+- The correct next engineering target is not another generic visual tweak; it is a real tile-owned `90×90` surface/blit workflow.
+- The source and the hardware constraints are now pointing in the same direction: each tile should become its own retained subimage during this fidelity phase.
+
+### What should be done in the future
+- Commit this fidelity-first tile-port checkpoint.
+- Add explicit Phase I tasks for tile-owned subimage blits.
+- Implement tile-owned retained surfaces plus JS `tile.surface(...)` support.
+- Create a new dedicated JS example for the first three tile ports so this work is clearly separated from the earlier full-scene prototype.

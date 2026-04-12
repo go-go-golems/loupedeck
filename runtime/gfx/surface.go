@@ -182,17 +182,22 @@ func (s *Surface) ToRGBA(fg, bg color.Color) *image.RGBA {
 	im := image.NewRGBA(s.Bounds())
 	draw.Draw(im, im.Bounds(), &image.Uniform{bg}, image.Point{}, draw.Src)
 	fr, fgc, fb, _ := fg.RGBA()
+	br, bgc, bb, _ := bg.RGBA()
 	for y := 0; y < s.height; y++ {
 		for x := 0; x < s.width; x++ {
-			v := s.At(x, y)
+			v := uint32(s.At(x, y))
 			if v == 0 {
 				continue
 			}
+			inv := 255 - v
+			r := (uint32(fr>>8)*v + uint32(br>>8)*inv) / 255
+			g := (uint32(fgc>>8)*v + uint32(bgc>>8)*inv) / 255
+			b := (uint32(fb>>8)*v + uint32(bb>>8)*inv) / 255
 			im.SetRGBA(x, y, color.RGBA{
-				R: uint8(fr >> 8),
-				G: uint8(fgc >> 8),
-				B: uint8(fb >> 8),
-				A: v,
+				R: uint8(r),
+				G: uint8(g),
+				B: uint8(b),
+				A: 0xff,
 			})
 		}
 	}

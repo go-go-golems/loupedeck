@@ -88,6 +88,11 @@ func main() {
 		"main":  displays["main"],
 		"right": displays["right"],
 	})
+	renderer.Theme = render.Theme{
+		Background: color.Black,
+		Foreground: color.White,
+		Accent:     color.White,
+	}
 	renderer.Flush()
 
 	exitCh := make(chan struct{}, 1)

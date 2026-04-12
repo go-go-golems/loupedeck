@@ -84,3 +84,18 @@
 - [x] Commit hardware-driven prototype UX fixes separately from pure feature work
 - [x] Record hardware validation and tuning results in the diary/changelog/tasks
 
+### Phase I: tile-focused subimage blitting and faithful tile ports
+
+- [x] Add low-level JS pixel primitives needed for faithful tile ports (`set`, `add`)
+- [x] Port the first 3 tiles toward the original HTML look in the prototype (`EYE`, `SPIRAL`, `TEETH`)
+- [x] Adjust the main tile content for the visible top inset (~3 px down)
+- [x] Fix grayscale output so retained brightness is encoded into RGB rather than misusing alpha
+- [x] Add a tile-focused monochrome evaluation mode by disabling extra scene effect layers
+- [ ] Add tile-owned retained `gfx` surface attachment in the Go UI model
+- [ ] Extend the retained tile renderer so a tile can flush a `90×90` surface as an individual subimage blit
+- [ ] Add JS-facing `tile.surface(surface)` support
+- [ ] Create a new dedicated JS example for tile-port work on the first 3 tiles
+- [ ] Validate the tile-subimage workflow on actual hardware
+- [ ] Commit the tile-subimage slice
+- [ ] Record the tile-subimage slice in the diary/changelog/tasks
+

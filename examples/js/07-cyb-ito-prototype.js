@@ -9,6 +9,9 @@ const MAIN_H = 270;
 const SIDE_W = 60;
 const SIDE_H = 270;
 const VISIBLE_TOP_INSET = 3;
+const SHOW_SCAN_LAYER = false;
+const SHOW_RIPPLE_LAYER = false;
+const SHOW_HUD_LAYER = false;
 
 const main = gfx.surface(MAIN_W, MAIN_H);
 const mainScan = gfx.surface(MAIN_W, MAIN_H);
@@ -89,7 +92,7 @@ function drawSpiral(surface, cx, cy, turns, size, brt, speed, t, thick) {
 
 function drawTileFrame(x, y, isActive) {
   const border = isActive ? 255 : 24;
-  const glow = isActive ? 180 : 0;
+  const glow = isActive ? 110 : 0;
   main.line(x, y, x + TILE - 1, y, border);
   main.line(x, y + TILE - 1, x + TILE - 1, y + TILE - 1, border);
   main.line(x, y, x, y + TILE - 1, border);
@@ -200,8 +203,8 @@ function drawTeethTile(_idx, x, y, t, isActive) {
   const oy = y + VISIBLE_TOP_INSET;
   const cx = x + 45;
   const cy = oy + 43;
-  const brt = isActive ? 205 : 84;
-  const gapOpen = 2 + Math.sin(t * 0.5) * 3;
+  const brt = isActive ? 235 : 110;
+  const gapOpen = 3 + Math.sin(t * 0.45) * 2;
 
   for (let a = -Math.PI; a < 0; a += 0.03) {
     const rx = 32;
@@ -210,16 +213,18 @@ function drawTeethTile(_idx, x, y, t, isActive) {
     addP(main, cx + Math.cos(a) * rx, cy + 6 + -Math.sin(a) * ry, brt);
   }
 
+  main.fillRect(x + 12, cy - gapOpen + 1, 66, gapOpen * 2 - 1, 0);
+
   const teethW = 7;
   const teethCount = 8;
   for (let i = 0; i < teethCount; i++) {
     const tx = x + 9 + i * teethW + (i >= 4 ? 3 : 0);
-    const th = 10 + Math.sin(i * 1.2 + t * 0.3) * 2;
+    const th = 11 + Math.sin(i * 1.1 + t * 0.25) * 2;
     for (let dy = 0; dy < th; dy++) {
-      const taper = 1 - dy / th * 0.3;
-      const w = (teethW * taper) | 0;
+      const taper = 1 - dy / th * 0.25;
+      const w = Math.max(3, (teethW * taper) | 0);
       for (let dx = 0; dx < w; dx++) {
-        addP(main, tx + dx, cy - gapOpen - dy, brt * (0.5 + dy / th * 0.5));
+        addP(main, tx + dx, cy - gapOpen - dy, brt * (0.65 + dy / th * 0.35));
       }
       addP(main, tx, cy - gapOpen - dy, brt);
       addP(main, tx + w - 1, cy - gapOpen - dy, brt);
@@ -228,25 +233,22 @@ function drawTeethTile(_idx, x, y, t, isActive) {
 
   for (let i = 0; i < teethCount; i++) {
     const tx = x + 9 + i * teethW + (i >= 4 ? 3 : 0);
-    const th = 8 + Math.sin(i * 0.9 + t * 0.4) * 2;
+    const th = 9 + Math.sin(i * 0.8 + t * 0.3) * 2;
     for (let dy = 0; dy < th; dy++) {
-      const taper = 1 - dy / th * 0.3;
-      const w = (teethW * taper) | 0;
+      const taper = 1 - dy / th * 0.2;
+      const w = Math.max(3, (teethW * taper) | 0);
       for (let dx = 0; dx < w; dx++) {
-        addP(main, tx + dx, cy + gapOpen + dy, brt * (0.5 + dy / th * 0.5));
+        addP(main, tx + dx, cy + gapOpen + dy, brt * (0.65 + dy / th * 0.35));
       }
       addP(main, tx, cy + gapOpen + dy, brt);
       addP(main, tx + w - 1, cy + gapOpen + dy, brt);
     }
   }
 
-  main.crosshatch(x + 6, cy - gapOpen - 18, 78, 6, 2, brt * 0.15);
-  main.crosshatch(x + 6, cy + gapOpen + 12, 78, 6, 2, brt * 0.15);
-  for (let py = cy - gapOpen + 1; py < cy + gapOpen; py++) {
-    for (let px = x + 12; px < x + 78; px++) {
-      if ((px + py) % 3 === 0) addP(main, px, py, brt * 0.08);
-    }
-  }
+  main.crosshatch(x + 6, cy - gapOpen - 18, 78, 6, 2, brt * 0.12);
+  main.crosshatch(x + 6, cy + gapOpen + 12, 78, 6, 2, brt * 0.12);
+  lineH(main, x + 10, x + 80, cy - gapOpen - 1, brt * 0.18);
+  lineH(main, x + 10, x + 80, cy + gapOpen + 1, brt * 0.18);
 }
 
 function renderMain() {
@@ -267,29 +269,26 @@ function renderMainScan() {
   mainScan.clear(0);
   const t = phase.get();
   const activeIdx = active.get();
+  if (!SHOW_SCAN_LAYER) return;
   for (let i = 0; i < 12; i++) {
     const { x, y } = tileRect(i);
     const localY = 20 + VISIBLE_TOP_INSET + ((Math.floor(t * 80) + i * 5) % (TILE - 28));
-    mainScan.fillRect(x + 8, y + localY, TILE - 16, 2, i === activeIdx ? 180 : 36);
+    mainScan.fillRect(x + 8, y + localY, TILE - 16, 1, i === activeIdx ? 80 : 14);
   }
   const sweepY = Math.floor(t * (MAIN_H - 6));
-  mainScan.fillRect(0, sweepY, MAIN_W, 2, 18);
+  mainScan.fillRect(0, sweepY, MAIN_W, 1, 10);
   const f = flash.get();
   if (f > 0) {
     const { x, y } = tileRect(activeIdx);
-    const b = Math.floor(70 + f * 185);
-    mainScan.fillRect(x + 3, y + 3, TILE - 6, 2, b);
-    mainScan.fillRect(x + 3, y + TILE - 5, TILE - 6, 2, b);
-    mainScan.fillRect(x + 3, y + 3, 2, TILE - 6, b);
-    mainScan.fillRect(x + TILE - 5, y + 3, 2, TILE - 6, b);
-  }
-  for (let yy = 0; yy < MAIN_H; yy += 3) {
-    mainScan.fillRect(0, yy, MAIN_W, 1, 8);
+    const b = Math.floor(20 + f * 70);
+    mainScan.fillRect(x + 3, y + 3, TILE - 6, 1, b);
+    mainScan.fillRect(x + 3, y + TILE - 4, TILE - 6, 1, b);
   }
 }
 
 function renderMainRipple() {
   mainRipple.clear(0);
+  if (!SHOW_RIPPLE_LAYER) return;
   const activeIdx = active.get();
   const p = ripple.get();
   if (p <= 0) return;
@@ -305,6 +304,7 @@ function renderMainRipple() {
 
 function renderMainHUD() {
   mainHUD.clear(0);
+  if (!SHOW_HUD_LAYER) return;
   const activeIdx = active.get();
   const row = Math.floor(activeIdx / 4) + 1;
   const col = (activeIdx % 4) + 1;
@@ -362,9 +362,9 @@ ui.page("cyb-ito-proto", page => {
   });
   page.display("main", display => {
     display.surface(main);
-    display.layer("scan", mainScan);
-    display.layer("ripple", mainRipple);
-    display.layer("hud", mainHUD);
+    if (SHOW_SCAN_LAYER) display.layer("scan", mainScan);
+    if (SHOW_RIPPLE_LAYER) display.layer("ripple", mainRipple);
+    if (SHOW_HUD_LAYER) display.layer("hud", mainHUD);
   });
   page.display("right", display => {
     display.surface(right);

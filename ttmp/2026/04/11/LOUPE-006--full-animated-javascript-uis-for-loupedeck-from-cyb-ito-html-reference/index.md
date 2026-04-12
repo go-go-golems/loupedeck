@@ -68,6 +68,7 @@ Current completion state:
 - First hardware validation slice complete: the prototype scene was rerun on actual Loupedeck Live hardware, interactive touch/button selection was confirmed by a human, and the prototype was tightened to use much clearer active-tile/status feedback plus ASCII side-strip fallback text for current demo readability
 - Phase E core layer-composition slice complete: displays can now own a base surface plus ordered named overlay layers, the renderer composites them in stable order, the JS UI API can attach/remove named layers, and the prototype scene now uses a dedicated overlay layer for touch-driven ripple effects
 - Second hardware validation slice complete: the layered prototype was rerun on actual hardware after overlay support landed, and the user confirmed that the clearer selection behavior still worked and that the new overlay/ripple effect was visibly present on-device
+- Fidelity-first tile-port slice underway: the first 3 tiles are now being ported more directly from the source HTML (`EYE`, `SPIRAL`, `TEETH`), the content was shifted down for the visible top inset, the live runner/theme path was forced back to real monochrome, and a new explicit Phase I now tracks the next step of moving those tile ports onto true `90×90` subimage blits instead of full-screen display flushes
 
 ## Topics
 

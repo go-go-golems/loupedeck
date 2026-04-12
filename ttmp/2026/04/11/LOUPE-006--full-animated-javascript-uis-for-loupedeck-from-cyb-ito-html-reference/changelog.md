@@ -112,3 +112,15 @@ Validated the new layered prototype on actual Loupedeck Live hardware after the 
 - /home/manuel/code/wesen/2026-04-11--loupedeck-test/examples/js/07-cyb-ito-prototype.js — Hardware-validated layered prototype using the new `fx` overlay surface
 - /tmp/loupe-cyb-ito-layers-1775990488.log — Hardware validation log for the layered prototype run after overlay support landed
 
+## 2026-04-12
+
+Pushed the cyb-ito work into a fidelity-first tile-porting pass. Added low-level JS pixel primitives (`set`, `add`) needed for source-style raster drawing, ported the first three tiles toward the original HTML (`EYE`, `SPIRAL`, `TEETH`), shifted tile content down to account for the visible top inset on hardware, converted retained grayscale output to proper RGB brightness instead of using alpha as intensity, and temporarily stripped the extra scan/ripple/HUD layers to make tile art evaluation easier. This pass also clarified the next implementation step: the faithful tile ports should move onto true `90×90` subimage blits instead of continuing to rely on full-screen main-display flushes.
+
+### Related Files
+
+- /home/manuel/code/wesen/2026-04-11--loupedeck-test/runtime/js/module_gfx/module.go — Added JS-level `set` and `add` pixel primitives for more faithful source-style tile ports
+- /home/manuel/code/wesen/2026-04-11--loupedeck-test/runtime/js/runtime_test.go — Extended JS graphics coverage to exercise the new low-level pixel helpers
+- /home/manuel/code/wesen/2026-04-11--loupedeck-test/examples/js/07-cyb-ito-prototype.js — Ported the first three tiles toward the original HTML and added a monochrome tile-evaluation mode
+- /home/manuel/code/wesen/2026-04-11--loupedeck-test/runtime/gfx/surface.go — Fixed grayscale conversion so brightness is encoded into RGB channels rather than alpha
+- /home/manuel/code/wesen/2026-04-11--loupedeck-test/cmd/loupe-js-live/main.go — Forced live-runner renderer theme to pure monochrome for tile-port validation
+
