@@ -20,9 +20,9 @@
 
 ### Phase B: reusable JS trace bindings
 
-- [ ] Add low-level JS `trace(...)` support through `pkg/jsmetrics`
-- [ ] Add scene-helper `sceneMetrics.trace(...)`
-- [ ] Add JS runtime tests proving trace events reach the collector correctly
+- [x] Add low-level JS `trace(...)` support through `pkg/jsmetrics`
+- [x] Add scene-helper `sceneMetrics.trace(...)`
+- [x] Add JS runtime tests proving trace events reach the collector correctly
 
 ### Phase C: scene-level breadcrumb instrumentation
 

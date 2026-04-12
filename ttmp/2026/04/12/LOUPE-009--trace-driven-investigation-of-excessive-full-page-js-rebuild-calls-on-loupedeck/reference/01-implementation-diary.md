@@ -168,3 +168,69 @@ go test ./...
 ### What should be done in the future
 - Implement Phase B next: reusable JS trace bindings through `pkg/jsmetrics` and `sceneMetrics.trace(...)`.
 - After that, instrument the full-page scene with scene-level breadcrumbs before adding Go-side flush trace points.
+
+## Step 3: Add reusable JS trace bindings and prove they reach the collector
+
+With the bounded trace collector substrate in place, the next slice was to make it reachable from JavaScript in a reusable way. This had to happen in `pkg/jsmetrics`, not in a Loupedeck-specific module, because the whole architectural point of the recent metrics work is that the underlying instrumentation should stay portable to future `go-go-goja` work.
+
+### What I did
+- Updated:
+  - `pkg/jsmetrics/jsmetrics.go`
+- Added low-level JS trace support:
+
+```javascript
+const metrics = require("loupedeck/metrics");
+metrics.trace("renderAll.begin", { reason: "loop", active: 0 });
+```
+
+- Added scene-helper trace support:
+
+```javascript
+const sceneMetrics = require("loupedeck/scene-metrics").create("demo");
+sceneMetrics.trace("renderAll.begin", { reason: "loop", active: 2 });
+```
+
+- Implemented JS object-to-field-map decoding so small flat field objects become trace fields in the collector.
+- Chose to namespace scene-helper event names with the helper prefix, so a later dump is easier to read and correlate. For example:
+  - `demo.renderAll.begin`
+  - `demo.renderAll.end`
+- Extended `runtime/js/runtime_test.go` to prove:
+  - low-level `metrics.trace(...)` records ordered events and fields
+  - scene-helper `sceneMetrics.trace(...)` records ordered events and fields with the helper prefix applied
+- Ran:
+
+```bash
+gofmt -w pkg/jsmetrics/jsmetrics.go runtime/js/runtime_test.go
+go test ./pkg/jsmetrics ./runtime/js
+go test ./...
+```
+
+### Why
+- The collector alone is inert unless the scene can write meaningful breadcrumbs into it.
+- Adding the trace APIs in `pkg/jsmetrics` preserves the reusable extraction boundary instead of baking trace support into a Loupedeck-specific environment layer.
+- Runtime tests are important here because later hardware interpretation depends on trusting the exact names and fields being emitted.
+
+### What worked
+- JS can now emit trace events through both module styles.
+- The trace events are visible through the existing collector snapshot path, which means the live runner can dump them later without needing another parallel storage system.
+- Scene-helper prefixing gives trace dumps some structure without needing a more complicated schema.
+
+### What didn't work
+- This slice still does not instrument the actual cyb-ito full-page scene yet, so we still cannot answer the original rebuild-source question from a trace dump alone.
+- There is still no live-runner flag to print the trace buffer; that belongs in a later phase.
+
+### What I learned
+- The current metrics substrate was already flexible enough that adding trace bindings did not require rethinking the runtime-bridge design.
+- Prefixing scene-helper trace events is likely the right default because trace logs are inherently flatter than counters, so namespacing matters more for readability.
+
+### What was tricky to build
+- The subtle part was deciding how to encode JS field objects. The current approach is intentionally simple: flatten own properties into a string map. That is enough for breadcrumb-style debugging without needing a richer serialization layer.
+- Another subtle point was deciding whether scene-helper trace names should be literal or prefixed. Prefixing should make later mixed-scene traces more legible.
+
+### What warrants a second pair of eyes
+- Once the first real scene trace exists, someone should review whether the prefixing convention is as readable in practice as it seems in tests.
+- If later trace events need richer payloads than flat strings, we should revisit the field encoding design rather than quietly overloading the current helper.
+
+### What should be done in the future
+- Implement Phase C next: add scene-level breadcrumb instrumentation to `examples/js/10-cyb-ito-full-page-all12.js`.
+- After that, add Go-side flush trace points and live-runner trace dump flags.

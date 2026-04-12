@@ -231,15 +231,17 @@ func TestGfxModuleCanBuildAndCompositeSurface(t *testing.T) {
 	_, err := rt.RunString(nil, `
 		const gfx = require("loupedeck/gfx");
 		const base = gfx.surface(16, 16);
-		base.clear(0);
-		base.set(1, 1, 30);
-		base.add(1, 1, 20);
-		base.line(0, 0, 15, 0, 50);
-		base.crosshatch(0, 0, 8, 8, 2, 20);
-		base.text("EYE", { x: 0, y: 0, width: 16, height: 16, brightness: 120, center: true });
-		const overlay = gfx.surface(4, 4);
-		overlay.fillRect(0, 0, 4, 4, 100);
-		base.compositeAdd(overlay, 2, 2);
+		base.batch(() => {
+		  base.clear(0);
+		  base.set(1, 1, 30);
+		  base.add(1, 1, 20);
+		  base.line(0, 0, 15, 0, 50);
+		  base.crosshatch(0, 0, 8, 8, 2, 20);
+		  base.text("EYE", { x: 0, y: 0, width: 16, height: 16, brightness: 120, center: true });
+		  const overlay = gfx.surface(4, 4);
+		  overlay.fillRect(0, 0, 4, 4, 100);
+		  base.compositeAdd(overlay, 2, 2);
+		});
 		globalThis.__gfxBase = base;
 	`)
 	if err != nil {
@@ -331,6 +333,137 @@ func TestDisplayCanOwnNamedGfxLayer(t *testing.T) {
 	}
 	if got := main.Layer("overlay").Surface().At(10, 10); got == 0 {
 		t.Fatal("expected overlay layer content to remain attached to display")
+	}
+}
+
+func TestTileCanOwnGfxSurface(t *testing.T) {
+	rt := NewRuntime(nil)
+	defer rt.Close(nil)
+	env := rt.Env
+
+	_, err := rt.RunString(nil, `
+		const ui = require("loupedeck/ui");
+		const gfx = require("loupedeck/gfx");
+		const s = gfx.surface(90, 90);
+		s.fillRect(0, 0, 5, 5, 120);
+		ui.page("home", page => {
+		  page.tile(0, 0, tile => {
+		    tile.surface(s);
+		  });
+		});
+		ui.show("home");
+	`)
+	if err != nil {
+		t.Fatalf("run script: %v", err)
+	}
+
+	tile := env.UI.Page("home").Tile(0, 0)
+	if tile == nil || tile.Surface() == nil {
+		t.Fatal("expected tile to own a gfx surface")
+	}
+	if got := tile.Surface().At(0, 0); got == 0 {
+		t.Fatal("expected tile surface content to remain attached")
+	}
+}
+
+func TestMetricsModuleRecordsCountersTimingsAndTrace(t *testing.T) {
+	rt := NewRuntime(nil)
+	defer rt.Close(nil)
+
+	_, err := rt.RunString(nil, `
+		const metrics = require("loupedeck/metrics");
+		metrics.inc("scene.frames", 2);
+		metrics.observeMillis("scene.manual", 1.5);
+		metrics.trace("renderAll.begin", { reason: "loop", active: 0 });
+		metrics.time("scene.renderAll", () => {
+		  for (let i = 0; i < 1000; i++) {}
+		});
+		metrics.trace("renderAll.end", { reason: "loop" });
+	`)
+	if err != nil {
+		t.Fatalf("run script: %v", err)
+	}
+
+	snap := rt.Env.Metrics.Snapshot()
+	if got := snap.Counters["scene.frames"]; got != 2 {
+		t.Fatalf("expected scene.frames=2, got %d", got)
+	}
+	if got := snap.Timings["scene.manual"].Count; got != 1 {
+		t.Fatalf("expected scene.manual count 1, got %d", got)
+	}
+	if got := snap.Timings["scene.renderAll"].Count; got != 1 {
+		t.Fatalf("expected scene.renderAll count 1, got %d", got)
+	}
+	if len(snap.Trace) != 2 {
+		t.Fatalf("expected 2 trace events, got %d", len(snap.Trace))
+	}
+	if got := snap.Trace[0].Name; got != "renderAll.begin" {
+		t.Fatalf("expected first trace event renderAll.begin, got %q", got)
+	}
+	if got := snap.Trace[0].Fields["reason"]; got != "loop" {
+		t.Fatalf("expected first trace reason loop, got %q", got)
+	}
+	if got := snap.Trace[0].Fields["active"]; got != "0" {
+		t.Fatalf("expected first trace active 0, got %q", got)
+	}
+	if got := snap.Trace[1].Name; got != "renderAll.end" {
+		t.Fatalf("expected second trace event renderAll.end, got %q", got)
+	}
+}
+
+func TestSceneMetricsModuleProvidesReusableHelpers(t *testing.T) {
+	rt := NewRuntime(nil)
+	defer rt.Close(nil)
+
+	_, err := rt.RunString(nil, `
+		const sceneMetrics = require("loupedeck/scene-metrics").create("demo");
+		sceneMetrics.recordLoopTick();
+		sceneMetrics.recordActivation("T3");
+		sceneMetrics.trace("renderAll.begin", { reason: "loop", active: 2 });
+		sceneMetrics.recordRebuild("loop", () => {
+		  sceneMetrics.timeTile("SPIRAL", () => {
+		    for (let i = 0; i < 1000; i++) {}
+		  });
+		});
+		sceneMetrics.trace("renderAll.end", { reason: "loop" });
+	`)
+	if err != nil {
+		t.Fatalf("run script: %v", err)
+	}
+
+	snap := rt.Env.Metrics.Snapshot()
+	if got := snap.Counters["demo.loopTicks"]; got != 1 {
+		t.Fatalf("expected demo.loopTicks=1, got %d", got)
+	}
+	if got := snap.Counters["demo.activations"]; got != 1 {
+		t.Fatalf("expected demo.activations=1, got %d", got)
+	}
+	if got := snap.Counters["demo.activations.touch"]; got != 1 {
+		t.Fatalf("expected demo.activations.touch=1, got %d", got)
+	}
+	if got := snap.Counters["demo.renderAll.calls"]; got != 1 {
+		t.Fatalf("expected demo.renderAll.calls=1, got %d", got)
+	}
+	if got := snap.Counters["demo.renderAll.reason.loop"]; got != 1 {
+		t.Fatalf("expected demo.renderAll.reason.loop=1, got %d", got)
+	}
+	if got := snap.Timings["demo.renderAll"].Count; got != 1 {
+		t.Fatalf("expected demo.renderAll timing count 1, got %d", got)
+	}
+	if got := snap.Timings["demo.tile.SPIRAL"].Count; got != 1 {
+		t.Fatalf("expected demo.tile.SPIRAL timing count 1, got %d", got)
+	}
+	if len(snap.Trace) != 2 {
+		t.Fatalf("expected 2 trace events, got %d", len(snap.Trace))
+	}
+	if got := snap.Trace[0].Name; got != "demo.renderAll.begin" {
+		t.Fatalf("expected first scene trace event demo.renderAll.begin, got %q", got)
+	}
+	if got := snap.Trace[0].Fields["active"]; got != "2" {
+		t.Fatalf("expected first scene trace active 2, got %q", got)
+	}
+	if got := snap.Trace[1].Name; got != "demo.renderAll.end" {
+		t.Fatalf("expected second scene trace event demo.renderAll.end, got %q", got)
 	}
 }
 

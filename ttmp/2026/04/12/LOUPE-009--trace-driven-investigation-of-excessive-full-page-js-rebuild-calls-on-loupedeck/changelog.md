@@ -31,3 +31,13 @@ Implemented Phase A of `LOUPE-009`: the generic trace collector substrate. The r
 - /home/manuel/code/wesen/2026-04-11--loupedeck-test/runtime/metrics/metrics_test.go — Added coverage for trace ordering, bounds, copying, and reset behavior
 - /home/manuel/code/wesen/2026-04-11--loupedeck-test/ttmp/2026/04/12/LOUPE-009--trace-driven-investigation-of-excessive-full-page-js-rebuild-calls-on-loupedeck/tasks.md — Marked Phase A complete
 
+## 2026-04-12
+
+Implemented Phase B of `LOUPE-009`: reusable JS trace bindings on top of the new bounded collector substrate. The generic `pkg/jsmetrics` package now exposes low-level `metrics.trace(name, fields)` and higher-level `sceneMetrics.trace(name, fields)` APIs. Low-level trace calls write literal event names into the collector, while scene-helper trace calls automatically namespace event names with the helper prefix, making later dumps easier to interpret (`demo.renderAll.begin`, `scene.loop.tick`, etc.). Runtime tests were extended to prove that both the low-level and scene-helper APIs record ordered trace events with field values available through the collector snapshot. The full repository test suite passed after the change.
+
+### Related Files
+
+- /home/manuel/code/wesen/2026-04-11--loupedeck-test/pkg/jsmetrics/jsmetrics.go — Added low-level and scene-helper JS trace bindings plus JS object field decoding
+- /home/manuel/code/wesen/2026-04-11--loupedeck-test/runtime/js/runtime_test.go — Added coverage proving JS trace events reach the collector through both module styles
+- /home/manuel/code/wesen/2026-04-11--loupedeck-test/ttmp/2026/04/12/LOUPE-009--trace-driven-investigation-of-excessive-full-page-js-rebuild-calls-on-loupedeck/tasks.md — Marked Phase B complete
+
