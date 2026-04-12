@@ -35,6 +35,8 @@ RelatedFiles:
       Note: Intern-oriented conceptual deep dive for the preferred reactive design
     - Path: ttmp/2026/04/11/LOUPE-005--goja-javascript-api-for-dynamic-loupedeck-interfaces/design-doc/03-implementation-plan-reactive-goja-ui-runtime-for-dynamic-loupedeck-interfaces.md
       Note: Intern-oriented execution roadmap that guided the milestone-by-milestone implementation
+    - Path: ttmp/2026/04/11/LOUPE-005--goja-javascript-api-for-dynamic-loupedeck-interfaces/design-doc/04-implementation-plan-converge-the-loupedeck-js-runtime-onto-go-go-goja-runtime-ownership.md
+      Note: Next-phase plan for replacing the ad hoc JS execution model with go-go-goja runtime ownership patterns
 ExternalSources: []
 Summary: Ticket for the goja-based JavaScript runtime above the current Loupedeck Go rendering and transport layers, now including the design package plus a first implemented runtime stack: reactive core, retained UI, retained renderer bridge, host shell, goja modules, animation/easing, replay semantics, and a JS demo command.
 LastUpdated: 2026-04-11T20:40:45-04:00
@@ -62,6 +64,7 @@ The ticket now focuses on both design and implementation:
 - **Brainstorm design doc**: `design-doc/01-brainstorm-goja-javascript-api-approaches-for-dynamic-loupedeck-interfaces.md`
 - **Reactive textbook**: `design-doc/02-textbook-reactive-goja-ui-runtime-for-dynamic-loupedeck-interfaces.md`
 - **Implementation plan**: `design-doc/03-implementation-plan-reactive-goja-ui-runtime-for-dynamic-loupedeck-interfaces.md`
+- **go-go-goja convergence plan**: `design-doc/04-implementation-plan-converge-the-loupedeck-js-runtime-onto-go-go-goja-runtime-ownership.md`
 - **Example scripts**: `reference/01-javascript-api-example-scripts.md`
 - **Diary**: `reference/02-implementation-diary.md`
 
@@ -82,6 +85,7 @@ Current completion state:
 - Milestone E complete: first goja modules (`loupedeck/state`, `loupedeck/ui`) and JS demo command
 - Milestone F complete: animation/easing packages and JS modules (`loupedeck/anim`, `loupedeck/easing`)
 - Milestone G complete: retained replay semantics for reconnect-safe redraws
+- Convergence phase H planned: migrate the current JS execution model onto go-go-goja runtime ownership before serious hardware-backed JS demos
 - Diary actively maintained with per-milestone commits and validation evidence
 
 ## Topics

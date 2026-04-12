@@ -1205,3 +1205,124 @@ reconnect replay = invalidate current retained page so it redraws
 not = rerun page-entry hooks
 not = reconstruct animation timelines automatically
 ```
+
+## Step 11: Add a go-go-goja convergence plan as the next tracked implementation phase
+
+After finishing the first local implementation pass, the next design question was whether the current JS runtime bootstrap is actually the right long-term execution model for live hardware-backed scripts. The answer from inspecting `go-go-goja` was essentially “no, not as-is”: the Loupedeck-specific runtime layers are good, but the JS execution ownership model should converge toward the reusable owner-thread solution that already exists in `go-go-goja`.
+
+This step therefore did not start the refactor itself yet. Instead, it turned that insight into a concrete next-phase design document and task breakdown. That matters because the repository now has enough local implementation that an uncontrolled refactor could easily become messy. A separate convergence plan keeps the next phase disciplined.
+
+### Prompt Context
+
+**User prompt (verbatim):** "Look at /home/manuel/code/wesen/corporate-headquarters/go-go-goja we should have a proper solution in there, we'll use that in the long run anyway. Can you analyze and tell me?"
+
+**Assistant interpretation:** Inspect the local `go-go-goja` repository for an existing owned-runtime / module / async pattern that should replace or guide the current LOUPE-005 JS execution model.
+
+**Inferred user intent:** Avoid growing the Loupedeck JS runtime on top of an ad hoc goja execution model if a more correct reusable solution already exists locally.
+
+**Commit (code):** N/A — documentation/planning step; code refactor intentionally deferred until the new phase is planned.
+
+### What I did
+- Inspected the relevant `go-go-goja` runtime-ownership pieces:
+  - `pkg/runtimeowner/runner.go`
+  - `pkg/runtimeowner/types.go`
+  - `pkg/runtimeowner/errors.go`
+  - `pkg/runtimeowner/runner_test.go`
+  - `pkg/runtimeowner/runner_race_test.go`
+  - `pkg/runtimebridge/runtimebridge.go`
+  - `engine/factory.go`
+  - `modules/timer/timer.go`
+  - `pkg/doc/03-async-patterns.md`
+- Concluded that the key reusable long-term solution is:
+
+```text
+runtimeowner + runtimebridge + owned runtime factory/module pattern
+```
+
+- Added a new design doc:
+
+```text
+design-doc/04-implementation-plan-converge-the-loupedeck-js-runtime-onto-go-go-goja-runtime-ownership.md
+```
+
+- Wrote the document to cover:
+  - what the current local runtime already gets right
+  - what is still weak in the current ad hoc JS execution model
+  - evidence from `go-go-goja`
+  - the recommended architecture split
+  - an incremental convergence strategy
+  - explicit phase H tasks (owner-runner, bindings, callback refit, live runner, examples, hardware validation)
+- Updated `tasks.md` with a new convergence phase H.
+- Updated `index.md` to link the new doc and describe the next implementation direction.
+- Updated `changelog.md` to record the analysis and added plan.
+
+### Why
+- The first local implementation pass intentionally optimized for proving the retained/reactive architecture quickly. That was the right choice at the time.
+- Now that hardware-backed interactive demos are the next likely goal, the lack of a formal owner-thread runtime is no longer just a theoretical weakness. It becomes the next important correctness boundary.
+- `go-go-goja` already solved this problem in a reusable way, so continuing with ad hoc local JS callback execution would be the wrong long-term move.
+
+### What worked
+- The `go-go-goja` evidence was strong and coherent. The combination of:
+  - `runtimeowner`
+  - `runtimebridge`
+  - `engine.Factory`
+  - async module docs and the timer module
+  makes the intended model very clear.
+- The convergence plan could therefore be written as a practical migration strategy rather than as speculation.
+- The new phase-H tasks now make the next work explicit instead of burying it in chat context.
+
+### What didn't work
+- No tooling or code failed in this step because it was intentionally a planning/documentation step.
+- The only unresolved question is one the plan makes explicit: whether the Loupedeck repo should depend directly on `go-go-goja` packages or port the relevant runtime-owner pieces locally first.
+
+### What I learned
+- The current LOUPE-005 implementation got the **device-side** split right:
+  - Go owns rendering and transport
+  - JS should remain above that layer
+- The remaining weakness is specifically the **VM ownership** layer, and `go-go-goja` already has the right answer for that.
+- This means the right long-term architecture is not “replace our runtime with go-go-goja”, but rather:
+
+```text
+go-go-goja owns JS runtime discipline
+this repo owns Loupedeck-specific retained UI, rendering, and transport
+```
+
+### What was tricky to build
+- The tricky part here was resisting the urge to jump straight into code changes after recognizing the better pattern. Because the local repo now has a substantial first implementation pass, a sudden refactor without a dedicated plan would make continuity and review much worse.
+- Another subtle point was distinguishing which parts should converge and which parts should remain local. The answer is not “move everything into go-go-goja”; it is to adopt the runtime owner/bridge/factory patterns while keeping Loupedeck-specific rendering and transport policy here.
+
+### What warrants a second pair of eyes
+- The biggest open review question is dependency strategy:
+  - direct dependency on `go-go-goja`
+  - or local port of `runtimeowner` / `runtimebridge` first
+- A reviewer should also confirm that the convergence should happen **before** building serious hardware-backed JS live demos, not after.
+
+### What should be done in the future
+- Execute convergence phase H in focused implementation commits.
+- Decide the dependency strategy early in H1.
+- Only after H1-H3, build `cmd/loupe-js-live` and the first live JS example pack.
+
+### Code review instructions
+- Read in this order:
+  - `design-doc/04-implementation-plan-converge-the-loupedeck-js-runtime-onto-go-go-goja-runtime-ownership.md`
+  - `/home/manuel/code/wesen/corporate-headquarters/go-go-goja/pkg/runtimeowner/runner.go`
+  - `/home/manuel/code/wesen/corporate-headquarters/go-go-goja/pkg/runtimebridge/runtimebridge.go`
+  - `/home/manuel/code/wesen/corporate-headquarters/go-go-goja/engine/factory.go`
+  - `/home/manuel/code/wesen/corporate-headquarters/go-go-goja/modules/timer/timer.go`
+- Cross-check the current local runtime entry points in:
+  - `runtime/js/runtime.go`
+  - `runtime/js/module_ui/module.go`
+  - `runtime/js/module_anim/module.go`
+
+### Technical details
+- The most important conclusion from the `go-go-goja` analysis is:
+
+```text
+owner-thread discipline should be solved by runtimeowner.Runner and runtime-scoped bindings, not by ad hoc direct JS callback invocation from host/timer/animation code
+```
+
+- The new tracked next phase in the ticket is:
+
+```text
+Phase H: adopt go-go-goja runtime ownership before serious hardware-backed JS examples
+```

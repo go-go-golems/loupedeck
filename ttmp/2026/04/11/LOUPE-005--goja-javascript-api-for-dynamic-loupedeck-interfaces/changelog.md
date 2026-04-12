@@ -117,3 +117,16 @@ Implemented milestone G as the first reconnect-safe retained replay slice. The c
 - /home/manuel/code/wesen/2026-04-11--loupedeck-test/runtime/ui/ui.go — Added explicit active-page invalidation support for retained visual replay
 - /home/manuel/code/wesen/2026-04-11--loupedeck-test/runtime/host/pages.go — Added `ReplayActivePage()` reconnect/replay entry point with non-hook-replaying semantics
 - /home/manuel/code/wesen/2026-04-11--loupedeck-test/runtime/host/runtime_test.go — Added coverage proving replay marks tiles dirty again without rerunning page-show hooks
+
+## 2026-04-11
+
+Analyzed the `go-go-goja` runtime-owner architecture and added a dedicated convergence plan for migrating the current Loupedeck JS runtime onto that owner-thread / runtime-bridge / factory-style execution model before building serious hardware-backed JS demos. Added the corresponding convergence-phase tasks to the ticket so the next work is tracked explicitly.
+
+### Related Files
+
+- /home/manuel/code/wesen/2026-04-11--loupedeck-test/ttmp/2026/04/11/LOUPE-005--goja-javascript-api-for-dynamic-loupedeck-interfaces/design-doc/04-implementation-plan-converge-the-loupedeck-js-runtime-onto-go-go-goja-runtime-ownership.md — Detailed next-phase plan for adopting go-go-goja runtime ownership patterns
+- /home/manuel/code/wesen/2026-04-11--loupedeck-test/ttmp/2026/04/11/LOUPE-005--goja-javascript-api-for-dynamic-loupedeck-interfaces/tasks.md — Added convergence-phase H tasks for owner-runner integration, runtime bindings, live runner work, and hardware-backed examples
+- /home/manuel/code/wesen/2026-04-11--loupedeck-test/ttmp/2026/04/11/LOUPE-005--goja-javascript-api-for-dynamic-loupedeck-interfaces/index.md — Updated the ticket landing page to include the new convergence plan and next-phase status
+- /home/manuel/code/wesen/corporate-headquarters/go-go-goja/pkg/runtimeowner/runner.go — Source of truth for the owner-thread runner pattern we intend to adopt
+- /home/manuel/code/wesen/corporate-headquarters/go-go-goja/pkg/runtimebridge/runtimebridge.go — Source of truth for runtime-scoped owner/context bindings
+- /home/manuel/code/wesen/corporate-headquarters/go-go-goja/engine/factory.go — Source of truth for owned-runtime composition and runtime-scoped module registration
