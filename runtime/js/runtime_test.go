@@ -61,10 +61,11 @@ func (f *fakeSource) emitButton(button deck.Button, status deck.ButtonStatus) {
 }
 
 func TestRequireStateAndUIBuildReactivePage(t *testing.T) {
-	env := envpkg.Ensure(nil)
-	vm, env := NewRuntime(env)
+	rt := NewRuntime(nil)
+	defer rt.Close(nil)
+	env := rt.Env
 
-	_, err := vm.RunString(`
+	_, err := rt.RunString(nil, `
 		const state = require("loupedeck/state");
 		const ui = require("loupedeck/ui");
 		const mode = state.signal("IDLE");
@@ -100,9 +101,11 @@ func TestButtonCallbackCanMutateSignalFromJS(t *testing.T) {
 	source := newFakeSource()
 	env := envpkg.Ensure(nil)
 	env.Host.Attach(source)
-	vm, env := NewRuntime(env)
+	rt := NewRuntime(env)
+	defer rt.Close(nil)
+	env = rt.Env
 
-	_, err := vm.RunString(`
+	_, err := rt.RunString(nil, `
 		const state = require("loupedeck/state");
 		const ui = require("loupedeck/ui");
 		const mode = state.signal("IDLE");
@@ -132,9 +135,11 @@ func TestAnimModuleCanDriveSignalTweenFromButtonEvent(t *testing.T) {
 	env := envpkg.Ensure(nil)
 	env.Host.Attach(source)
 	env.Anim.FrameInterval = 5 * time.Millisecond
-	vm, env := NewRuntime(env)
+	rt := NewRuntime(env)
+	defer rt.Close(nil)
+	env = rt.Env
 
-	_, err := vm.RunString(`
+	_, err := rt.RunString(nil, `
 		const state = require("loupedeck/state");
 		const ui = require("loupedeck/ui");
 		const anim = require("loupedeck/anim");
@@ -164,9 +169,11 @@ func TestAnimModuleCanDriveSignalTweenFromButtonEvent(t *testing.T) {
 func TestAnimModuleLoopCanDriveReactiveUpdates(t *testing.T) {
 	env := envpkg.Ensure(nil)
 	env.Anim.FrameInterval = 5 * time.Millisecond
-	vm, env := NewRuntime(env)
+	rt := NewRuntime(env)
+	defer rt.Close(nil)
+	env = rt.Env
 
-	_, err := vm.RunString(`
+	_, err := rt.RunString(nil, `
 		const state = require("loupedeck/state");
 		const ui = require("loupedeck/ui");
 		const anim = require("loupedeck/anim");
@@ -187,7 +194,7 @@ func TestAnimModuleLoopCanDriveReactiveUpdates(t *testing.T) {
 	}
 
 	time.Sleep(40 * time.Millisecond)
-	loopHandle := vm.Get("__loopHandle").ToObject(vm)
+	loopHandle := rt.VM.Get("__loopHandle").ToObject(rt.VM)
 	stop, ok := goja.AssertFunction(loopHandle.Get("stop"))
 	if !ok {
 		t.Fatal("expected loop handle to expose stop()")

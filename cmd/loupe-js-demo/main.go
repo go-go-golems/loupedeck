@@ -51,14 +51,15 @@ func main() {
 	}
 
 	env := envpkg.Ensure(nil)
-	vm, env := jsruntime.NewRuntime(env)
-	if _, err := vm.RunString(string(script)); err != nil {
+	rt := jsruntime.NewRuntime(env)
+	defer rt.Close(nil)
+	if _, err := rt.RunString(nil, string(script)); err != nil {
 		fmt.Fprintf(os.Stderr, "run script: %v\n", err)
 		os.Exit(1)
 	}
 
 	target := &pngTarget{outDir: *outDir}
-	r := render.New(env.UI, target)
+	r := render.New(rt.Env.UI, target)
 	count := r.Flush()
 	fmt.Printf("Rendered %d dirty tiles into %s\n", count, *outDir)
 }
