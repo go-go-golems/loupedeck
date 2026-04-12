@@ -14,11 +14,15 @@ import (
 
 const ModuleName = "loupedeck/state"
 
-func Register(registry *require.Registry, env *envpkg.Environment) {
+func Register(registry *require.Registry) {
 	registry.RegisterNativeModule(ModuleName, func(runtime *goja.Runtime, module *goja.Object) {
 		bindings, ok := runtimebridge.Lookup(runtime)
 		if !ok || bindings.Owner == nil {
 			panic(runtime.NewGoError(fmt.Errorf("state module requires runtime owner bindings")))
+		}
+		env, ok := envpkg.Lookup(runtime)
+		if !ok || env == nil {
+			panic(runtime.NewGoError(fmt.Errorf("state module requires environment bindings")))
 		}
 		ownerCtx := runtimeowner.OwnerContext(bindings.Owner, bindings.Context)
 		exports := module.Get("exports").(*goja.Object)

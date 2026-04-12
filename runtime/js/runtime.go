@@ -34,10 +34,10 @@ func NewRuntime(env *envpkg.Environment) *Runtime {
 	go loop.Start()
 
 	registry := new(require.Registry)
-	module_state.Register(registry, env)
-	module_ui.Register(registry, env)
+	module_state.Register(registry)
+	module_ui.Register(registry)
 	module_easing.Register(registry)
-	module_anim.Register(registry, env)
+	module_anim.Register(registry)
 	registry.Enable(vm)
 
 	owner := runtimeowner.NewRunner(vm, loop, runtimeowner.Options{
@@ -50,7 +50,7 @@ func NewRuntime(env *envpkg.Environment) *Runtime {
 		Loop:    loop,
 		Owner:   owner,
 		Values: map[string]any{
-			"environment": env,
+			envpkg.BindingKeyEnvironment: env,
 		},
 	})
 

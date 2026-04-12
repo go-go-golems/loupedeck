@@ -15,11 +15,15 @@ import (
 
 const ModuleName = "loupedeck/anim"
 
-func Register(registry *require.Registry, env *envpkg.Environment) {
+func Register(registry *require.Registry) {
 	registry.RegisterNativeModule(ModuleName, func(runtime *goja.Runtime, module *goja.Object) {
 		bindings, ok := runtimebridge.Lookup(runtime)
 		if !ok || bindings.Owner == nil {
 			panic(runtime.NewGoError(fmt.Errorf("anim module requires runtime owner bindings")))
+		}
+		env, ok := envpkg.Lookup(runtime)
+		if !ok || env == nil {
+			panic(runtime.NewGoError(fmt.Errorf("anim module requires environment bindings")))
 		}
 		exports := module.Get("exports").(*goja.Object)
 		_ = exports.Set("to", func(call goja.FunctionCall) goja.Value {

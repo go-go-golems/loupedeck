@@ -1,17 +1,30 @@
 package env
 
 import (
+	"github.com/dop251/goja"
+	"github.com/go-go-golems/loupedeck/pkg/runtimebridge"
 	"github.com/go-go-golems/loupedeck/runtime/anim"
 	"github.com/go-go-golems/loupedeck/runtime/host"
 	"github.com/go-go-golems/loupedeck/runtime/reactive"
 	"github.com/go-go-golems/loupedeck/runtime/ui"
 )
 
+const BindingKeyEnvironment = "environment"
+
 type Environment struct {
 	Reactive *reactive.Runtime
 	UI       *ui.UI
 	Host     *host.Runtime
 	Anim     *anim.Runtime
+}
+
+func Lookup(vm *goja.Runtime) (*Environment, bool) {
+	bindings, ok := runtimebridge.Lookup(vm)
+	if !ok || bindings.Values == nil {
+		return nil, false
+	}
+	env, ok := bindings.Values[BindingKeyEnvironment].(*Environment)
+	return env, ok
 }
 
 func Ensure(e *Environment) *Environment {
