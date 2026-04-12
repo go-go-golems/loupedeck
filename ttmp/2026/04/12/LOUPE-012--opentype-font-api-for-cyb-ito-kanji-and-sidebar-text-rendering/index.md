@@ -47,7 +47,10 @@ Current completion state:
 - JS runtime tests now prove both generic font-handle use and collection-font kanji rendering
 - First cyb-ito integration completed in `examples/js/07-cyb-ito-prototype.js`
 - The prototype now uses a CJK font to render actual kanji tile labels and a kanji sidebar scroller
-- `go test ./...` passes after the first three implementation phases
+- The presenter-driven full-page scene in `examples/js/10-cyb-ito-full-page-all12.js` now also uses CJK kanji labels
+- The full-page scene now includes source-derived left/right side strips mapped onto the real `60×270` hardware displays
+- A non-interactive hardware smoke run confirmed `left`, `main`, and `right` display draws for the updated full-page scene
+- `go test ./...` passes after the first strip-fidelity slice
 
 ## Topics
 

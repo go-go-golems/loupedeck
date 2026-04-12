@@ -13,18 +13,25 @@ Owners: []
 RelatedFiles:
     - Path: examples/js/07-cyb-ito-prototype.js
       Note: Step 4 prototype kanji and sidebar integration
+    - Path: examples/js/10-cyb-ito-full-page-all12.js
+      Note: |-
+        Step 5 source-derived side-strip port and three-display validation target
+        Step 5 presenter-driven full-page strip port and hardware smoke validation target
     - Path: runtime/gfx/font.go
       Note: Step 2 Go-side font loader/cache implementation
     - Path: runtime/js/module_gfx/module.go
       Note: Step 3 JS `gfx.font(...)` and text font option implementation
     - Path: runtime/js/runtime_test.go
       Note: JS runtime tests for font handles and kanji collection rendering
+    - Path: ttmp/2026/04/11/LOUPE-006--full-animated-javascript-uis-for-loupedeck-from-cyb-ito-html-reference/sources/local/cyb-ito.html
+      Note: Imported source inspected for exact strip behavior in Step 5
 ExternalSources: []
 Summary: Chronological diary for OpenType font loading and kanji rendering support in the Loupedeck JS runtime.
 LastUpdated: 2026-04-12T18:15:00-04:00
 WhatFor: Use this diary to understand the implementation steps, failures, and validation path for LOUPE-012.
 WhenToUse: Use when continuing or reviewing the OpenType/CJK font support work.
 ---
+
 
 
 # Diary
@@ -282,3 +289,93 @@ This slice keeps the integration focused and honest: one real scene, one real sy
 
 ### Technical details
 - First concrete CJK font path used in scene code: `/usr/share/fonts/opentype/noto/NotoSansCJK-Regular.ttc`
+
+## Step 5: Port the side strips from the imported source into the presenter-driven full-page scene
+
+The next useful slice was not “more generic font API work” but a source-driven scene port. The user pointed directly at the imported `cyb-ito.html` and asked me to use it for the side-strip implementation details. That changed the task from a loose sidebar approximation into a concrete fidelity step: inspect the exact strip math and port that behavior into the hardware-backed full-page example.
+
+This step therefore focused on `examples/js/10-cyb-ito-full-page-all12.js`. I kept the presenter-driven architecture intact, but extended the scene so it now drives three real displays again: `left`, `main`, and `right`. The new left/right strips are derived from the imported reference instead of from guesswork.
+
+### Prompt Context
+
+**User prompt (verbatim):** "look at @ttmp/2026/04/11/LOUPE-006--full-animated-javascript-uis-for-loupedeck-from-cyb-ito-html-reference/sources/local/cyb-ito.html for implementation details on the side strips"
+
+**Assistant interpretation:** Inspect the imported `cyb-ito.html` directly, extract the exact side-strip behavior, and port that logic into the retained Loupedeck scene instead of improvising new sidebars.
+
+**Inferred user intent:** The user wants source-faithful strip behavior, especially for the sidebar treatment, rather than another approximate horror-themed side decoration.
+
+**Commit (code):** `ea429f8` — `Add source-derived side strips to full-page cyb-ito scene`
+
+### What I did
+- Inspected `/home/manuel/code/wesen/2026-04-11--loupedeck-test/ttmp/2026/04/11/LOUPE-006--full-animated-javascript-uis-for-loupedeck-from-cyb-ito-html-reference/sources/local/cyb-ito.html` around the strip-rendering section.
+- Confirmed the exact source behavior:
+  - left strip = 12 animated dripping bars
+  - right strip = vertically faded horror-kanji scroller
+  - both strips = divider lines and flash pips aligned to active rows
+- Updated `/home/manuel/code/wesen/2026-04-11--loupedeck-test/examples/js/10-cyb-ito-full-page-all12.js` to:
+  - load optional CJK fonts for tile chrome/HUD labels
+  - add `leftStrip` and `rightStrip` retained surfaces sized to the real hardware `60x270`
+  - add `stripScroll` and `frameCounter` scene state
+  - port the source-derived `drip(...)` behavior into the left strip
+  - port the source-derived right-strip kanji scroller into the right strip
+  - attach `left`, `main`, and `right` displays in the scene page definition
+- Ran:
+  - `go test ./...`
+- Ran a non-interactive hardware smoke command:
+  - `timeout 30s go run ./cmd/loupe-js-live --script ./examples/js/10-cyb-ito-full-page-all12.js --duration 5s --send-interval 0ms --stats-interval 2s --log-render-stats`
+- Recorded the evidence log:
+  - `/tmp/loupe-cyb-ito-font-strips-1776033165.log`
+
+### Why
+- The imported HTML source already contained the side-strip semantics, so using that as the design source is more faithful and less error-prone than inventing a new sidebar treatment.
+- The presenter-driven full-page scene was the right place to add this because it is the current serious hardware-backed scene, not just a prototype.
+
+### What worked
+- The source inspection gave a very concrete implementation target.
+- `go test ./...` still passed after the scene expansion.
+- The hardware smoke run exited cleanly with `reason=timeout` and showed all three expected display flushes:
+  - `Display=left xoff=0 yoff=0 width=60 height=270`
+  - `Display=main xoff=0 yoff=0 width=360 height=270`
+  - `Display=right xoff=0 yoff=0 width=60 height=270`
+
+### What didn't work
+- I did not perform a human visual fidelity check in this step, so the evidence is a successful hardware-backed smoke run rather than a final aesthetic sign-off.
+- The right-strip glyph appearance still depends on the local system font path:
+  - `/usr/share/fonts/opentype/noto/NotoSansCJK-Regular.ttc`
+
+### What I learned
+- The side strips in the original file are simpler and more specific than they first appear. The left strip is not generic texture; it is a 12-segment meter with drips. The right strip is not free-form text; it is a 20px-step vertically faded kanji scroller.
+- Porting from the source file directly is much better than reconstructing from memory when the goal is fidelity.
+
+### What was tricky to build
+- The tricky part was mapping browser-strip logic designed around `STRIP=36` into the hardware’s `60x270` side displays without losing the original behavior. I preserved the source semantics—segment count, drip logic, 20px kanji steps, divider lines, and row pips—while widening the drawable area to fit the real device side displays.
+- Another subtle point was monotonic strip motion. The existing `phase` signal loops from `0..1`, but the source strip scroller uses a continuously increasing `scrollOff`. I added separate retained scene state (`stripScroll`, `frameCounter`) so the strip animation and drip wobble could behave more like the original source.
+
+### What warrants a second pair of eyes
+- The adaptation from source `STRIP=36` to hardware `SIDE_W=60` is intentionally source-inspired rather than byte-for-byte geometric equivalence. A visual review should confirm whether the widened strip still reads like the original.
+- Adding left/right strip flushes means the scene now sends three display updates instead of only the main one. That is architecturally fine, but it should be watched during longer interactive runs.
+
+### What should be done in the future
+- Do a human visual check of the new side-strip fidelity on hardware.
+- Decide whether to import and pin a repo-local CJK font asset instead of relying on the system font path.
+
+### Code review instructions
+- Start with `/home/manuel/code/wesen/2026-04-11--loupedeck-test/examples/js/10-cyb-ito-full-page-all12.js`.
+- Review these parts in order:
+  - top-level strip/font constants and retained surfaces
+  - `drip(...)`
+  - `renderLeftStrip(...)`
+  - `renderRightStrip(...)`
+  - page display wiring for `left` / `main` / `right`
+  - `anim.loop(...)` updates to `stripScroll` and `frameCounter`
+- Validate with:
+  - `go test ./...`
+  - `timeout 30s go run ./cmd/loupe-js-live --script ./examples/js/10-cyb-ito-full-page-all12.js --duration 5s --send-interval 0ms --stats-interval 2s --log-render-stats`
+
+### Technical details
+- Source strip section inspected:
+  - left strip around lines 659–672
+  - right strip around lines 674–685
+  - pip logic around lines 688–694
+- Evidence log:
+  - `/tmp/loupe-cyb-ito-font-strips-1776033165.log`

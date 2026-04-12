@@ -37,3 +37,12 @@
 - [x] Update the ticket changelog and index
 - [x] Run `docmgr doctor --ticket LOUPE-012 --stale-after 30`
 - [x] Commit code slices separately from bookkeeping slices
+
+## Phase F: source-driven side-strip fidelity slice
+
+- [x] Inspect the imported `cyb-ito.html` side-strip implementation details directly
+- [x] Port the source-derived left dripping-bar strip behavior into the presenter-driven full-page scene
+- [x] Port the source-derived right horror-kanji scroller into the presenter-driven full-page scene
+- [x] Add the side strips to the real `left` and `right` hardware displays in `examples/js/10-cyb-ito-full-page-all12.js`
+- [x] Run `go test ./...`
+- [x] Run a non-interactive hardware smoke test and record the evidence log
