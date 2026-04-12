@@ -33,3 +33,14 @@ Implemented Phase B of `LOUPE-010`: JS environment ownership and the new `louped
 - /home/manuel/code/wesen/2026-04-11--loupedeck-test/runtime/js/runtime_test.go — Added tests proving frame-callback execution and latest-reason invalidation semantics
 - /home/manuel/code/wesen/2026-04-11--loupedeck-test/ttmp/2026/04/12/LOUPE-010--simulation-paced-state-with-flush-gated-presentation-for-the-cyb-ito-full-page-runtime/tasks.md — Marked Phase B complete
 
+## 2026-04-12
+
+Implemented the main runtime behavior change for `LOUPE-010`: the live runner now treats the presenter as the primary frame-production path, and the full-page all-12 cyb-ito scene now uses `loupedeck/present` instead of calling `renderAll("loop")` directly from the animation loop. `cmd/loupe-js-live/main.go` now installs the presenter flush callback, starts the presenter, removes the old periodic full-page flush ticker from the intended presentation path, and accumulates render statistics from actual presenter-driven flushes. The scene script now registers `present.onFrame(reason => renderAll(reason))`, invalidates on initial boot, invalidates on every loop tick after updating state, and invalidates from input paths instead of forcing immediate full-page redraws. The full repository test suite passed after these changes.
+
+### Related Files
+
+- /home/manuel/code/wesen/2026-04-11--loupedeck-test/cmd/loupe-js-live/main.go — Refactored to use presenter-driven frame production instead of the old periodic full-page flush ticker
+- /home/manuel/code/wesen/2026-04-11--loupedeck-test/examples/js/10-cyb-ito-full-page-all12.js — Migrated from loop-driven redraws to `loupedeck/present`
+- /home/manuel/code/wesen/2026-04-11--loupedeck-test/ttmp/2026/04/12/LOUPE-010--simulation-paced-state-with-flush-gated-presentation-for-the-cyb-ito-full-page-runtime/scripts/04-go-test-phase-cd-live-runner-and-scene.sh — Repro script for the live-runner and scene migration validation step
+- /home/manuel/code/wesen/2026-04-11--loupedeck-test/ttmp/2026/04/12/LOUPE-010--simulation-paced-state-with-flush-gated-presentation-for-the-cyb-ito-full-page-runtime/tasks.md — Marked the main Phase C and Phase D tasks complete
+

@@ -2,6 +2,7 @@ const state = require("loupedeck/state");
 const ui = require("loupedeck/ui");
 const gfx = require("loupedeck/gfx");
 const anim = require("loupedeck/anim");
+const present = require("loupedeck/present");
 const sceneMetrics = require("loupedeck/scene-metrics").create("scene");
 
 const TILE = 90;
@@ -404,7 +405,7 @@ function setActive(idx, why) {
   sceneMetrics.recordActivation(why);
   active.set(idx);
   lastEvent.set(why);
-  renderAll(why);
+  present.invalidate(why);
 }
 
 ui.page("full-page-all12", page => {
@@ -420,7 +421,12 @@ for (let i = 1; i <= 12; i++) {
 ui.onButton("Button1", () => setActive((active.get() + 11) % 12, "B1"));
 ui.onButton("Button2", () => setActive((active.get() + 1) % 12, "B2"));
 
-renderAll("initial");
+present.onFrame(reason => {
+  renderAll(reason || "present");
+});
+
+ui.show("full-page-all12");
+present.invalidate("initial");
 anim.loop(1400, t => {
   sceneMetrics.trace("loop.tick", {
     phase: String(t),
@@ -428,7 +434,5 @@ anim.loop(1400, t => {
   });
   sceneMetrics.recordLoopTick();
   phase.set(t);
-  renderAll("loop");
+  present.invalidate("loop");
 });
-
-ui.show("full-page-all12");

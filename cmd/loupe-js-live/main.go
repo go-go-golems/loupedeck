@@ -11,6 +11,7 @@ import (
 	"os/signal"
 	"sort"
 	"strings"
+	"sync"
 	"syscall"
 	"time"
 
@@ -25,7 +26,6 @@ func main() {
 	scriptPath := flag.String("script", "", "Path to a JS file")
 	devicePath := flag.String("device", "", "Optional serial device path (default: auto-detect)")
 	duration := flag.Duration("duration", 15*time.Second, "How long to run before exiting; 0 means run until interrupted")
-	flushInterval := flag.Duration("flush-interval", 16*time.Millisecond, "How often to flush retained UI to the device")
 	queueSize := flag.Int("queue-size", 256, "Writer queue size")
 	sendInterval := flag.Duration("send-interval", 35*time.Millisecond, "Writer pacing interval")
 	logEvents := flag.Bool("log-events", false, "Log high-level button/touch/knob events")
@@ -104,7 +104,6 @@ func main() {
 		Foreground: color.White,
 		Accent:     color.White,
 	}
-	renderer.Flush()
 
 	exitCh := make(chan struct{}, 1)
 	if *exitOnCircle {
@@ -120,8 +119,6 @@ func main() {
 	signal.Notify(sigCh, os.Interrupt, syscall.SIGTERM)
 	defer signal.Stop(sigCh)
 
-	ticker := time.NewTicker(*flushInterval)
-	defer ticker.Stop()
 	var statsTicker *time.Ticker
 	var statsTick <-chan time.Time
 	if *statsInterval > 0 && (*logRenderStats || *logWriterStats || *logJSStats || *logJSTrace || *logGoTrace) {
@@ -137,6 +134,7 @@ func main() {
 	}
 
 	renderWindow := renderStatsWindow{}
+	var renderWindowMu sync.Mutex
 	lastWriterStats := deckConn.WriterStats()
 	dumpMetricsWindow := func(label string) {
 		if !*logJSStats && !*logJSTrace && !*logGoTrace {
@@ -157,31 +155,37 @@ func main() {
 			}
 		}
 	}
-	slog.Info("Loupedeck JS live runner started", "script", *scriptPath, "duration", *duration, "flush_interval", *flushInterval, "send_interval", *sendInterval, "log_render_stats", *logRenderStats, "log_writer_stats", *logWriterStats, "log_js_stats", *logJSStats, "log_js_trace", *logJSTrace, "log_go_trace", *logGoTrace, "trace_limit", *traceLimit)
+	rt.Env.Present.SetFlushFunc(func() (int, error) {
+		dirtyDisplays := len(rt.Env.UI.DirtyDisplays())
+		dirtyTiles := len(rt.Env.UI.DirtyTiles())
+		if *logGoTrace {
+			rt.Env.Metrics.Trace("go.flush.begin", map[string]string{"dirtyDisplays": fmt.Sprintf("%d", dirtyDisplays), "dirtyTiles": fmt.Sprintf("%d", dirtyTiles)})
+		}
+		start := time.Now()
+		flushed := renderer.Flush()
+		elapsed := time.Since(start)
+		if *logGoTrace {
+			rt.Env.Metrics.Trace("go.flush.end", map[string]string{"ops": fmt.Sprintf("%d", flushed), "elapsedMs": fmt.Sprintf("%.2f", float64(elapsed)/float64(time.Millisecond))})
+		}
+		if *logRenderStats {
+			renderWindowMu.Lock()
+			renderWindow.Record(dirtyDisplays, dirtyTiles, flushed, elapsed)
+			renderWindowMu.Unlock()
+		}
+		return flushed, nil
+	})
+	rt.Env.Present.Start(rt.Context())
+	defer rt.Env.Present.Close()
+
+	slog.Info("Loupedeck JS live runner started", "script", *scriptPath, "duration", *duration, "send_interval", *sendInterval, "log_render_stats", *logRenderStats, "log_writer_stats", *logWriterStats, "log_js_stats", *logJSStats, "log_js_trace", *logJSTrace, "log_go_trace", *logGoTrace, "trace_limit", *traceLimit)
 	for {
 		select {
-		case <-ticker.C:
-			dirtyDisplays := len(rt.Env.UI.DirtyDisplays())
-			dirtyTiles := len(rt.Env.UI.DirtyTiles())
-			if *logGoTrace {
-				rt.Env.Metrics.Trace("go.flush.tick", map[string]string{"dirtyDisplays": fmt.Sprintf("%d", dirtyDisplays), "dirtyTiles": fmt.Sprintf("%d", dirtyTiles)})
-			}
-			start := time.Now()
-			if *logGoTrace {
-				rt.Env.Metrics.Trace("go.flush.begin", map[string]string{"dirtyDisplays": fmt.Sprintf("%d", dirtyDisplays), "dirtyTiles": fmt.Sprintf("%d", dirtyTiles)})
-			}
-			flushed := renderer.Flush()
-			elapsed := time.Since(start)
-			if *logGoTrace {
-				rt.Env.Metrics.Trace("go.flush.end", map[string]string{"ops": fmt.Sprintf("%d", flushed), "elapsedMs": fmt.Sprintf("%.2f", float64(elapsed)/float64(time.Millisecond))})
-			}
-			if *logRenderStats {
-				renderWindow.Record(dirtyDisplays, dirtyTiles, flushed, elapsed)
-			}
 		case <-statsTick:
 			if *logRenderStats {
+				renderWindowMu.Lock()
 				slog.Info("render stats", "script", *scriptPath, "stats", renderWindow.String())
 				renderWindow = renderStatsWindow{}
+				renderWindowMu.Unlock()
 			}
 			if *logWriterStats {
 				current := deckConn.WriterStats()

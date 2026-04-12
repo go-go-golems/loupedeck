@@ -26,18 +26,18 @@
 
 ## Phase C: live-runner refactor
 
-- [ ] Refactor `cmd/loupe-js-live/main.go` to use the presenter as the primary frame-production path
-- [ ] Remove the current full-page periodic flush ticker as the intended presentation model
-- [ ] Wire presenter render callback settlement onto the JS owner thread
-- [ ] Wire presenter flush callback to `renderer.Flush()`
+- [x] Refactor `cmd/loupe-js-live/main.go` to use the presenter as the primary frame-production path
+- [x] Remove the current full-page periodic flush ticker as the intended presentation model
+- [x] Wire presenter render callback settlement onto the JS owner thread
+- [x] Wire presenter flush callback to `renderer.Flush()`
 - [ ] Add presenter-focused trace/metrics breadcrumbs if needed
 
 ## Phase D: scene migration
 
-- [ ] Migrate `examples/js/10-cyb-ito-full-page-all12.js` to `loupedeck/present`
-- [ ] Remove direct `renderAll("loop")` calls from the animation loop
-- [ ] Make simulation update state and invalidate presentation only
-- [ ] Make input paths invalidate presentation rather than forcing immediate full-page redraws
+- [x] Migrate `examples/js/10-cyb-ito-full-page-all12.js` to `loupedeck/present`
+- [x] Remove direct `renderAll("loop")` calls from the animation loop
+- [x] Make simulation update state and invalidate presentation only
+- [x] Make input paths invalidate presentation rather than forcing immediate full-page redraws
 
 ## Phase E: validation and interpretation
 

@@ -201,3 +201,85 @@ go test ./...
 ### What should be done in the future
 - Refactor the live runner next so the presenter becomes the primary frame-production path.
 - Then migrate the full-page cyb-ito scene to `loupedeck/present` and rerun the trace comparison.
+
+## Step 4: Refactor the live runner around the presenter and migrate the full-page scene
+
+Once the pure-Go presenter runtime and the JS `loupedeck/present` module were both in place, the next step was the real architectural switch: make the live runner use the presenter as the intended frame-production path, and migrate the full-page all-12 scene so simulation updates state and invalidates presentation rather than directly calling `renderAll(...)` from the animation loop.
+
+### What I did
+- Updated:
+  - `cmd/loupe-js-live/main.go`
+  - `examples/js/10-cyb-ito-full-page-all12.js`
+- In the live runner:
+  - removed the old periodic full-page flush ticker from the intended presentation path
+  - installed the presenter’s flush callback around `renderer.Flush()`
+  - started the presenter runtime after the script load
+  - accumulated render statistics from presenter-driven flushes using a small mutex around the render-stats window
+  - preserved the stats/trace dump path
+- In the full-page scene:
+  - added `const present = require("loupedeck/present")`
+  - registered:
+
+```javascript
+present.onFrame(reason => {
+  renderAll(reason || "present");
+});
+```
+
+  - changed startup from direct `renderAll("initial")` to:
+
+```javascript
+ui.show("full-page-all12");
+present.invalidate("initial");
+```
+
+  - changed the animation loop from direct redraw to state-update-plus-invalidate:
+
+```javascript
+anim.loop(1400, t => {
+  sceneMetrics.recordLoopTick();
+  phase.set(t);
+  present.invalidate("loop");
+});
+```
+
+  - changed input paths to invalidate presentation rather than directly calling `renderAll(...)`
+- Archived a new ticket-local script:
+  - `scripts/04-go-test-phase-cd-live-runner-and-scene.sh`
+- Ran:
+
+```bash
+gofmt -w cmd/loupe-js-live/main.go
+go test ./...
+```
+
+### Why
+- This is the moment the architecture actually changes. Before this slice, the new presenter existed but the full-page runtime still behaved the old way.
+- The scene must stop treating the simulation clock as the presentation driver.
+- The live runner must stop treating a periodic flush ticker as the intended whole-frame present policy.
+
+### What worked
+- The full repository test suite still passed after the refactor.
+- The scene is now structurally aligned with the intended architecture: simulation updates state, presenter owns frame production.
+- The live runner now has a concrete one-frame-in-flight presentation path ready for hardware validation.
+
+### What didn’t work
+- We have not yet rerun the hardware trace after the architectural switch, so we do not yet have the new rebuilds-per-flush ratio.
+- The live runner still uses the older trace/metrics field names in places, so the next trace run should be inspected to see whether presenter-specific breadcrumbs are worth adding.
+
+### What I learned
+- The actual code change is not large once the architecture is clear. Most of the difficulty was in proving the old model was wrong before touching it.
+- Moving `ui.show(...)` before the initial `present.invalidate(...)` matters, because the presenter should not try to produce the first frame before the page is active.
+
+### What was tricky to build
+- The main subtlety in the live runner was concurrent stats access: presenter-driven flushes now happen from a presenter goroutine, while stats dumping still happens on the main select loop.
+- Another subtle point was not reintroducing the old architecture by accident. The animation loop had to update state and invalidate presentation only; calling `renderAll(...)` directly there would have defeated the whole change.
+
+### What warrants a second pair of eyes
+- After the first hardware run, we should review whether additional presenter-specific Go trace events are useful or whether the current flush trace is already enough.
+- We should also sanity-check whether the presenter should log dropped/coalesced invalidations explicitly later, though that is not needed for the first validation pass.
+
+### What should be done in the future
+- Run the hardware validation and compare the new trace against the old baseline.
+- Store those commands under `scripts/` and summarize the before/after rebuilds-per-flush delta in the ticket.
+- If the ratio collapses the way we expect, the architecture change can be considered validated and we can decide whether any deeper tuning is still necessary.
