@@ -30,7 +30,24 @@
 - [x] Commit the code slice
 - [ ] Commit the ticket bookkeeping slice
 
-## Future work candidates after the first slice
+## Phase E: color accent and large touch-ripple slice
+
+- [x] Add color-tinted display layer support for full-page scene overlays
+- [x] Make the selected tile red via a tinted accent layer
+- [x] Add a huge touch-triggered spiral ripple effect that spans the whole screen
+- [x] Keep the main frame compositor grayscale and apply color only at the display-layer level
+- [x] Run `go test ./...`
+- [x] Archive an interactive run script for user testing
+
+## Phase F: ticket continuity for the accent/ripple slice
+
+- [x] Commit the code slice
+- [x] Update the diary
+- [x] Update the index and changelog
+- [x] Run `docmgr doctor --ticket LOUPE-011 --stale-after 30`
+- [ ] Commit the bookkeeping slice
+
+## Future work candidates after the current slices
 
 - [ ] Cache static base/chrome layers instead of rebuilding everything every frame
 - [ ] Reintroduce more faithful global sweep/glitch passes

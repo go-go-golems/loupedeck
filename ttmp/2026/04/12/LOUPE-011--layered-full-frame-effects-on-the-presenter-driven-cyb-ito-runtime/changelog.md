@@ -11,3 +11,7 @@
 - Added the first FX pass: scanlines, sparse grain/noise, active sweep, and active ripple overlays.
 - Validated the slice with `go test ./...` and a hardware smoke run using `--send-interval 0ms`.
 - Archived reproducibility scripts under `scripts/`.
+- Added color-tinted display-layer support for overlays in the runtime (`75a3c02` — `Add red accent layer and touch spiral ripple`).
+- Updated the full-page scene so the selected tile is highlighted through a red accent layer rather than forcing the entire base frame into a color path.
+- Added a large touch-triggered spiral ripple overlay that spans the whole screen while preserving the presenter-driven single-frame flush model.
+- Added an interactive ticket-local run script for user verification: `scripts/05-run-red-ripple-scene-interactive.sh`.

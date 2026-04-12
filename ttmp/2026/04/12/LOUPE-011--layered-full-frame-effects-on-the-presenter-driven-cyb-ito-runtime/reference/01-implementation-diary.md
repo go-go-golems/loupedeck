@@ -15,14 +15,23 @@ RelatedFiles:
       Note: Hardware evidence log for the first successful layered full-page smoke run
     - Path: examples/js/10-cyb-ito-full-page-all12.js
       Note: Primary code file changed in Step 2
+    - Path: runtime/js/module_ui/module.go
+      Note: JS UI layer API now accepts optional color options
+    - Path: runtime/render/visual_runtime.go
+      Note: Renderer now honors per-layer foreground tint during display composition
+    - Path: runtime/ui/display.go
+      Note: Added display-layer foreground tint support for color accents
     - Path: ttmp/2026/04/12/LOUPE-011--layered-full-frame-effects-on-the-presenter-driven-cyb-ito-runtime/scripts/03-run-layered-scene-fluid.sh
       Note: Reproducible hardware run command used for the fluid layered validation
+    - Path: ttmp/2026/04/12/LOUPE-011--layered-full-frame-effects-on-the-presenter-driven-cyb-ito-runtime/scripts/05-run-red-ripple-scene-interactive.sh
+      Note: Interactive user-run script for verifying the red accent and touch ripple on hardware
 ExternalSources: []
 Summary: Chronological diary for layered full-frame effects on the presenter-driven cyb-ito runtime.
 LastUpdated: 2026-04-12T17:20:07.233054427-04:00
 WhatFor: Use this diary to understand what was changed, why, what worked, what failed, and how to review the layered full-frame scene work.
 WhenToUse: Use when continuing, reviewing, or validating the LOUPE-011 layered full-frame effects implementation.
 ---
+
 
 
 # Diary
@@ -188,3 +197,92 @@ This step also includes the first real hardware smoke validation for the layered
   - `/home/manuel/code/wesen/2026-04-11--loupedeck-test/ttmp/2026/04/12/LOUPE-011--layered-full-frame-effects-on-the-presenter-driven-cyb-ito-runtime/scripts/02-go-test-layered-scene.sh`
   - `/home/manuel/code/wesen/2026-04-11--loupedeck-test/ttmp/2026/04/12/LOUPE-011--layered-full-frame-effects-on-the-presenter-driven-cyb-ito-runtime/scripts/03-run-layered-scene-fluid.sh`
   - `/home/manuel/code/wesen/2026-04-11--loupedeck-test/ttmp/2026/04/12/LOUPE-011--layered-full-frame-effects-on-the-presenter-driven-cyb-ito-runtime/scripts/04-docmgr-doctor.sh`
+
+## Step 3: Add a red selected-tile accent layer and a huge touch-triggered spiral ripple
+
+Once the layered compositor checkpoint was committed, the next requested visual step was to make the selected tile red and to add a much larger ripple effect when the screen is touched. The existing layered scene was still grayscale at the final frame level, so I treated this as a small rendering/runtime extension rather than trying to force full RGB drawing through every scene surface.
+
+The chosen design was intentionally narrow: keep the main frame compositor grayscale, add color only at the display-layer level, and use that tinted overlay as the new accent channel. That preserved the current presenter-driven single-flush model while still allowing the selected tile and touch ripple to read as red.
+
+### Prompt Context
+
+**User prompt (verbatim):** "cool, it worked. Make the selected tile red. 
+
+Now add the huge spiral ripple effect that goes across the entire screen when touching the screen."
+
+**Assistant interpretation:** Extend the current layered scene so the selected tile has a red visual emphasis and touches trigger a much larger full-screen ripple effect.
+
+**Inferred user intent:** The user wants the layered cyb-ito scene to start feeling more dramatic and expressive now that the smoother presenter-driven foundation is working.
+
+**Commit (code):** `75a3c02` — `Add red accent layer and touch spiral ripple`
+
+### What I did
+- Extended `/home/manuel/code/wesen/2026-04-11--loupedeck-test/runtime/ui/display.go` so display layers can carry optional foreground tint metadata.
+- Extended `/home/manuel/code/wesen/2026-04-11--loupedeck-test/runtime/render/visual_runtime.go` so display layers render with their own tint when present.
+- Extended `/home/manuel/code/wesen/2026-04-11--loupedeck-test/runtime/js/module_ui/module.go` so JS can pass color options to `display.layer(name, surface, { r, g, b, a? })`.
+- Added/updated tests in:
+  - `/home/manuel/code/wesen/2026-04-11--loupedeck-test/runtime/render/render_test.go`
+  - `/home/manuel/code/wesen/2026-04-11--loupedeck-test/runtime/js/runtime_test.go`
+- Updated `/home/manuel/code/wesen/2026-04-11--loupedeck-test/examples/js/10-cyb-ito-full-page-all12.js`:
+  - added `accentLayer`
+  - attached it to the display with a red tint
+  - moved the selected-tile emphasis into that red accent layer
+  - added touch-ripple state (`touchRipple`, origin X/Y, handle)
+  - added a large full-screen spiral/ring ripple renderer on touch
+- Added an interactive user-run script:
+  - `/home/manuel/code/wesen/2026-04-11--loupedeck-test/ttmp/2026/04/12/LOUPE-011--layered-full-frame-effects-on-the-presenter-driven-cyb-ito-runtime/scripts/05-run-red-ripple-scene-interactive.sh`
+- Ran `gofmt -w ...` and `go test ./...`.
+
+### Why
+- The existing `gfx.Surface` pipeline is grayscale/intensity-based, so “make the selected tile red” was not a pure script-only change if we wanted a clean solution.
+- A narrow display-layer tint feature was enough to unlock this use case without redesigning the whole JS graphics stack.
+- The touch ripple belongs in a presentation overlay, not in the underlying grayscale frame, because it is an effect channel rather than persistent scene art.
+
+### What worked
+- The runtime extension was small and localized.
+- The JS API remained simple: `display.layer("accent", accentLayer, { r: 255, g: 32, b: 32 })`.
+- The tests all passed after the change.
+- The scene now has a dedicated accent channel that can be reused for later colorized effects without forcing full-scene RGB support immediately.
+
+### What didn't work
+- I did not run a new hardware validation pass for this slice because the user explicitly said there was no need for me to do so before reporting how to test it.
+- That means this step is code-validated and ready for user verification, but not yet confirmed by a new hardware evidence log.
+
+### What I learned
+- The clean boundary for color in this runtime is currently at the display-layer composition step, not deep inside every `gfx.Surface` call.
+- That boundary is strong enough to support expressive accent effects without destabilizing the presenter-driven architecture.
+
+### What was tricky to build
+- The main tricky part was honoring the user’s visual request without accidentally expanding scope into “make the whole graphics stack fully RGB-aware.” I avoided that by adding layer tinting only where it was needed.
+- The second tricky part was designing the touch ripple to feel “huge” without making the per-frame cost explode. I solved that by combining a few long spiral arms with an animated expanding ring front instead of doing a dense per-pixel shader-like pass.
+- The third tricky part was making the selected tile feel red while the main frame remained grayscale. The accent overlay solved that cleanly.
+
+### What warrants a second pair of eyes
+- The red accent intensity may still need visual tuning on real hardware.
+- The new full-screen spiral ripple may need adjustment in duration, brightness, or geometric density once viewed on-device.
+- If more color effects are added later, someone should review whether display-layer tinting remains sufficient or whether a broader RGB surface model becomes worthwhile.
+
+### What should be done in the future
+- Get direct hardware feedback on the red selected tile and the large touch ripple.
+- Tune the accent intensity or ripple geometry if the effect is too subtle or too busy.
+- Consider adding additional tinted overlay channels only if a real scene need emerges.
+
+### Code review instructions
+- Start with the runtime extension in:
+  - `/home/manuel/code/wesen/2026-04-11--loupedeck-test/runtime/ui/display.go`
+  - `/home/manuel/code/wesen/2026-04-11--loupedeck-test/runtime/render/visual_runtime.go`
+  - `/home/manuel/code/wesen/2026-04-11--loupedeck-test/runtime/js/module_ui/module.go`
+- Then inspect the scene-level use in:
+  - `/home/manuel/code/wesen/2026-04-11--loupedeck-test/examples/js/10-cyb-ito-full-page-all12.js`
+- Validate with:
+  - `go test ./...`
+  - then the ticket-local interactive run script for hardware review.
+
+### Technical details
+- Interactive user test script:
+  - `/home/manuel/code/wesen/2026-04-11--loupedeck-test/ttmp/2026/04/12/LOUPE-011--layered-full-frame-effects-on-the-presenter-driven-cyb-ito-runtime/scripts/05-run-red-ripple-scene-interactive.sh`
+- Main code files for this slice:
+  - `/home/manuel/code/wesen/2026-04-11--loupedeck-test/runtime/ui/display.go`
+  - `/home/manuel/code/wesen/2026-04-11--loupedeck-test/runtime/render/visual_runtime.go`
+  - `/home/manuel/code/wesen/2026-04-11--loupedeck-test/runtime/js/module_ui/module.go`
+  - `/home/manuel/code/wesen/2026-04-11--loupedeck-test/examples/js/10-cyb-ito-full-page-all12.js`

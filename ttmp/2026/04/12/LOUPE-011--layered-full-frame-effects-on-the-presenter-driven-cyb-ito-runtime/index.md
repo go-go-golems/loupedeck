@@ -49,9 +49,11 @@ Current completion state:
 - Full-page scene refactored into internal software layers (`base`, `chrome`, `scene`, `fx`, `hud`, final `frame`)
 - Presenter-driven single full-page flush model preserved
 - First FX slice added: scanlines, grain/noise, and active-tile sweep/ripple overlays
-- `go test ./...` passed
-- Hardware smoke validation succeeded with `--send-interval 0ms`
-- Evidence log captured at `/tmp/loupe-cyb-ito-layered-011-success-1776029307.log`
+- Color-tinted display-layer support added for overlays
+- Selected tile now uses a red accent layer
+- A large touch-triggered spiral ripple overlay now spans the whole screen
+- `go test ./...` passed after the accent/ripple runtime extension and scene update
+- Hardware smoke validation was previously successful for the layered compositor slice; the new red/ripple slice is ready for user verification via the archived interactive run script
 
 ## Topics
 
