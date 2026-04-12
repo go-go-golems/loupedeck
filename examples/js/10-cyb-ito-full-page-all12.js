@@ -487,10 +487,10 @@ function retrigger(signal, targetValue, durationMs, previousHandle) {
   return anim.to(signal, 0, durationMs);
 }
 
-function triggerTouchRipple(idx, localX, localY) {
+function triggerTouchRipple(idx, touchX, touchY) {
   const { x, y } = tileRect(idx);
-  const ox = typeof localX === "number" ? x + localX : x + 45;
-  const oy = typeof localY === "number" ? y + localY : y + 48;
+  const ox = typeof touchX === "number" ? clamp(touchX - 60, 0, MAIN_W - 1) : x + 45;
+  const oy = typeof touchY === "number" ? clamp(touchY, 0, MAIN_H - 1) : y + 48;
   touchRippleOriginX.set(ox);
   touchRippleOriginY.set(oy);
   touchRippleHandle = retrigger(touchRipple, 1, 1200, touchRippleHandle);
