@@ -78,3 +78,15 @@ func TestSurfaceTextDrawsVisiblePixels(t *testing.T) {
 		t.Fatal("expected text drawing to produce visible pixels")
 	}
 }
+
+func TestSurfaceTextHandlesSmallHeightsWithoutPanicking(t *testing.T) {
+	s := NewSurface(32, 32)
+	s.Text("1", TextOptions{
+		X:          4,
+		Y:          2,
+		Width:      22,
+		Height:     12,
+		Brightness: 80,
+		Face:       basicfont.Face7x13,
+	})
+}

@@ -110,7 +110,7 @@ func textOptionsFromValue(runtime *goja.Runtime, value goja.Value) gfx.TextOptio
 
 func intProp(obj *goja.Object, name string) int {
 	value := obj.Get(name)
-	if goja.IsUndefined(value) || goja.IsNull(value) {
+	if value == nil || goja.IsUndefined(value) || goja.IsNull(value) {
 		return 0
 	}
 	return int(value.ToInteger())
@@ -118,7 +118,7 @@ func intProp(obj *goja.Object, name string) int {
 
 func boolProp(obj *goja.Object, name string) bool {
 	value := obj.Get(name)
-	if goja.IsUndefined(value) || goja.IsNull(value) {
+	if value == nil || goja.IsUndefined(value) || goja.IsNull(value) {
 		return false
 	}
 	return value.ToBoolean()

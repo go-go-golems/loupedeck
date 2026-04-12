@@ -52,6 +52,13 @@ func (s *Surface) Text(text string, opts TextOptions) {
 	if baseline < face.Metrics().Ascent.Ceil() {
 		baseline = face.Metrics().Ascent.Ceil()
 	}
+	maxBaseline := h - face.Metrics().Descent.Ceil()
+	if maxBaseline < 0 {
+		maxBaseline = 0
+	}
+	if baseline > maxBaseline {
+		baseline = maxBaseline
+	}
 	x := 0
 	if opts.Center {
 		x = (w - d.MeasureString(text).Round()) / 2
