@@ -19,12 +19,17 @@ const chromeLayer = gfx.surface(MAIN_W, MAIN_H);
 const sceneLayer = gfx.surface(MAIN_W, MAIN_H);
 const fxLayer = gfx.surface(MAIN_W, MAIN_H);
 const hudLayer = gfx.surface(MAIN_W, MAIN_H);
+const accentLayer = gfx.surface(MAIN_W, MAIN_H);
 
 const phase = state.signal(0);
 const active = state.signal(0);
 const lastEvent = state.signal("BOOT");
+const touchRipple = state.signal(0);
+const touchRippleOriginX = state.signal((MAIN_W / 2) | 0);
+const touchRippleOriginY = state.signal((MAIN_H / 2) | 0);
 
 let baseLayerReady = false;
+let touchRippleHandle = null;
 
 const tileLabels = [
   "EYE",
@@ -441,17 +446,17 @@ function drawFrameNoise(surface, tick) {
   }
 }
 
-function drawActiveSweep(surface, idx, tick) {
+function drawActiveSweep(surface, idx, tick, brightness) {
   const { x, y } = tileRect(idx);
   const sweepX = x + 6 + (((Math.sin(tick * Math.PI * 2) * 0.5 + 0.5) * (TILE - 12)) | 0);
   for (let py = y + 24; py < y + TILE - 6; py++) {
     const fade = 1 - Math.abs(py - (y + 54)) / 40;
-    addP(surface, sweepX, py, 60 * fade);
-    addP(surface, sweepX + 1, py, 22 * fade);
+    addP(surface, sweepX, py, brightness * fade);
+    addP(surface, sweepX + 1, py, brightness * 0.35 * fade);
   }
 }
 
-function drawActiveRipple(surface, idx, tick) {
+function drawActiveRipple(surface, idx, tick, brightness) {
   const { x, y } = tileRect(idx);
   const cx = x + 45;
   const cy = y + 48;
@@ -460,19 +465,87 @@ function drawActiveRipple(surface, idx, tick) {
     const baseR = 18 + ring * 11;
     const radius = baseR + Math.sin(pulse * 1.3 - ring * 0.8) * 3;
     for (let a = 0; a < Math.PI * 2; a += 0.08) {
-      const brightness = 20 + ring * 10;
-      addP(surface, cx + Math.cos(a) * radius, cy + Math.sin(a) * radius, brightness);
+      addP(surface, cx + Math.cos(a) * radius, cy + Math.sin(a) * radius, brightness + ring * 10);
     }
   }
 }
 
-function renderFXLayer(tick, activeIdx) {
+function renderFXLayer(tick) {
   fxLayer.batch(() => {
     fxLayer.clear(0);
     drawScanlines(fxLayer, tick);
     drawFrameNoise(fxLayer, tick);
-    drawActiveSweep(fxLayer, activeIdx, tick);
-    drawActiveRipple(fxLayer, activeIdx, tick);
+  });
+}
+
+function retrigger(signal, targetValue, durationMs, previousHandle) {
+  if (previousHandle && previousHandle.stop) {
+    previousHandle.stop();
+  }
+  signal.set(targetValue);
+  return anim.to(signal, 0, durationMs);
+}
+
+function triggerTouchRipple(idx) {
+  const { x, y } = tileRect(idx);
+  touchRippleOriginX.set(x + 45);
+  touchRippleOriginY.set(y + 48);
+  touchRippleHandle = retrigger(touchRipple, 1, 900, touchRippleHandle);
+}
+
+function drawSelectedTileAccent(surface, idx, tick) {
+  const { x, y } = tileRect(idx);
+  surface.fillRect(x + 2, y + 2, TILE - 4, TILE - 4, 18);
+  surface.fillRect(x + 6, y + 24, TILE - 12, TILE - 30, 8);
+  surface.line(x, y, x + TILE - 1, y, 110);
+  surface.line(x, y + TILE - 1, x + TILE - 1, y + TILE - 1, 110);
+  surface.line(x, y, x, y + TILE - 1, 110);
+  surface.line(x + TILE - 1, y, x + TILE - 1, y + TILE - 1, 110);
+  drawActiveSweep(surface, idx, tick, 90);
+  drawActiveRipple(surface, idx, tick, 34);
+}
+
+function drawFullscreenSpiralRipple(surface, tick) {
+  const amount = touchRipple.get();
+  if (amount <= 0.001) {
+    return;
+  }
+  const cx = touchRippleOriginX.get();
+  const cy = touchRippleOriginY.get();
+  const maxR = Math.sqrt(MAIN_W * MAIN_W + MAIN_H * MAIN_H);
+  const progress = 1 - amount;
+  const front = progress * maxR;
+  const pulse = tick * Math.PI * 2;
+  const arms = 3;
+  const armSteps = 260;
+
+  for (let arm = 0; arm < arms; arm++) {
+    const armOffset = arm * (Math.PI * 2 / arms) + pulse * 0.8;
+    for (let i = 0; i < armSteps; i++) {
+      const p = i / (armSteps - 1);
+      const r = p * front;
+      const angle = armOffset + p * Math.PI * 10 + progress * 6;
+      const brightness = (1 - p * 0.7) * amount * 95;
+      const px = cx + Math.cos(angle) * r;
+      const py = cy + Math.sin(angle) * r;
+      addP(surface, px, py, brightness);
+      addP(surface, px + 1, py, brightness * 0.35);
+    }
+  }
+
+  for (let a = 0; a < Math.PI * 2; a += 0.035) {
+    const rr = front + Math.sin(a * 6 + pulse * 2.5) * 12 * amount;
+    const brightness = amount * 70;
+    addP(surface, cx + Math.cos(a) * rr, cy + Math.sin(a) * rr, brightness);
+    addP(surface, cx + Math.cos(a) * (rr - 6), cy + Math.sin(a) * (rr - 6), brightness * 0.4);
+  }
+}
+
+function renderAccentLayer(tick, activeIdx) {
+  accentLayer.batch(() => {
+    accentLayer.clear(0);
+    drawSelectedTileAccent(accentLayer, activeIdx, tick);
+    drawFullscreenSpiralRipple(accentLayer, tick);
   });
 }
 
@@ -515,7 +588,8 @@ function renderAll(reason) {
 
     renderChromeLayer(activeIdx);
     renderSceneLayer(t, activeIdx);
-    renderFXLayer(tick, activeIdx);
+    renderFXLayer(tick);
+    renderAccentLayer(tick, activeIdx);
     renderHUDLayer(activeIdx, eventText);
     composeFrame();
   });
@@ -527,26 +601,30 @@ function renderAll(reason) {
   return result;
 }
 
-function setActive(idx, why) {
+function setActive(idx, why, isTouch) {
   sceneMetrics.trace("setActive", { idx: String(idx), why });
   sceneMetrics.recordActivation(why);
   active.set(idx);
   lastEvent.set(why);
+  if (isTouch) {
+    triggerTouchRipple(idx);
+  }
   present.invalidate(why);
 }
 
 ui.page("full-page-all12", page => {
   page.display("main", display => {
     display.surface(frame);
+    display.layer("accent", accentLayer, { r: 255, g: 32, b: 32 });
   });
 });
 
 for (let i = 1; i <= 12; i++) {
   const idx = i - 1;
-  ui.onTouch(`Touch${i}`, () => setActive(idx, `T${i}`));
+  ui.onTouch(`Touch${i}`, () => setActive(idx, `T${i}`, true));
 }
-ui.onButton("Button1", () => setActive((active.get() + 11) % 12, "B1"));
-ui.onButton("Button2", () => setActive((active.get() + 1) % 12, "B2"));
+ui.onButton("Button1", () => setActive((active.get() + 11) % 12, "B1", false));
+ui.onButton("Button2", () => setActive((active.get() + 1) % 12, "B2", false));
 
 present.onFrame(reason => {
   renderAll(reason || "present");

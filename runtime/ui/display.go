@@ -2,6 +2,7 @@ package ui
 
 import (
 	"fmt"
+	"image/color"
 
 	"github.com/go-go-golems/loupedeck/runtime/gfx"
 	"github.com/go-go-golems/loupedeck/runtime/reactive"
@@ -44,9 +45,14 @@ type Display struct {
 	tiles map[TileCoord]*Tile
 }
 
+type LayerOptions struct {
+	Foreground color.Color
+}
+
 type DisplayLayer struct {
 	Name       string
 	surface    *gfx.Surface
+	foreground color.Color
 	surfaceSub gfx.Subscription
 }
 
@@ -55,6 +61,13 @@ func (l *DisplayLayer) Surface() *gfx.Surface {
 		return nil
 	}
 	return l.surface
+}
+
+func (l *DisplayLayer) Foreground() color.Color {
+	if l == nil {
+		return nil
+	}
+	return l.foreground
 }
 
 func (d *Display) Text() string {
@@ -154,6 +167,10 @@ func (d *Display) SetSurface(surface *gfx.Surface) {
 }
 
 func (d *Display) SetLayer(name string, surface *gfx.Surface) {
+	d.SetLayerWithOptions(name, surface, LayerOptions{})
+}
+
+func (d *Display) SetLayerWithOptions(name string, surface *gfx.Surface, opts LayerOptions) {
 	if name == "" {
 		panic("ui: display layer name must not be empty")
 	}
@@ -178,6 +195,7 @@ func (d *Display) SetLayer(name string, surface *gfx.Surface) {
 			return
 		}
 		layer.surface = surface
+		layer.foreground = opts.Foreground
 		layer.surfaceSub = surface.OnChange(func() {
 			d.markDirty()
 		})
@@ -187,7 +205,7 @@ func (d *Display) SetLayer(name string, surface *gfx.Surface) {
 	if surface == nil {
 		return
 	}
-	layer := &DisplayLayer{Name: name, surface: surface}
+	layer := &DisplayLayer{Name: name, surface: surface, foreground: opts.Foreground}
 	layer.surfaceSub = surface.OnChange(func() {
 		d.markDirty()
 	})
@@ -253,9 +271,5 @@ func (d *Display) Tiles() []*Tile {
 }
 
 func (d *Display) markDirty() {
-	if d.dirty {
-		return
-	}
-	d.dirty = true
 	d.page.ui.markDirtyDisplay(d)
 }

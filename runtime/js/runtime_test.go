@@ -319,7 +319,7 @@ func TestDisplayCanOwnNamedGfxLayer(t *testing.T) {
 		ui.page("home", page => {
 		  page.display("main", display => {
 		    display.surface(base);
-		    display.layer("overlay", overlay);
+		    display.layer("overlay", overlay, { r: 255, g: 32, b: 32 });
 		  });
 		});
 		ui.show("home");
@@ -334,6 +334,14 @@ func TestDisplayCanOwnNamedGfxLayer(t *testing.T) {
 	}
 	if got := main.Layer("overlay").Surface().At(10, 10); got == 0 {
 		t.Fatal("expected overlay layer content to remain attached to display")
+	}
+	fg := main.Layer("overlay").Foreground()
+	if fg == nil {
+		t.Fatal("expected overlay layer to retain foreground tint")
+	}
+	rv, gv, bv, _ := fg.RGBA()
+	if rv <= gv || rv <= bv {
+		t.Fatalf("expected red foreground tint, got r=%d g=%d b=%d", rv, gv, bv)
 	}
 }
 

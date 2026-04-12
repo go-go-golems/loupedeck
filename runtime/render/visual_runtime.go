@@ -136,7 +136,11 @@ func (r *Renderer) renderDisplayLayers(display *ui.Display) image.Image {
 		if layer == nil || layer.Surface() == nil {
 			continue
 		}
-		draw.Draw(im, im.Bounds(), layer.Surface().ToRGBA(r.Theme.Foreground, color.Transparent), image.Point{}, draw.Over)
+		fg := r.Theme.Foreground
+		if layer.Foreground() != nil {
+			fg = layer.Foreground()
+		}
+		draw.Draw(im, im.Bounds(), layer.Surface().ToRGBA(fg, color.Transparent), image.Point{}, draw.Over)
 	}
 	return im
 }
@@ -146,6 +150,10 @@ func (r *Renderer) renderTile(tile *ui.Tile) image.Image {
 	draw.Draw(im, im.Bounds(), &image.Uniform{r.Theme.Background}, image.Point{}, draw.Src)
 	if tile == nil || !tile.Visible() {
 		return im
+	}
+
+	if surface := tile.Surface(); surface != nil {
+		return surface.ToRGBA(r.Theme.Foreground, r.Theme.Background)
 	}
 
 	accent := image.Rect(0, 0, TileWidth, 8)

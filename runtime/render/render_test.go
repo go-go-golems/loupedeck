@@ -2,6 +2,7 @@ package render
 
 import (
 	"image"
+	"image/color"
 	"testing"
 
 	"github.com/go-go-golems/loupedeck/runtime/gfx"
@@ -195,5 +196,59 @@ func TestFlushCompositesDisplayLayersAboveBaseSurface(t *testing.T) {
 	}
 	if a1 == 0 {
 		t.Fatal("expected overlay layer pixel to be present")
+	}
+}
+
+func TestFlushUsesDisplayLayerForegroundTint(t *testing.T) {
+	rt := reactive.NewRuntime()
+	uiRuntime := ui.New(rt)
+	page := uiRuntime.AddPage("home")
+	main := page.AddDisplay(ui.DisplayMain)
+	overlay := gfx.NewSurface(MainDisplayWidth, MainDisplayHeight)
+	overlay.FillRect(20, 20, 4, 4, 255)
+	main.SetLayerWithOptions("accent", overlay, ui.LayerOptions{Foreground: color.RGBA{R: 255, G: 0, B: 0, A: 255}})
+	if err := uiRuntime.Show("home"); err != nil {
+		t.Fatalf("show home: %v", err)
+	}
+	target := &fakeTarget{}
+	r := NewWithDisplays(uiRuntime, map[string]DrawTarget{ui.DisplayMain: target})
+	if flushed := r.Flush(); flushed != 1 {
+		t.Fatalf("expected one flushed composed main display, got %d", flushed)
+	}
+	if len(target.calls) != 1 {
+		t.Fatalf("expected one main display draw call, got %d", len(target.calls))
+	}
+	rv, gv, bv, _ := target.calls[0].im.At(20, 20).RGBA()
+	if rv <= gv || rv <= bv {
+		t.Fatalf("expected red-tinted overlay pixel, got r=%d g=%d b=%d", rv, gv, bv)
+	}
+}
+
+func TestFlushDrawsTileSurfaceAsPartialBlit(t *testing.T) {
+	rt := reactive.NewRuntime()
+	uiRuntime := ui.New(rt)
+	page := uiRuntime.AddPage("home")
+	tile := page.AddTile(2, 0)
+	surface := gfx.NewSurface(TileWidth, TileHeight)
+	surface.FillRect(0, 0, 8, 8, 140)
+	tile.SetSurface(surface)
+	if err := uiRuntime.Show("home"); err != nil {
+		t.Fatalf("show home: %v", err)
+	}
+	target := &fakeTarget{}
+	r := New(uiRuntime, target)
+	flushed := r.Flush()
+	if flushed != 1 {
+		t.Fatalf("expected one flushed tile surface, got %d", flushed)
+	}
+	if len(target.calls) != 1 {
+		t.Fatalf("expected one draw call, got %d", len(target.calls))
+	}
+	if target.calls[0].x != 180 || target.calls[0].y != 0 {
+		t.Fatalf("expected tile surface draw at (180,0), got (%d,%d)", target.calls[0].x, target.calls[0].y)
+	}
+	rv, gv, bv, av := target.calls[0].im.At(0, 0).RGBA()
+	if rv == 0 && gv == 0 && bv == 0 && av == 0 {
+		t.Fatal("expected rendered tile surface pixel to be non-zero")
 	}
 }

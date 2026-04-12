@@ -3,6 +3,7 @@ package module_ui
 import (
 	"context"
 	"fmt"
+	"image/color"
 
 	"github.com/dop251/goja"
 	"github.com/dop251/goja_nodejs/require"
@@ -256,10 +257,11 @@ func displayObject(bindings runtimebridge.Bindings, ownerCtx context.Context, ru
 	_ = obj.Set("layer", func(call goja.FunctionCall) goja.Value {
 		name := call.Argument(0).String()
 		arg := call.Argument(1)
+		opts := layerOptionsFromValue(call.Argument(2), runtime)
 		if goja.IsNull(arg) || goja.IsUndefined(arg) {
-			display.SetLayer(name, nil)
+			display.SetLayerWithOptions(name, nil, opts)
 		} else {
-			display.SetLayer(name, module_gfx.SurfaceFromValue(arg, runtime))
+			display.SetLayerWithOptions(name, module_gfx.SurfaceFromValue(arg, runtime), opts)
 		}
 		return goja.Undefined()
 	})
@@ -340,6 +342,15 @@ func tileObject(bindings runtimebridge.Bindings, ownerCtx context.Context, runti
 		}
 		return goja.Undefined()
 	})
+	_ = obj.Set("surface", func(call goja.FunctionCall) goja.Value {
+		arg := call.Argument(0)
+		if goja.IsNull(arg) || goja.IsUndefined(arg) {
+			tile.SetSurface(nil)
+		} else {
+			tile.SetSurface(module_gfx.SurfaceFromValue(arg, runtime))
+		}
+		return goja.Undefined()
+	})
 	return obj
 }
 
@@ -364,6 +375,31 @@ func stringify(value goja.Value) string {
 		return s
 	}
 	return fmt.Sprint(value.Export())
+}
+
+func layerOptionsFromValue(value goja.Value, runtime *goja.Runtime) ui.LayerOptions {
+	if goja.IsUndefined(value) || goja.IsNull(value) {
+		return ui.LayerOptions{}
+	}
+	obj := value.ToObject(runtime)
+	rValue := obj.Get("r")
+	gValue := obj.Get("g")
+	bValue := obj.Get("b")
+	if (rValue == nil || goja.IsUndefined(rValue) || goja.IsNull(rValue)) &&
+		(gValue == nil || goja.IsUndefined(gValue) || goja.IsNull(gValue)) &&
+		(bValue == nil || goja.IsUndefined(bValue) || goja.IsNull(bValue)) {
+		return ui.LayerOptions{}
+	}
+	a := uint8(255)
+	if av := obj.Get("a"); av != nil && !goja.IsUndefined(av) && !goja.IsNull(av) {
+		a = uint8(av.ToInteger())
+	}
+	return ui.LayerOptions{Foreground: color.RGBA{
+		R: uint8(rValue.ToInteger()),
+		G: uint8(gValue.ToInteger()),
+		B: uint8(bValue.ToInteger()),
+		A: a,
+	}}
 }
 
 func statusString(status deck.ButtonStatus) string {
