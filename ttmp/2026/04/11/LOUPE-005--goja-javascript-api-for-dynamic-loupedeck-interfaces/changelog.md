@@ -145,3 +145,14 @@ Started convergence phase H in code by choosing a **local port** of `go-go-goja`
 - /home/manuel/code/wesen/2026-04-11--loupedeck-test/runtime/js/runtime.go — Refactored JS bootstrap into an owned runtime with `VM`, `Loop`, `Owner`, `Env`, `RunString`, and `Close`
 - /home/manuel/code/wesen/2026-04-11--loupedeck-test/runtime/js/runtime_test.go — Updated JS integration tests to run through the new owner-backed runtime API
 - /home/manuel/code/wesen/2026-04-11--loupedeck-test/cmd/loupe-js-demo/main.go — Updated the demo command to use the owned JS runtime lifecycle
+
+## 2026-04-11
+
+Completed H2 by adding a local `runtimebridge` package and wiring it into the owned JS runtime. The runtime now stores owner/context/loop bindings plus the Loupedeck runtime environment against the VM, and cleans them up on close. This establishes the runtime-scoped binding layer needed for the next callback-refit step.
+
+### Related Files
+
+- /home/manuel/code/wesen/2026-04-11--loupedeck-test/pkg/runtimebridge/runtimebridge.go — Local port of runtime-scoped VM bindings for owner/context/loop/value lookup
+- /home/manuel/code/wesen/2026-04-11--loupedeck-test/pkg/runtimebridge/runtimebridge_test.go — Tests for store/lookup/delete behavior
+- /home/manuel/code/wesen/2026-04-11--loupedeck-test/runtime/js/runtime.go — Owned JS runtime now installs runtime bridge bindings and exposes runtime context cleanup semantics
+- /home/manuel/code/wesen/2026-04-11--loupedeck-test/runtime/js/runtime_test.go — Tests proving bindings are installed and removed correctly

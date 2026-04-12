@@ -118,7 +118,7 @@
 - [x] Write a dedicated design doc for converging the Loupedeck JS runtime onto go-go-goja runtime ownership
 - [x] Decide dependency strategy: direct dependency on `go-go-goja` vs local port of `runtimeowner`/`runtimebridge`
 - [x] Add an owner-runner layer to the local JS runtime bootstrap
-- [ ] Add runtime-scoped bindings for owner/context/loop and Loupedeck services
+- [x] Add runtime-scoped bindings for owner/context/loop and Loupedeck services
 - [ ] Refit all JS callback boundaries (`onButton`, `onTouch`, `onKnob`, timers, animation, reactive JS closures) to owner-thread scheduling
 - [ ] Add tests for owner-thread callback serialization and shutdown behavior
 - [ ] Refactor module wiring toward runtime-scoped registration rather than ad hoc env lookups where practical

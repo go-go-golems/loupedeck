@@ -1448,3 +1448,117 @@ rt := js.NewRuntime(env)
 defer rt.Close(ctx)
 _, err := rt.RunString(ctx, script)
 ```
+
+## Step 13: Add runtime-scoped bindings with a local `runtimebridge`
+
+With the owner-runner in place, the next missing piece was a runtime-scoped binding layer. The purpose of this step was to make owner/context/loop data discoverable from the VM itself, rather than relying only on constructor-time environment capture. That is the local equivalent of the `go-go-goja/pkg/runtimebridge` pattern and it is the prerequisite for refitting module callbacks to owner-thread posting in the next step.
+
+This step stayed intentionally small. I did not yet change all modules to use the bridge. I first established the bridge and the owned-runtime lifecycle around it, then verified that bindings are installed and removed correctly.
+
+### Prompt Context
+
+**User prompt (verbatim):** (same as Step 12)
+
+**Assistant interpretation:** Continue through the convergence-phase tasks in order, adding the runtime-scoped binding layer before touching the more invasive callback refit.
+
+**Inferred user intent:** Build the convergence refactor in stable layers so later module changes rely on real runtime infrastructure instead of half-finished plumbing.
+
+**Commit (code):** `1d515be` — `Add runtime bridge for JS runtime ownership`
+
+### What I did
+- Added a new local package:
+
+```text
+pkg/runtimebridge/
+```
+
+- Implemented:
+  - `pkg/runtimebridge/runtimebridge.go`
+  - `pkg/runtimebridge/runtimebridge_test.go`
+- Added a local `Bindings` structure that stores:
+  - `Context`
+  - `Loop`
+  - `Owner`
+  - `Values`
+- Wired the owned JS runtime to:
+  - create a runtime-owned context
+  - install runtime bindings when the runtime is created
+  - store the Loupedeck runtime environment under:
+
+```text
+Values["environment"]
+```
+
+  - delete bindings again on runtime close
+- Extended `runtime/js/runtime.go` with:
+  - runtime-owned context/cancel management
+  - `Context()` accessor
+  - bridge installation and cleanup
+- Added integration coverage in `runtime/js/runtime_test.go` to prove:
+  - bridge bindings are present after runtime creation
+  - owner/context/loop are populated
+  - the environment is reachable through runtime bindings
+  - bindings are removed on close
+- Ran:
+
+```bash
+gofmt -w pkg/runtimebridge/*.go runtime/js/*.go
+go test ./...
+```
+
+### Why
+- The owner-runner alone is not enough for module-level async correctness. Modules need a standard, VM-scoped way to access the owner and runtime context.
+- Installing the bridge before refitting modules keeps the next refactor focused: module changes can simply start using the already-provisioned bindings.
+
+### What worked
+- The local bridge layer was small and fit naturally into the owned runtime bootstrap.
+- The tests clearly verify the intended contract: bindings exist while the runtime is alive and are removed when it closes.
+- The full repository test suite continued to pass.
+
+### What didn't work
+- No build or test failures occurred in this step.
+- The current limitation is intentional: the modules themselves still mostly rely on captured environment references and direct JS invocation in callbacks. The bridge is ready for them, but H3 is the step that actually uses it to fix callback ownership.
+
+### What I learned
+- The `Values` map is a useful small extension over the base bridge pattern because it gives a clean place to expose Loupedeck-specific runtime services without forcing a global singleton.
+- The bridge/owner split is already making the architecture easier to describe: the runtime bootstrap owns installation, and modules can become consumers rather than bespoke assemblers.
+
+### What was tricky to build
+- The subtle point was deciding whether to put the environment directly into the bridge type or into a generic `Values` map. I chose the map because it keeps the bridge generic and closer in spirit to the `go-go-goja` pattern while still allowing Loupedeck-specific runtime state.
+- Another subtle point was runtime close order. The bridge should be deleted when the runtime closes so later lookups against a dead VM do not appear valid. That cleanup now lives in the owned runtime close path.
+
+### What warrants a second pair of eyes
+- Reviewers should confirm that `Values["environment"]` is an acceptable first binding key and whether later steps should evolve that into a more explicit typed service bundle.
+- The bridge currently exists but is not yet the primary way modules obtain runtime services. The next step needs to complete that transition cleanly.
+
+### What should be done in the future
+- Execute H3 next: refit all JS callback boundaries so deferred/event-driven JS invocation goes through owner-thread scheduling and bridge lookups.
+- Later consider whether a more typed runtime-service registry should sit on top of the generic binding map.
+
+### Code review instructions
+- Start with:
+  - `pkg/runtimebridge/runtimebridge.go`
+  - `pkg/runtimebridge/runtimebridge_test.go`
+  - `runtime/js/runtime.go`
+  - `runtime/js/runtime_test.go`
+- Validate with:
+
+```bash
+gofmt -w pkg/runtimebridge/*.go runtime/js/*.go
+go test ./...
+```
+
+### Technical details
+- The runtime-scoped binding contract added in this step is:
+
+```text
+VM -> runtimebridge.Bindings{Context, Loop, Owner, Values}
+```
+
+- The environment is currently exported through:
+
+```text
+Values["environment"]
+```
+
+so future modules can look up the Loupedeck runtime environment from the VM rather than relying only on constructor capture.
