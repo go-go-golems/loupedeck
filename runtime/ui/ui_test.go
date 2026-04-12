@@ -228,3 +228,20 @@ func TestDisplayLayerOrderIsStable(t *testing.T) {
 		t.Fatalf("unexpected layer order after removal: %#v", layers)
 	}
 }
+
+func TestTileSurfaceMutationMarksTileDirty(t *testing.T) {
+	ui := New(nil)
+	page := ui.AddPage("home")
+	tile := page.AddTile(0, 0)
+	surface := gfx.NewSurface(8, 8)
+	tile.SetSurface(surface)
+	if err := ui.Show("home"); err != nil {
+		t.Fatalf("show home: %v", err)
+	}
+	ui.ClearDirty()
+	surface.FillRect(0, 0, 4, 4, 100)
+	dirty := ui.DirtyTiles()
+	if len(dirty) != 1 || dirty[0] != tile {
+		t.Fatalf("expected tile surface mutation to mark tile dirty, got %#v", dirty)
+	}
+}

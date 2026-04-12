@@ -44,6 +44,7 @@ This ticket exists separately from `LOUPE-006` so that active cyb-ito scene impl
 ## Key Links
 
 - **Main design guide**: `design/01-textbook-measuring-layered-animation-density-pacing-and-tuning-for-loupedeck-js-scenes.md`
+- **Project technical report**: `design/02-project-technical-report-performing-the-12-tile-javascript-canvas-cyb-ito-port.md`
 - **Operational runbook**: `playbooks/01-layered-density-measurement-runbook.md`
 - **Implementation diary**: `reference/01-implementation-diary.md`
 - **Related Files**: See frontmatter RelatedFiles field
@@ -58,9 +59,13 @@ Current completion state:
 - Operational runbook written
 - Diary created
 - Task breakdown drafted
-- Ticket validated with `docmgr doctor`
-- Design bundle uploaded to reMarkable and verified remotely
-- No instrumentation code has been implemented yet in this ticket
+- Full project technical report written for the 12-tile cyb-ito performance investigation
+- First concrete runtime precondition slice implemented: retained `gfx.Surface` batching now exists so full-page scene construction can be made frame-atomic before real pacing instrumentation starts
+- First live instrumentation slice implemented: `cmd/loupe-js-live` now supports periodic renderer stats, writer stats, and JS-scene metrics logging, and the JS runtime now exposes reusable `metrics` / `scene-metrics` modules for scene-side timing
+- Follow-up hardware evidence captured after adding rebuild-reason metrics; the measured rebuild stream is overwhelmingly loop-driven (`scene.renderAll.reason.loop`) with only one startup `initial` rebuild in the fresh no-input run
+- Fresh evidence continues to show a calm writer queue but highly variable and often very slow full-page flush windows, reinforcing that the current full-page bottleneck is upstream of queue buildup
+- Ticket validation rerun complete after the new report addition
+- Updated reMarkable bundle uploaded and verified, including the new project technical report
 
 ## Topics
 

@@ -1,7 +1,9 @@
 package gfx
 
 import (
+	"image/color"
 	"testing"
+	"time"
 
 	"golang.org/x/image/font/basicfont"
 )
@@ -89,4 +91,63 @@ func TestSurfaceTextHandlesSmallHeightsWithoutPanicking(t *testing.T) {
 		Brightness: 80,
 		Face:       basicfont.Face7x13,
 	})
+}
+
+func TestSurfaceBatchCoalescesChangeNotifications(t *testing.T) {
+	s := NewSurface(16, 16)
+	count := 0
+	sub := s.OnChange(func() {
+		count++
+	})
+	defer sub.Close()
+
+	s.Batch(func() {
+		s.Clear(1)
+		s.FillRect(0, 0, 4, 4, 10)
+		s.Line(0, 0, 15, 15, 20)
+		s.Crosshatch(0, 0, 8, 8, 2, 5)
+	})
+
+	if count != 1 {
+		t.Fatalf("expected one coalesced notification, got %d", count)
+	}
+}
+
+func TestSurfaceToRGBAWaitsForBatchCompletion(t *testing.T) {
+	s := NewSurface(8, 8)
+	started := make(chan struct{})
+	release := make(chan struct{})
+	readDone := make(chan struct{})
+
+	go func() {
+		s.Batch(func() {
+			s.FillRect(0, 0, 2, 2, 100)
+			close(started)
+			<-release
+			s.FillRect(2, 0, 2, 2, 200)
+		})
+	}()
+
+	<-started
+	go func() {
+		im := s.ToRGBA(color.White, color.Black)
+		if got := im.RGBAAt(3, 0).R; got == 0 {
+			t.Errorf("expected second half of batched surface to be visible after batch, got %d", got)
+		}
+		close(readDone)
+	}()
+
+	select {
+	case <-readDone:
+		t.Fatal("expected ToRGBA to wait until the batch completed")
+	case <-time.After(50 * time.Millisecond):
+	}
+
+	close(release)
+
+	select {
+	case <-readDone:
+	case <-time.After(500 * time.Millisecond):
+		t.Fatal("timed out waiting for ToRGBA after releasing the batch")
+	}
 }

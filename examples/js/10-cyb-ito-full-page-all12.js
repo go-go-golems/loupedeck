@@ -73,6 +73,21 @@ const tileLabels = [
   "VOID",
 ];
 
+const tileChromeLabels = [
+  "EYE",
+  "SPIR",
+  "TEETH",
+  "MELT",
+  "HOLE",
+  "FACE",
+  "WORM",
+  "NOISE",
+  "WARP",
+  "CRACK",
+  "PULSE",
+  "VOID",
+];
+
 const tileKanji = [
   "眼",
   "渦",
@@ -179,7 +194,7 @@ function drawTileFrame(surface, x, y, isActive) {
 
 function drawTileChrome(surface, idx, x, y, isActive) {
   drawText(surface, tileKanji[idx], x + 17 + KANJI_TILE_DX, y + LABEL_Y - 2 + KANJI_TILE_DY, isActive ? 235 : 110, 24, 20, KANJI_FONT);
-  drawText(surface, tileLabels[idx], x + 58, y + LABEL_Y + 1, isActive ? 140 : 55, 48, 12);
+  drawText(surface, tileChromeLabels[idx], x + 46, y + LABEL_Y + 1, isActive ? 140 : 55, 40, 12);
   lineH(surface, x + 2, x + TILE - 3, y + DIVIDER_Y, isActive ? 28 : 8);
 }
 

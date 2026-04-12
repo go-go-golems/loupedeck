@@ -57,6 +57,8 @@ The practical consequence is simple: mutate state and retained UI from JavaScrip
 | `loupedeck/ui` | Retained pages, tiles, and hardware event subscriptions | `page`, `show`, `onButton`, `onTouch`, `onKnob` |
 | `loupedeck/anim` | Numeric tweens, loops, and sequential timelines | `to`, `loop`, `timeline` |
 | `loupedeck/easing` | Easing functions for animation | `linear`, `inOutQuad`, `inOutCubic`, `outBack`, `steps` |
+| `loupedeck/metrics` | Low-level counters and timings | `inc`, `observeMillis`, `time`, `counted`, `now` |
+| `loupedeck/scene-metrics` | Reusable scene-oriented metrics helpers on top of `loupedeck/metrics` | `create`, `reasonCategory` |
 
 ## `loupedeck/state`
 
@@ -153,6 +155,123 @@ sub.stop();
 ```
 
 The function runs through the owner-thread bridge, just like other deferred JS callbacks. Use `watch(...)` when you want a side effect that follows reactive changes. Do **not** use it as your primary rendering API; tile bindings are the better fit for UI updates.
+
+## `loupedeck/metrics`
+
+The low-level metrics module is the narrow bridge from JavaScript into the Go-owned in-process metrics collector. It is intentionally small and generic.
+
+### `metrics.inc(name, delta = 1)`
+
+Increments a named counter.
+
+```javascript
+const metrics = require("loupedeck/metrics");
+metrics.inc("scene.frames");
+metrics.inc("scene.activations", 2);
+```
+
+### `metrics.observeMillis(name, value)`
+
+Records a timing sample in milliseconds.
+
+```javascript
+metrics.observeMillis("scene.renderAll", 12.5);
+```
+
+### `metrics.time(name, fn)`
+
+Times a synchronous block and records the elapsed milliseconds.
+
+```javascript
+metrics.time("scene.renderAll", () => {
+  renderAll();
+});
+```
+
+### `metrics.counted(name, fn)`
+
+Increments a counter and then executes a synchronous block.
+
+```javascript
+metrics.counted("scene.frames", () => {
+  renderAll();
+});
+```
+
+### `metrics.now()`
+
+Returns the current wall-clock time in milliseconds.
+
+```javascript
+const t0 = metrics.now();
+```
+
+## `loupedeck/scene-metrics`
+
+The scene-metrics module is the reusable higher-level helper package for scene authors. Use it when you want consistent metric names and common patterns like rebuild-reason tracking, activation counting, loop tick counting, and per-tile timing without repeating string-building logic in every scene.
+
+### `sceneMetrics = require("loupedeck/scene-metrics").create(prefix)`
+
+Creates a helper object whose counters and timings are automatically namespaced under `prefix`.
+
+```javascript
+const sceneMetrics = require("loupedeck/scene-metrics").create("scene");
+```
+
+### `sceneMetrics.time(suffix, fn)`
+
+Times a block and records it under `prefix + "." + suffix`.
+
+```javascript
+sceneMetrics.time("renderAll", () => {
+  renderAll();
+});
+```
+
+### `sceneMetrics.timeTile(name, fn)`
+
+Records per-tile timing under `prefix + ".tile." + name`.
+
+```javascript
+sceneMetrics.timeTile("SPIRAL", () => {
+  drawSpiralTile(...);
+});
+```
+
+### `sceneMetrics.recordLoopTick()`
+
+Increments `prefix + ".loopTicks"`.
+
+### `sceneMetrics.recordActivation(reason)`
+
+Records `prefix + ".activations"` plus a categorized activation counter such as `prefix + ".activations.touch"` or `prefix + ".activations.button"`.
+
+```javascript
+sceneMetrics.recordActivation("T3");
+sceneMetrics.recordActivation("B1");
+```
+
+### `sceneMetrics.recordRebuild(reason, fn)`
+
+Tracks a rebuild cause and, when a function is provided, times the rebuild body.
+
+Recorded counters include:
+- `prefix + ".renderAll.calls"`
+- `prefix + ".renderAll.reason.<category>"`
+- `prefix + ".renderAll.reasonExact.<reason>"`
+
+If `fn` is provided, the timing is recorded as:
+- `prefix + ".renderAll"`
+
+```javascript
+sceneMetrics.recordRebuild("loop", () => {
+  renderAll();
+});
+```
+
+### `sceneMetrics.reasonCategory(reason)`
+
+Maps a reason like `loop`, `initial`, `T12`, or `B1` into a stable category such as `loop`, `initial`, `touch`, or `button`.
 
 ## `loupedeck/ui`
 

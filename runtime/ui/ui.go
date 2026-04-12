@@ -3,6 +3,7 @@ package ui
 import (
 	"fmt"
 	"sort"
+	"sync"
 
 	"github.com/go-go-golems/loupedeck/runtime/reactive"
 )
@@ -14,6 +15,7 @@ const (
 
 type UI struct {
 	Reactive      *reactive.Runtime
+	mu            sync.Mutex
 	pages         map[string]*Page
 	activePage    *Page
 	dirtyTiles    map[*Tile]struct{}
@@ -51,28 +53,38 @@ func (u *UI) Page(name string) *Page {
 }
 
 func (u *UI) ActivePage() *Page {
+	u.mu.Lock()
+	defer u.mu.Unlock()
 	return u.activePage
 }
 
 func (u *UI) Show(name string) error {
+	u.mu.Lock()
 	page, ok := u.pages[name]
 	if !ok {
+		u.mu.Unlock()
 		return fmt.Errorf("ui: unknown page %q", name)
 	}
 	u.activePage = page
+	u.mu.Unlock()
 	u.invalidatePage(page)
 	return nil
 }
 
 func (u *UI) InvalidateActivePage() bool {
-	if u.activePage == nil {
+	u.mu.Lock()
+	page := u.activePage
+	u.mu.Unlock()
+	if page == nil {
 		return false
 	}
-	u.invalidatePage(u.activePage)
+	u.invalidatePage(page)
 	return true
 }
 
 func (u *UI) DirtyTiles() []*Tile {
+	u.mu.Lock()
+	defer u.mu.Unlock()
 	if u.activePage == nil || len(u.dirtyTiles) == 0 {
 		return nil
 	}
@@ -92,6 +104,8 @@ func (u *UI) DirtyTiles() []*Tile {
 }
 
 func (u *UI) DirtyDisplays() []*Display {
+	u.mu.Lock()
+	defer u.mu.Unlock()
 	if u.activePage == nil || len(u.dirtyDisplays) == 0 {
 		return nil
 	}
@@ -108,19 +122,21 @@ func (u *UI) DirtyDisplays() []*Display {
 }
 
 func (u *UI) ClearDirty() {
-	tiles := make([]*Tile, 0, len(u.dirtyTiles))
+	u.mu.Lock()
+	defer u.mu.Unlock()
 	for tile := range u.dirtyTiles {
-		tiles = append(tiles, tile)
+		tile.dirty = false
+		delete(u.dirtyTiles, tile)
 	}
-	displays := make([]*Display, 0, len(u.dirtyDisplays))
 	for display := range u.dirtyDisplays {
-		displays = append(displays, display)
+		display.dirty = false
+		delete(u.dirtyDisplays, display)
 	}
-	u.ClearDirtyTiles(tiles)
-	u.ClearDirtyDisplays(displays)
 }
 
 func (u *UI) ClearDirtyTiles(tiles []*Tile) {
+	u.mu.Lock()
+	defer u.mu.Unlock()
 	for _, tile := range tiles {
 		if tile == nil {
 			continue
@@ -131,6 +147,8 @@ func (u *UI) ClearDirtyTiles(tiles []*Tile) {
 }
 
 func (u *UI) ClearDirtyDisplays(displays []*Display) {
+	u.mu.Lock()
+	defer u.mu.Unlock()
 	for _, display := range displays {
 		if display == nil {
 			continue
@@ -141,10 +159,22 @@ func (u *UI) ClearDirtyDisplays(displays []*Display) {
 }
 
 func (u *UI) markDirtyTile(tile *Tile) {
+	u.mu.Lock()
+	defer u.mu.Unlock()
+	if tile == nil || tile.dirty {
+		return
+	}
+	tile.dirty = true
 	u.dirtyTiles[tile] = struct{}{}
 }
 
 func (u *UI) markDirtyDisplay(display *Display) {
+	u.mu.Lock()
+	defer u.mu.Unlock()
+	if display == nil || display.dirty {
+		return
+	}
+	display.dirty = true
 	u.dirtyDisplays[display] = struct{}{}
 }
 

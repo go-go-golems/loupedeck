@@ -314,6 +314,41 @@ Avoid these anti-patterns:
 - benchmarking a visually different scene for each condition,
 - or using a frame-step-based effect and then blaming the device for its inconsistency.
 
+## Frame atomicity is a prerequisite, not a side note
+
+Before deeper stats instrumentation, there is one important practical rule to capture explicitly: a retained scene must be able to produce a coherent frame before the renderer snapshots it. Otherwise a measurement run can look "slow" when the more precise problem is that the renderer is observing an in-progress frame build.
+
+This became very concrete when the repo added a new full-page `360×270` cyb-ito scene variant that draws all 12 tiles into one shared retained `main` surface. The visible symptom on hardware was that tiles later in draw order appeared only on some frames. That kind of symptom can easily be misread as a generic JS-performance problem. In reality, it is a frame-atomicity problem: if JavaScript mutates the shared retained surface incrementally and the renderer snapshots it mid-build, the device can receive partially painted frames.
+
+So the measurement/tuning plan in this ticket should explicitly include a small runtime precondition slice:
+
+- support batched retained surface mutation,
+- suppress intermediate change notifications during a batch,
+- ensure snapshot reads wait for an in-flight batch to finish,
+- and use that batching in full-page scene construction paths before measuring them.
+
+This is not "premature optimization." It is measurement hygiene. If we do not first ensure coherent full-page frames, the later renderer/writer statistics will be harder to interpret because they will be mixed together with visually broken intermediate-frame artifacts.
+
+### Minimal API shape
+
+At the retained graphics level, the intended shape is straightforward:
+
+```go
+surface.Batch(func() {
+    // mutate many pixels / lines / fills / text calls
+})
+```
+
+And at the JS level:
+
+```javascript
+surface.batch(() => {
+  // build one coherent retained frame
+});
+```
+
+The key behavioral requirement is that the batch should emit at most one change notification at the end, and snapshotting paths such as `ToRGBA(...)` should not observe the surface until the batch completes.
+
 ## Proposed instrumentation design
 
 ## Renderer-side stats structure

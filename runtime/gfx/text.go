@@ -69,15 +69,23 @@ func (s *Surface) Text(text string, opts TextOptions) {
 	d.Dot = fixed.P(x, baseline)
 	d.DrawString(text)
 
+	s.mu.Lock()
 	for y := 0; y < h; y++ {
 		for x := 0; x < w; x++ {
 			a := alpha.AlphaAt(x, y).A
 			if a == 0 {
 				continue
 			}
+			px := opts.X + x
+			py := opts.Y + y
+			if !s.inBounds(px, py) {
+				continue
+			}
 			v := uint8((uint16(a) * uint16(brightness)) / 255)
-			s.Add(opts.X+x, opts.Y+y, v)
+			s.addLocked(px, py, v)
 		}
 	}
-	s.notifyChanged()
+	listeners := s.markChangedLocked()
+	s.mu.Unlock()
+	notifyListeners(listeners)
 }

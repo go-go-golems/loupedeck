@@ -1,6 +1,9 @@
 package ui
 
-import "github.com/go-go-golems/loupedeck/runtime/reactive"
+import (
+	"github.com/go-go-golems/loupedeck/runtime/gfx"
+	"github.com/go-go-golems/loupedeck/runtime/reactive"
+)
 
 type Tile struct {
 	display *Display
@@ -8,10 +11,12 @@ type Tile struct {
 	Col int
 	Row int
 
-	text    string
-	icon    string
-	visible bool
-	dirty   bool
+	text       string
+	icon       string
+	visible    bool
+	dirty      bool
+	surface    *gfx.Surface
+	surfaceSub gfx.Subscription
 
 	textSub    reactive.Subscription
 	iconSub    reactive.Subscription
@@ -28,6 +33,10 @@ func (t *Tile) Icon() string {
 
 func (t *Tile) Visible() bool {
 	return t.visible
+}
+
+func (t *Tile) Surface() *gfx.Surface {
+	return t.surface
 }
 
 func (t *Tile) Dirty() bool {
@@ -85,10 +94,20 @@ func (t *Tile) BindVisible(fn func() bool) {
 	})
 }
 
-func (t *Tile) markDirty() {
-	if t.dirty {
-		return
+func (t *Tile) SetSurface(surface *gfx.Surface) {
+	if t.surfaceSub != nil {
+		_ = t.surfaceSub.Close()
+		t.surfaceSub = nil
 	}
-	t.dirty = true
+	t.surface = surface
+	if surface != nil {
+		t.surfaceSub = surface.OnChange(func() {
+			t.markDirty()
+		})
+	}
+	t.markDirty()
+}
+
+func (t *Tile) markDirty() {
 	t.display.page.ui.markDirtyTile(t)
 }

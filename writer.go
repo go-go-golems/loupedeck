@@ -30,11 +30,12 @@ var DefaultWriterOptions = WriterOptions{
 
 // WriterStats captures coarse outbound writer metrics.
 type WriterStats struct {
-	QueuedCommands int
-	SentCommands   int
-	SentMessages   int
-	FailedCommands int
-	MaxQueueDepth  int
+	QueuedCommands    int
+	SentCommands      int
+	SentMessages      int
+	FailedCommands    int
+	MaxQueueDepth     int
+	CurrentQueueDepth int
 }
 
 type outboundCommand interface {
@@ -99,7 +100,9 @@ func (w *outboundWriter) Close() {
 func (w *outboundWriter) Stats() WriterStats {
 	w.mu.Lock()
 	defer w.mu.Unlock()
-	return w.stats
+	stats := w.stats
+	stats.CurrentQueueDepth = len(w.queue)
+	return stats
 }
 
 func (w *outboundWriter) enqueue(cmd outboundCommand) error {

@@ -51,6 +51,7 @@ The repository now includes Glazed-formatted help pages for the current goja-bas
 
 - `docs/help/tutorials/01-build-your-first-live-loupedeck-js-script.md` — step-by-step user guide for writing and running a real script on hardware
 - `docs/help/topics/01-loupedeck-js-api-reference.md` — detailed API reference for `loupedeck/state`, `loupedeck/ui`, `loupedeck/anim`, `loupedeck/easing`, and the live runner
+- `docs/help/topics/02-reusable-goja-js-metrics-subpackage.md` — standalone guide to the reusable JS metrics collector/binding packages, how they work, and how to embed them into your own goja runtime
 
 These pages are authored in Glazed help format so they can be loaded into a future Cobra/Glazed root help system when this repo grows one.
 
