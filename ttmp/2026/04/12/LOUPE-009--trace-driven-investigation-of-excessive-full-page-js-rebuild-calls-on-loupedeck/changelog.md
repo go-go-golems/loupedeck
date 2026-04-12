@@ -41,3 +41,13 @@ Implemented Phase B of `LOUPE-009`: reusable JS trace bindings on top of the new
 - /home/manuel/code/wesen/2026-04-11--loupedeck-test/runtime/js/runtime_test.go — Added coverage proving JS trace events reach the collector through both module styles
 - /home/manuel/code/wesen/2026-04-11--loupedeck-test/ttmp/2026/04/12/LOUPE-009--trace-driven-investigation-of-excessive-full-page-js-rebuild-calls-on-loupedeck/tasks.md — Marked Phase B complete
 
+## 2026-04-12
+
+Implemented Phase C of `LOUPE-009`: scene-level breadcrumb instrumentation in the full-page all-12 workload itself. The current `examples/js/10-cyb-ito-full-page-all12.js` scene now emits trace breadcrumbs for `loop.tick`, `renderAll.begin`, `renderAll.end`, and `setActive` while preserving the existing counter/timing metrics (`recordLoopTick`, `recordRebuild`, `timeTile`, etc.). This keeps the first trace pass at the right boundary: scene events, not per-tile internals. The repository test suite passed after the script update, which confirms the instrumented example still boots under the owned JS runtime smoke coverage.
+
+### Related Files
+
+- /home/manuel/code/wesen/2026-04-11--loupedeck-test/examples/js/10-cyb-ito-full-page-all12.js — Added scene-level trace breadcrumbs while preserving the existing timing/counter metrics
+- /home/manuel/code/wesen/2026-04-11--loupedeck-test/runtime/js/examples_test.go — Indirectly validates the updated script by booting repo example scripts under test
+- /home/manuel/code/wesen/2026-04-11--loupedeck-test/ttmp/2026/04/12/LOUPE-009--trace-driven-investigation-of-excessive-full-page-js-rebuild-calls-on-loupedeck/tasks.md — Marked Phase C complete
+

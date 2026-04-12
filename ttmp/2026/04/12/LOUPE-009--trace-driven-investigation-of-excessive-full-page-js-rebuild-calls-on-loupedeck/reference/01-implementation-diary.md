@@ -234,3 +234,63 @@ go test ./...
 ### What should be done in the future
 - Implement Phase C next: add scene-level breadcrumb instrumentation to `examples/js/10-cyb-ito-full-page-all12.js`.
 - After that, add Go-side flush trace points and live-runner trace dump flags.
+
+## Step 4: Instrument the full-page scene with breadcrumb trace events
+
+Once the reusable JS trace bindings existed, the next step was to stop talking about the scene in the abstract and instrument the actual workload that motivated the ticket. The right first move was not to trace every tile renderer. That would create too much noise too early. The right move was to add scene-boundary breadcrumbs that answer the big questions first: when loop ticks happen, when `renderAll(...)` begins and ends, and when explicit user-driven `setActive(...)` state changes occur.
+
+### What I did
+- Updated:
+  - `examples/js/10-cyb-ito-full-page-all12.js`
+- Added scene-level trace events for:
+  - `loop.tick`
+  - `renderAll.begin`
+  - `renderAll.end`
+  - `setActive`
+- Included small useful fields such as:
+  - `reason`
+  - `active`
+  - `lastEvent`
+  - `idx`
+  - `why`
+  - `phase`
+- Preserved the existing timing/counter instrumentation:
+  - `sceneMetrics.recordLoopTick()`
+  - `sceneMetrics.recordRebuild(...)`
+  - `sceneMetrics.timeTile(...)`
+- Kept the initial trace scope at the scene boundary only; no per-tile trace spam was added.
+- Validated by running:
+
+```bash
+go test ./runtime/js ./...
+```
+
+### Why
+- The scene script is where the current rebuild flood originates semantically. If we want to answer "where do these rebuilds come from?" we need scene breadcrumbs in the real workload, not just generic API support.
+- Starting at the scene boundary keeps the first trace readable and keeps trace overhead under control.
+- Preserving the older counters and timings means later trace captures can still be interpreted against the earlier evidence instead of replacing it.
+
+### What worked
+- The scene now emits the right first-layer breadcrumbs for the upcoming trace run.
+- The script still boots under the JS example smoke coverage.
+- The trace design remains aligned with the ticket plan: high-value sequence events first, deeper renderer/writer detail later only if needed.
+
+### What didn't work
+- This slice still does not expose trace dumps from the live runner, so the breadcrumbs cannot yet be observed on hardware.
+- We still do not have Go-side flush begin/end trace points, so the trace story is not yet cross-layer.
+
+### What I learned
+- The scene-level boundary is the right first granularity. It gives us a strong chance of answering the rebuild-origin question without generating overwhelming logs.
+- Including a few contextual fields like `active` and `lastEvent` is worthwhile because it makes later trace interpretation much more human-friendly.
+
+### What was tricky to build
+- The main subtlety was deciding what *not* to trace yet. It is very tempting to trace every tile draw path, but that would blur the first answer we actually want: whether loop ticks and renderAll calls are outrunning flushes.
+- Another subtle point was preserving the existing metrics instrumentation rather than replacing it. The trace should complement the counters, not discard them.
+
+### What warrants a second pair of eyes
+- Once the first real trace is captured, someone should review whether `lastEvent` is genuinely helpful in the breadcrumb fields or whether it is redundant noise.
+- If the first trace still leaves ambiguity, we may need one additional breadcrumb around the batch region specifically, but that should wait until we see the first logs.
+
+### What should be done in the future
+- Implement Phase D next: add Go-side flush trace points and live-runner trace dump flags.
+- Then capture the first no-input hardware trace and compute rebuilds-per-flush directly from the ordered events.

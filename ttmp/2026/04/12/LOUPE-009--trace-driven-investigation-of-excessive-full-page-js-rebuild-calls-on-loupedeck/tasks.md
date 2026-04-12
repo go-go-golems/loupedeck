@@ -26,9 +26,9 @@
 
 ### Phase C: scene-level breadcrumb instrumentation
 
-- [ ] Instrument `examples/js/10-cyb-ito-full-page-all12.js` with `loop.tick`, `renderAll.begin`, `renderAll.end`, and `setActive` trace events
-- [ ] Keep initial scene tracing at the scene boundary; do not yet instrument every tile renderer
-- [ ] Preserve current timing/counter metrics alongside the new breadcrumbs
+- [x] Instrument `examples/js/10-cyb-ito-full-page-all12.js` with `loop.tick`, `renderAll.begin`, `renderAll.end`, and `setActive` trace events
+- [x] Keep initial scene tracing at the scene boundary; do not yet instrument every tile renderer
+- [x] Preserve current timing/counter metrics alongside the new breadcrumbs
 
 ### Phase D: Go-side flush correlation
 
