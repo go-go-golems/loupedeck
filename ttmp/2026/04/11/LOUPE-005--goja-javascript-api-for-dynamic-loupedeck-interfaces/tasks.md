@@ -51,17 +51,17 @@
 - [x] Record milestone A in diary/changelog
 
 ### Implementation milestone B: retained UI model in pure Go
-- [ ] Add `runtime/ui` package scaffold
-- [ ] Implement page registry and active-page selection
-- [ ] Implement tile node model for `4x3` main touchscreen grid
-- [ ] Implement static property bindings for tile text/icon/visible
-- [ ] Implement reactive property bindings backed by `runtime/reactive`
-- [ ] Implement dirty-node tracking for retained UI changes
-- [ ] Add unit tests for page activation and visibility
-- [ ] Add unit tests for reactive tile property updates
-- [ ] Run `go test ./...`
-- [ ] Commit milestone B
-- [ ] Record milestone B in diary/changelog
+- [x] Add `runtime/ui` package scaffold
+- [x] Implement page registry and active-page selection
+- [x] Implement tile node model for `4x3` main touchscreen grid
+- [x] Implement static property bindings for tile text/icon/visible
+- [x] Implement reactive property bindings backed by `runtime/reactive`
+- [x] Implement dirty-node tracking for retained UI changes
+- [x] Add unit tests for page activation and visibility
+- [x] Add unit tests for reactive tile property updates
+- [x] Run `go test ./...`
+- [x] Commit milestone B
+- [x] Record milestone B in diary/changelog
 
 ### Implementation milestone C: retained visuals to current renderer bridge
 - [ ] Add `runtime/render` package scaffold

@@ -44,3 +44,14 @@ Implemented milestone A of the reactive runtime as a pure-Go `runtime/reactive` 
 - /home/manuel/code/wesen/2026-04-11--loupedeck-test/runtime/reactive/computed.go — Generic computed implementation with lazy reevaluation and dirty propagation
 - /home/manuel/code/wesen/2026-04-11--loupedeck-test/runtime/reactive/effect.go — Eager watch/effect implementation plus stop/unsubscribe support
 - /home/manuel/code/wesen/2026-04-11--loupedeck-test/runtime/reactive/runtime_test.go — Unit tests covering equality no-ops, invalidation chains, diamond graphs, batching, stop behavior, and panic guards
+
+## 2026-04-11
+
+Implemented milestone B as a pure-Go retained UI layer on top of `runtime/reactive`, including page registration, active-page switching, `4x3` main-display tile nodes, static and reactive text/icon/visible bindings, and dirty-tile tracking suitable for a later renderer bridge.
+
+### Related Files
+
+- /home/manuel/code/wesen/2026-04-11--loupedeck-test/runtime/ui/ui.go — Top-level retained UI runtime, active-page selection, and dirty-tile collection/filtering
+- /home/manuel/code/wesen/2026-04-11--loupedeck-test/runtime/ui/page.go — Page model and `4x3` tile coordinate validation/lookup
+- /home/manuel/code/wesen/2026-04-11--loupedeck-test/runtime/ui/tile.go — Tile state, static setters, reactive bindings, and dirty marking
+- /home/manuel/code/wesen/2026-04-11--loupedeck-test/runtime/ui/ui_test.go — Unit tests for page activation, hidden-page filtering, static properties, and reactive tile property updates

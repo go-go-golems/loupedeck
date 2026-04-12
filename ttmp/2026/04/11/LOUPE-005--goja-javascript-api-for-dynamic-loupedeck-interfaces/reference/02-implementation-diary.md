@@ -510,3 +510,113 @@ sub := rt.Watch(func() {
 })
 sub.Stop()
 ```
+
+## Step 5: Implement milestone B as a retained page/tile UI layer
+
+With the reactive core in place, the next layer was the smallest useful retained UI model: pages and `4x3` touchscreen tiles. This step intentionally stayed pure Go again. The goal was to prove that reactive state can drive retained node properties and dirty-node tracking before any renderer bridge or goja adapter exists.
+
+This was a good second slice because it forced the project to define the host-owned UI state shape early. Instead of talking abstractly about “some future page model”, the code now has a concrete page registry, active-page concept, tile coordinates, tile property bindings, and dirty-tile collection.
+
+### Prompt Context
+
+**User prompt (verbatim):** (same as Step 4)
+
+**Assistant interpretation:** Continue executing the phased implementation plan after milestone A, keeping the same discipline of tests, commits, and diary continuity.
+
+**Inferred user intent:** Build the reactive runtime incrementally in the intended order, with each layer becoming concrete and validated before the next one starts.
+
+**Commit (code):** `1eefa17` — `Add retained UI runtime model`
+
+### What I did
+- Added the new package:
+
+```text
+runtime/ui/
+```
+
+- Implemented:
+  - `runtime/ui/ui.go`
+  - `runtime/ui/page.go`
+  - `runtime/ui/tile.go`
+  - `runtime/ui/ui_test.go`
+- Added a host-owned retained UI model with:
+  - page registration via `AddPage`
+  - active-page switching via `Show`
+  - `4x3` main-touchscreen coordinate validation
+  - tile nodes with `text`, `icon`, and `visible` properties
+  - static setters (`SetText`, `SetIcon`, `SetVisible`)
+  - reactive property binding helpers (`BindText`, `BindIcon`, `BindVisible`)
+  - dirty-tile collection and active-page filtering
+- Made `ui.New(nil)` create its own reactive runtime so tests and future callers can use a simple default.
+- Ran:
+
+```bash
+gofmt -w runtime/ui/*.go
+go test ./...
+```
+
+### Why
+- The implementation plan explicitly called for retained UI before the renderer bridge. That order matters because the renderer needs concrete retained nodes to render.
+- The first node type was intentionally kept small: tiles only, no strips or overlays yet. That keeps the API understandable for the intern and reduces early surface area.
+
+### What worked
+- The retained model fits naturally on top of `runtime/reactive`.
+- The reactive tile bindings are simple because they reuse `Runtime.Watch(...)` rather than inventing a second binding mechanism.
+- The tests cover the most important milestone-B semantics:
+  - page switching
+  - dirty-tile filtering by active page
+  - static property updates
+  - reactive property updates through bound signals
+
+### What didn't work
+- No failing test or build error occurred in this milestone once the files were implemented.
+- The main limitation is intentional: the model currently tracks dirtiness but does not yet know how to render or clear tiles visually. That is the next milestone’s job.
+
+### What I learned
+- The `visible` property should still mark tiles dirty even when the tile becomes hidden, because the eventual renderer bridge will need to know that a region must be redrawn/cleared.
+- Filtering `DirtyTiles()` by the active page keeps the retained model simple while still letting hidden-page changes accumulate harmlessly until that page is shown.
+
+### What was tricky to build
+- The subtle point in this slice is that dirty-node tracking and visible-page filtering are different concerns. A tile can be dirty while its page is hidden; that should not be lost. The current design keeps the dirty bit on the tile and only filters at readout time (`DirtyTiles()`), which is a good fit for a later bridge.
+- Another small but important design choice was whether `Show(name)` should mark the page’s tiles dirty. It should, because page activation is itself a visibility change and the newly active page must be rendered by the future bridge.
+
+### What warrants a second pair of eyes
+- The current property set is intentionally tiny. A reviewer should confirm that milestone C should continue with just text/icon/visible rendering rather than adding transforms or style concepts prematurely.
+- Hidden-page dirty handling is reasonable for now, but future milestones may want a more explicit dirty-reason model if page transitions become more complex.
+
+### What should be done in the future
+- Build milestone C: map dirty retained tiles to concrete main-display rectangles and feed them into the existing `Display.Draw()` path.
+- Decide the minimal first tile visual composition strategy (text-only, icon-only, or icon-plus-text) for the renderer bridge.
+
+### Code review instructions
+- Start with:
+  - `runtime/ui/ui.go`
+  - `runtime/ui/tile.go`
+  - `runtime/ui/ui_test.go`
+- Validate with:
+
+```bash
+gofmt -w runtime/ui/*.go
+go test ./...
+```
+
+### Technical details
+- The retained tile coordinate contract is now explicitly:
+
+```text
+4 columns x 3 rows on the 360x270 main display
+=> each tile maps conceptually to a 90x90 region
+```
+
+- The current public shape of the layer is approximately:
+
+```go
+rt := reactive.NewRuntime()
+ui := ui.New(rt)
+page := ui.AddPage("home")
+tile := page.AddTile(0, 0)
+label := reactive.NewSignal(rt, "IDLE")
+tile.BindText(func() string { return label.Get() })
+_ = ui.Show("home")
+dirty := ui.DirtyTiles()
+```
