@@ -9,25 +9,25 @@
 
 ## Phase B: first layered full-page implementation slice
 
-- [ ] Refactor `examples/js/10-cyb-ito-full-page-all12.js` to use multiple internal `gfx.surface(...)` layers
-- [ ] Preserve the current presenter-driven full-page flush model
-- [ ] Add a first software FX layer with at least scanlines, grain/noise, or active-tile overlay effects
-- [ ] Keep the final scene attached as one full-page display surface
-- [ ] Run `go test ./...`
+- [x] Refactor `examples/js/10-cyb-ito-full-page-all12.js` to use multiple internal `gfx.surface(...)` layers
+- [x] Preserve the current presenter-driven full-page flush model
+- [x] Add a first software FX layer with scanlines, grain/noise, and active-tile overlay effects
+- [x] Keep the final scene attached as one full-page display surface
+- [x] Run `go test ./...`
 
 ## Phase C: first hardware tuning and validation
 
-- [ ] Archive concrete run/test commands in `scripts/`
-- [ ] Run the layered full-page scene on hardware with aggressive writer pacing
-- [ ] Inspect whether the effect pass hurts visible smoothness
-- [ ] Tune effect intensity or composition cost if needed
+- [x] Archive concrete run/test commands in `scripts/`
+- [x] Run the layered full-page scene on hardware with aggressive writer pacing
+- [x] Inspect whether the effect pass hurts visible smoothness
+- [x] Tune effect intensity or composition cost if needed (no code change required after the first smooth hardware check)
 
 ## Phase D: ticket continuity
 
-- [ ] Update the diary after the first code slice
-- [ ] Update the ticket changelog and index
-- [ ] Run `docmgr doctor --ticket LOUPE-011 --stale-after 30`
-- [ ] Commit the code slice
+- [x] Update the diary after the first code slice
+- [x] Update the ticket changelog and index
+- [x] Run `docmgr doctor --ticket LOUPE-011 --stale-after 30`
+- [x] Commit the code slice
 - [ ] Commit the ticket bookkeeping slice
 
 ## Future work candidates after the first slice

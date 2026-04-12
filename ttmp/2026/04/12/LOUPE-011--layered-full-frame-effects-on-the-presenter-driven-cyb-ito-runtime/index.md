@@ -45,7 +45,13 @@ Current completion state:
 - Implementation plan written
 - Detailed task list written
 - Diary created
-- First code slice not yet implemented
+- First layered full-page code slice implemented
+- Full-page scene refactored into internal software layers (`base`, `chrome`, `scene`, `fx`, `hud`, final `frame`)
+- Presenter-driven single full-page flush model preserved
+- First FX slice added: scanlines, grain/noise, and active-tile sweep/ripple overlays
+- `go test ./...` passed
+- Hardware smoke validation succeeded with `--send-interval 0ms`
+- Evidence log captured at `/tmp/loupe-cyb-ito-layered-011-success-1776029307.log`
 
 ## Topics
 

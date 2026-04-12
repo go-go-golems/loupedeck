@@ -10,13 +10,16 @@ Topics:
 DocType: design
 Intent: long-term
 Owners: []
-RelatedFiles: []
+RelatedFiles:
+    - Path: examples/js/10-cyb-ito-full-page-all12.js
+      Note: Target scene that now owns the layered full-frame composition logic
 ExternalSources: []
-Summary: "Plan the next cyb-ito runtime step: reintroduce multiple logical scene layers while preserving the presenter-driven single full-frame flush model that fixed the rebuild storm."
+Summary: 'Plan the next cyb-ito runtime step: reintroduce multiple logical scene layers while preserving the presenter-driven single full-frame flush model that fixed the rebuild storm.'
 LastUpdated: 2026-04-12T17:20:07.173201699-04:00
-WhatFor: "Use this document when implementing layered full-page visual effects on top of the presenter-driven cyb-ito runtime without regressing into multi-rebuild flush storms."
-WhenToUse: "Use when adding scanlines, noise, ripple overlays, HUD elements, cached chrome, or similar full-frame effects to the current cyb-ito full-page JavaScript scene."
+WhatFor: Use this document when implementing layered full-page visual effects on top of the presenter-driven cyb-ito runtime without regressing into multi-rebuild flush storms.
+WhenToUse: Use when adding scanlines, noise, ripple overlays, HUD elements, cached chrome, or similar full-frame effects to the current cyb-ito full-page JavaScript scene.
 ---
+
 
 # Implementation plan for layered full-frame effects on the presenter-driven cyb-ito runtime
 
