@@ -676,3 +676,101 @@ until the full example pack, including `07-cyb-ito-prototype.js`, booted cleanly
 - Update the ticket docs and mark the prototype scene tasks that are honestly complete.
 - Continue Phase E toward true multi-layer display composition.
 - Add a better touch-reactive overlay model next so the prototype can gain ripple and scan effects more naturally.
+
+## Step 9: Validate the prototype on real hardware and tighten the UX based on what was actually visible
+
+At this point the prototype already booted in tests, but the next milestone had to be a real hardware run. The user had asked to keep working through the ticket tasks one by one, so the next honest task was the Phase H hardware validation slice using the tmux workflow we had already standardized for the earlier JS runtime work.
+
+### Commits
+
+**Commit (code):** `7ac32d3` — `Improve cyb-ito prototype interaction feedback`
+
+### What I did
+- Started the prototype scene on actual hardware with:
+
+```bash
+go run ./cmd/loupe-js-live --script ./examples/js/07-cyb-ito-prototype.js --duration 120s --log-events
+```
+
+inside a fresh tmux session.
+- The first real-hardware observation from the user was effectively:
+  - the main display showed white buttons
+  - the side displays were animating
+  - the right strip showed unreadable fallback `?` glyphs
+- That first observation was already valuable because it confirmed that the retained multi-display scene was rendering on all three physical regions.
+- The next interaction check showed another real usability issue: the user pressed `Button1`, `Button2`, and touched the screen, but visually it seemed like nothing changed.
+- I checked the captured hardware log and confirmed that the events were in fact arriving. The log recorded many lines such as:
+
+```text
+button event button=Button1 status=down
+button event button=Button2 status=down
+touch event touch=Touch3 status=down x=...
+```
+
+which meant the problem was not dead input wiring. The problem was that the prototype’s visual feedback was too subtle.
+- Based on that hardware evidence, I updated:
+
+```text
+examples/js/07-cyb-ito-prototype.js
+```
+
+so the prototype now:
+  - starts with a visible default active tile instead of `-1`
+  - renders much stronger active-tile highlighting
+  - shows an obvious central status box with the selected tile and last event
+  - shows `BOOT`, `B1`, `B2`, or `TouchN` status text so input feedback is unmistakable
+  - replaces the right-strip Kanji with ASCII fallback words so the side display is readable on current hardware demos
+- Re-ran the scene on hardware in tmux and asked the user to retry the interaction test.
+- The user then confirmed: **"yes, that works"**.
+- Stopped the session cleanly with `C-c` and captured the final hardware evidence log at:
+
+```text
+/tmp/loupe-cyb-ito-prototype-1775989933.log
+```
+
+### Why
+- A prototype scene that only works in automated boot tests is not enough for this repo; the whole point is real Loupedeck hardware behavior.
+- The first hardware pass exposed a classic issue: technically correct event handling can still fail as a demo if visual feedback is too subtle.
+- Tightening prototype UX based on the first human run is exactly the kind of iteration this ticket should capture.
+
+### What worked
+- The prototype rendered on all three physical display regions.
+- The live runner delivered real touch and button events during the prototype session.
+- The improved prototype made interaction state obvious enough that the user confirmed it was working on hardware.
+
+### What didn't work
+- The very first hardware presentation was too ambiguous to count as a good validation demo, even though the event path itself was alive.
+- The original right-strip Kanji text was not a good fit for the current font/fallback path and produced unreadable output.
+- The run still showed the familiar reconnect fragility on startup, including an initial malformed-response warning before the successful run continued.
+
+### Concrete evidence
+- Successful interactive hardware log:
+
+```text
+/tmp/loupe-cyb-ito-prototype-1775989933.log
+```
+
+- Example evidence lines from that log:
+
+```text
+2026/04/12 06:32:20 INFO touch event touch=Touch2 status=down x=188 y=51
+2026/04/12 06:32:31 INFO button event button=Button1 status=down
+2026/04/12 06:32:32 INFO button event button=Button2 status=down
+2026/04/12 06:32:57 INFO button event button=Circle status=down
+```
+
+- First-run limitation evidence from the same hardware-validation cycle:
+
+```text
+2026/04/12 06:32:15 WARN dial failed err="malformed HTTP response ..."
+```
+
+### What I learned
+- The retained multi-display architecture is now far enough along that a real JS scene can be interacted with on hardware.
+- Human-visible demo quality matters separately from functional correctness. The event path was already alive before the user could confidently see it.
+- ASCII fallback content is a better current demo choice than unsupported glyph sets when the goal is validation clarity rather than final art fidelity.
+
+### What should be done in the future
+- Update the ticket docs and mark the honest hardware-validation tasks complete.
+- Continue to true multi-layer composition so the scene can gain ripple overlays instead of only active-tile highlighting and status text.
+- After overlays exist, re-run hardware validation and then measure whether the denser scene needs renderer/writer pacing adjustments.

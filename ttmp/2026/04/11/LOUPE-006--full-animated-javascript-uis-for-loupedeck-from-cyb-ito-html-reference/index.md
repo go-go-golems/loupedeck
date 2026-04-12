@@ -65,6 +65,7 @@ Current completion state:
 - Phase C and Phase D first slices complete: the runtime now has a pure-Go retained graphics package plus a first JS-facing `loupedeck/gfx` module for coarse surface-oriented drawing
 - Phase E first slice complete: retained displays can now own `gfx` surfaces, surface mutations dirty those displays automatically, and the renderer can flush attached display surfaces through the existing Go-owned pipeline
 - Phase F/G prototype slice complete: a first cyb-ito-inspired multi-display JS scene now exists in `examples/js/07-cyb-ito-prototype.js`, booting cleanly through the owned runtime and exercising retained surfaces across left, main, and right displays
+- First hardware validation slice complete: the prototype scene was rerun on actual Loupedeck Live hardware, interactive touch/button selection was confirmed by a human, and the prototype was tightened to use much clearer active-tile/status feedback plus ASCII side-strip fallback text for current demo readability
 
 ## Topics
 

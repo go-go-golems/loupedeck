@@ -62,7 +62,7 @@
 - [x] Add a first JS demo script for the main animated scene
 - [x] Port the 12-tile scene structure to the retained scene/surface model in prototype form
 - [ ] Add touch-driven ripple and tile activation behavior on the main display
-- [ ] Validate the main-scene demo locally via the live runner
+- [x] Validate the main-scene demo locally via the live runner
 - [x] Commit the main-scene demo slice
 - [x] Record the main-scene demo slice in the diary/changelog/tasks
 
@@ -71,15 +71,16 @@
 - [x] Add left-strip dripping-bar scene support in prototype form
 - [x] Add right-strip scrolling-kanji scene support in prototype form
 - [ ] Add cross-display scene coordination such as activity pips or mirrored tile activation signals
-- [ ] Validate the multi-display animated scene locally via the live runner
+- [x] Validate the multi-display animated scene locally via the live runner
 - [x] Commit the strip-scene slice
 - [x] Record the strip-scene slice in the diary/changelog/tasks
 
 ### Phase H: hardware validation and tuning
 
-- [ ] Validate the full animated scene demo on actual Loupedeck Live hardware
+- [x] Validate the current cyb-ito-inspired prototype scene on actual Loupedeck Live hardware
+- [ ] Validate the fuller animated scene again after overlay/layer composition exists
 - [ ] Measure whether the denser animation workload stresses the current renderer/writer pacing model
 - [ ] Decide whether renderer scheduling or pacing needs adjustment under dense animated workloads
-- [ ] Commit any hardware-driven tuning changes separately from pure feature work
-- [ ] Record hardware validation and tuning results in the diary/changelog/tasks
+- [x] Commit hardware-driven prototype UX fixes separately from pure feature work
+- [x] Record hardware validation and tuning results in the diary/changelog/tasks
 

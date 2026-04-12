@@ -79,3 +79,13 @@ Added the first cyb-ito-inspired multi-display JS prototype scene under `example
 - /home/manuel/code/wesen/2026-04-11--loupedeck-test/runtime/gfx/text.go — Hardened text baseline clamping for small text boxes used by the prototype scene
 - /home/manuel/code/wesen/2026-04-11--loupedeck-test/runtime/gfx/surface_test.go — Added regression coverage for small-height text drawing used by the prototype
 
+## 2026-04-12
+
+Performed the first real hardware validation pass for the cyb-ito-inspired prototype scene on an actual Loupedeck Live via the tmux-based live-runner workflow. The first on-device observation confirmed that all three regions were rendering, but the interaction feedback was too ambiguous and the right-strip Kanji text degraded into unreadable fallback glyphs. After tightening the prototype to make active selection and last-event status much more obvious and replacing the side-strip text with readable ASCII fallback, a second hardware run was human-verified as working: button stepping and touchscreen activation were confirmed on the device, and the logs recorded matching `Button1`, `Button2`, and `Touch*` events while the scene continued to animate.
+
+### Related Files
+
+- /home/manuel/code/wesen/2026-04-11--loupedeck-test/examples/js/07-cyb-ito-prototype.js — Improved prototype scene UX with stronger active-tile highlighting, central status readout, and ASCII side-strip fallback text
+- /tmp/loupe-cyb-ito-prototype-1775989933.log — Hardware validation log showing the successful interactive run, including touch and button events during the live prototype session
+- /home/manuel/code/wesen/2026-04-11--loupedeck-test/cmd/loupe-js-live/main.go — Live hardware validation entrypoint used for the tmux-based prototype run
+
