@@ -137,9 +137,7 @@ func TestButtonCallbackCanMutateSignalFromJS(t *testing.T) {
 
 	source.emitButton(deck.Circle, deck.ButtonDown)
 	tile := env.UI.Page("home").Tile(0, 0)
-	if tile.Text() != "ARMED" {
-		t.Fatalf("expected text ARMED after button event, got %q", tile.Text())
-	}
+	waitForText(t, tile, "ARMED")
 }
 
 func TestAnimModuleCanDriveSignalTweenFromButtonEvent(t *testing.T) {
@@ -230,4 +228,82 @@ func TestCloseRemovesRuntimeBridgeBindings(t *testing.T) {
 	if _, ok := runtimebridge.Lookup(rt.VM); ok {
 		t.Fatal("expected bindings to be removed on close")
 	}
+}
+
+func TestConcurrentButtonCallbacksSerializeOntoOwnerThread(t *testing.T) {
+	source := newFakeSource()
+	env := envpkg.Ensure(nil)
+	env.Host.Attach(source)
+	rt := NewRuntime(env)
+	defer rt.Close(nil)
+	env = rt.Env
+
+	_, err := rt.RunString(nil, `
+		const state = require("loupedeck/state");
+		const ui = require("loupedeck/ui");
+		const count = state.signal(0);
+		ui.page("home", page => {
+		  page.tile(0, 0, tile => {
+		    tile.text(() => String(count.get()));
+		  });
+		});
+		ui.onButton("Circle", () => {
+		  count.update(v => v + 1);
+		});
+		ui.show("home");
+	`)
+	if err != nil {
+		t.Fatalf("run script: %v", err)
+	}
+
+	for i := 0; i < 25; i++ {
+		go source.emitButton(deck.Circle, deck.ButtonDown)
+	}
+	waitForText(t, env.UI.Page("home").Tile(0, 0), "25")
+}
+
+func TestButtonEventAfterCloseDoesNotApplyMutation(t *testing.T) {
+	source := newFakeSource()
+	env := envpkg.Ensure(nil)
+	env.Host.Attach(source)
+	rt := NewRuntime(env)
+	env = rt.Env
+
+	_, err := rt.RunString(nil, `
+		const state = require("loupedeck/state");
+		const ui = require("loupedeck/ui");
+		const mode = state.signal("IDLE");
+		ui.page("home", page => {
+		  page.tile(0, 0, tile => {
+		    tile.text(() => mode.get());
+		  });
+		});
+		ui.onButton("Circle", () => {
+		  mode.set("ARMED");
+		});
+		ui.show("home");
+	`)
+	if err != nil {
+		t.Fatalf("run script: %v", err)
+	}
+	if err := rt.Close(nil); err != nil {
+		t.Fatalf("close runtime: %v", err)
+	}
+	source.emitButton(deck.Circle, deck.ButtonDown)
+	time.Sleep(30 * time.Millisecond)
+	if got := env.UI.Page("home").Tile(0, 0).Text(); got != "IDLE" {
+		t.Fatalf("expected no mutation after close, got %q", got)
+	}
+}
+
+func waitForText(t *testing.T, tile interface{ Text() string }, want string) {
+	t.Helper()
+	deadline := time.Now().Add(500 * time.Millisecond)
+	for time.Now().Before(deadline) {
+		if got := tile.Text(); got == want {
+			return
+		}
+		time.Sleep(10 * time.Millisecond)
+	}
+	t.Fatalf("timed out waiting for tile text %q, got %q", want, tile.Text())
 }

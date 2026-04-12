@@ -1,11 +1,14 @@
 package module_ui
 
 import (
+	"context"
 	"fmt"
 
 	"github.com/dop251/goja"
 	"github.com/dop251/goja_nodejs/require"
 	deck "github.com/go-go-golems/loupedeck"
+	"github.com/go-go-golems/loupedeck/pkg/runtimebridge"
+	"github.com/go-go-golems/loupedeck/pkg/runtimeowner"
 	envpkg "github.com/go-go-golems/loupedeck/runtime/js/env"
 	"github.com/go-go-golems/loupedeck/runtime/ui"
 )
@@ -49,11 +52,16 @@ var (
 
 func Register(registry *require.Registry, env *envpkg.Environment) {
 	registry.RegisterNativeModule(ModuleName, func(runtime *goja.Runtime, module *goja.Object) {
+		bindings, ok := runtimebridge.Lookup(runtime)
+		if !ok || bindings.Owner == nil {
+			panic(runtime.NewGoError(fmt.Errorf("ui module requires runtime owner bindings")))
+		}
+		ownerCtx := runtimeowner.OwnerContext(bindings.Owner, bindings.Context)
 		exports := module.Get("exports").(*goja.Object)
 		exports.Set("page", func(call goja.FunctionCall) goja.Value {
 			name := call.Argument(0).String()
 			page := env.UI.AddPage(name)
-			obj := pageObject(runtime, env, page)
+			obj := pageObject(bindings, ownerCtx, runtime, env, page)
 			if fn, ok := goja.AssertFunction(call.Argument(1)); ok {
 				if _, err := fn(goja.Undefined(), obj); err != nil {
 					panic(runtime.NewGoError(err))
@@ -78,13 +86,15 @@ func Register(registry *require.Registry, env *envpkg.Environment) {
 				panic(runtime.NewTypeError("ui.onButton requires a function"))
 			}
 			sub := env.Host.OnButton(button, func(b deck.Button, status deck.ButtonStatus) {
-				event := runtime.NewObject()
-				_ = event.Set("name", name)
-				_ = event.Set("status", statusString(status))
-				_, err := fn(goja.Undefined(), event)
-				if err != nil {
-					panic(runtime.NewGoError(err))
-				}
+				_ = bindings.Owner.Post(bindings.Context, "ui.onButton.callback", func(_ context.Context, vm *goja.Runtime) {
+					event := vm.NewObject()
+					_ = event.Set("name", name)
+					_ = event.Set("status", statusString(status))
+					_, err := fn(goja.Undefined(), event)
+					if err != nil {
+						panic(vm.NewGoError(err))
+					}
+				})
 			})
 			return subscriptionObject(runtime, sub)
 		})
@@ -99,15 +109,17 @@ func Register(registry *require.Registry, env *envpkg.Environment) {
 				panic(runtime.NewTypeError("ui.onTouch requires a function"))
 			}
 			sub := env.Host.OnTouch(touch, func(_ deck.TouchButton, status deck.ButtonStatus, x, y uint16) {
-				event := runtime.NewObject()
-				_ = event.Set("name", name)
-				_ = event.Set("status", statusString(status))
-				_ = event.Set("x", x)
-				_ = event.Set("y", y)
-				_, err := fn(goja.Undefined(), event)
-				if err != nil {
-					panic(runtime.NewGoError(err))
-				}
+				_ = bindings.Owner.Post(bindings.Context, "ui.onTouch.callback", func(_ context.Context, vm *goja.Runtime) {
+					event := vm.NewObject()
+					_ = event.Set("name", name)
+					_ = event.Set("status", statusString(status))
+					_ = event.Set("x", x)
+					_ = event.Set("y", y)
+					_, err := fn(goja.Undefined(), event)
+					if err != nil {
+						panic(vm.NewGoError(err))
+					}
+				})
 			})
 			return subscriptionObject(runtime, sub)
 		})
@@ -122,26 +134,28 @@ func Register(registry *require.Registry, env *envpkg.Environment) {
 				panic(runtime.NewTypeError("ui.onKnob requires a function"))
 			}
 			sub := env.Host.OnKnob(knob, func(_ deck.Knob, value int) {
-				event := runtime.NewObject()
-				_ = event.Set("name", name)
-				_ = event.Set("value", value)
-				_, err := fn(goja.Undefined(), event)
-				if err != nil {
-					panic(runtime.NewGoError(err))
-				}
+				_ = bindings.Owner.Post(bindings.Context, "ui.onKnob.callback", func(_ context.Context, vm *goja.Runtime) {
+					event := vm.NewObject()
+					_ = event.Set("name", name)
+					_ = event.Set("value", value)
+					_, err := fn(goja.Undefined(), event)
+					if err != nil {
+						panic(vm.NewGoError(err))
+					}
+				})
 			})
 			return subscriptionObject(runtime, sub)
 		})
 	})
 }
 
-func pageObject(runtime *goja.Runtime, env *envpkg.Environment, page *ui.Page) *goja.Object {
+func pageObject(bindings runtimebridge.Bindings, ownerCtx context.Context, runtime *goja.Runtime, env *envpkg.Environment, page *ui.Page) *goja.Object {
 	obj := runtime.NewObject()
 	_ = obj.Set("tile", func(call goja.FunctionCall) goja.Value {
 		col := int(call.Argument(0).ToInteger())
 		row := int(call.Argument(1).ToInteger())
 		tile := page.AddTile(col, row)
-		tileObj := tileObject(runtime, env, tile)
+		tileObj := tileObject(bindings, ownerCtx, runtime, env, tile)
 		if fn, ok := goja.AssertFunction(call.Argument(2)); ok {
 			if _, err := fn(goja.Undefined(), tileObj); err != nil {
 				panic(runtime.NewGoError(err))
@@ -152,16 +166,22 @@ func pageObject(runtime *goja.Runtime, env *envpkg.Environment, page *ui.Page) *
 	return obj
 }
 
-func tileObject(runtime *goja.Runtime, _ *envpkg.Environment, tile *ui.Tile) *goja.Object {
+func tileObject(bindings runtimebridge.Bindings, ownerCtx context.Context, runtime *goja.Runtime, _ *envpkg.Environment, tile *ui.Tile) *goja.Object {
 	obj := runtime.NewObject()
 	_ = obj.Set("text", func(call goja.FunctionCall) goja.Value {
 		if fn, ok := goja.AssertFunction(call.Argument(0)); ok {
 			tile.BindText(func() string {
-				value, err := fn(goja.Undefined())
+				result, err := bindings.Owner.Call(ownerCtx, "ui.tile.text", func(_ context.Context, vm *goja.Runtime) (any, error) {
+					value, err := fn(goja.Undefined())
+					if err != nil {
+						return nil, err
+					}
+					return stringify(value), nil
+				})
 				if err != nil {
 					panic(runtime.NewGoError(err))
 				}
-				return stringify(value)
+				return result.(string)
 			})
 		} else {
 			tile.SetText(stringify(call.Argument(0)))
@@ -171,11 +191,17 @@ func tileObject(runtime *goja.Runtime, _ *envpkg.Environment, tile *ui.Tile) *go
 	_ = obj.Set("icon", func(call goja.FunctionCall) goja.Value {
 		if fn, ok := goja.AssertFunction(call.Argument(0)); ok {
 			tile.BindIcon(func() string {
-				value, err := fn(goja.Undefined())
+				result, err := bindings.Owner.Call(ownerCtx, "ui.tile.icon", func(_ context.Context, vm *goja.Runtime) (any, error) {
+					value, err := fn(goja.Undefined())
+					if err != nil {
+						return nil, err
+					}
+					return stringify(value), nil
+				})
 				if err != nil {
 					panic(runtime.NewGoError(err))
 				}
-				return stringify(value)
+				return result.(string)
 			})
 		} else {
 			tile.SetIcon(stringify(call.Argument(0)))
@@ -185,11 +211,17 @@ func tileObject(runtime *goja.Runtime, _ *envpkg.Environment, tile *ui.Tile) *go
 	_ = obj.Set("visible", func(call goja.FunctionCall) goja.Value {
 		if fn, ok := goja.AssertFunction(call.Argument(0)); ok {
 			tile.BindVisible(func() bool {
-				value, err := fn(goja.Undefined())
+				result, err := bindings.Owner.Call(ownerCtx, "ui.tile.visible", func(_ context.Context, vm *goja.Runtime) (any, error) {
+					value, err := fn(goja.Undefined())
+					if err != nil {
+						return nil, err
+					}
+					return value.ToBoolean(), nil
+				})
 				if err != nil {
 					panic(runtime.NewGoError(err))
 				}
-				return value.ToBoolean()
+				return result.(bool)
 			})
 		} else {
 			tile.SetVisible(call.Argument(0).ToBoolean())
