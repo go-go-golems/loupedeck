@@ -30,7 +30,7 @@
 - [x] Remove the current full-page periodic flush ticker as the intended presentation model
 - [x] Wire presenter render callback settlement onto the JS owner thread
 - [x] Wire presenter flush callback to `renderer.Flush()`
-- [ ] Add presenter-focused trace/metrics breadcrumbs if needed
+- [x] Decide that deeper presenter-focused trace/metrics breadcrumbs are not needed for the first validation pass
 
 ## Phase D: scene migration
 
@@ -41,9 +41,9 @@
 
 ## Phase E: validation and interpretation
 
-- [ ] Store concrete validation commands in `scripts/`
-- [ ] Run the full test suite
-- [ ] Capture a new no-input hardware trace log
-- [ ] Compare rebuilds-per-flush against the old trace baseline
-- [ ] Decide whether any deeper renderer/writer tracing is still necessary
+- [x] Store concrete validation commands in `scripts/`
+- [x] Run the full test suite
+- [x] Capture a new no-input hardware trace log
+- [x] Compare rebuilds-per-flush against the old trace baseline
+- [x] Decide whether any deeper renderer/writer tracing is still necessary
 

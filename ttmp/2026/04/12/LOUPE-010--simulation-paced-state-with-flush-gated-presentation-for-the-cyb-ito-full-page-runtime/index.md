@@ -47,7 +47,14 @@ Current completion state:
 - Ticket created
 - Main implementation plan written
 - Diary created
-- Detailed task breakdown in progress
+- Detailed phased task breakdown written
+- Ticket-local reproducibility scripts archived under `scripts/`
+- Pure-Go presenter runtime implemented
+- JS environment and `loupedeck/present` module implemented
+- Live runner refactored to use presenter-driven frame production
+- Full-page all-12 scene migrated to `loupedeck/present`
+- New no-input hardware trace captured and analyzed under the new architecture
+- Rebuilds-per-non-empty-flush collapsed from the old traced average of about `33.6` to `1.0` in the new presenter-driven trace
 
 ## Topics
 

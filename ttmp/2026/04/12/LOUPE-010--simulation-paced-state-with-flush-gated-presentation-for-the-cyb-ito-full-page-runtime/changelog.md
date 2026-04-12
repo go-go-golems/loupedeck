@@ -44,3 +44,14 @@ Implemented the main runtime behavior change for `LOUPE-010`: the live runner no
 - /home/manuel/code/wesen/2026-04-11--loupedeck-test/ttmp/2026/04/12/LOUPE-010--simulation-paced-state-with-flush-gated-presentation-for-the-cyb-ito-full-page-runtime/scripts/04-go-test-phase-cd-live-runner-and-scene.sh — Repro script for the live-runner and scene migration validation step
 - /home/manuel/code/wesen/2026-04-11--loupedeck-test/ttmp/2026/04/12/LOUPE-010--simulation-paced-state-with-flush-gated-presentation-for-the-cyb-ito-full-page-runtime/tasks.md — Marked the main Phase C and Phase D tasks complete
 
+## 2026-04-12
+
+Completed the first validation pass of the presenter-driven architecture and recorded the result in ticket-local scripts and ticket docs. The new validation scripts capture and analyze a no-input presenter trace (`05-capture-presenter-trace.sh` and `06-analyze-presenter-trace.py`). The resulting hardware trace `/tmp/loupe-cyb-ito-full10-presenter-trace-1776027682.log` shows a decisive architectural improvement: the old trace baseline averaged about `33.6` rebuilds per non-empty flush, while the new presenter-driven trace shows exactly `1` rebuild per non-empty flush across `389` non-empty flushes. Loop ticks still occur more frequently than frames are presented, which is correct for the new model, but repeated invalidations are now being coalesced instead of triggering many redundant full-page rebuilds. Based on this evidence, deeper renderer/writer trace work is not the immediate next priority.
+
+### Related Files
+
+- /tmp/loupe-cyb-ito-full10-presenter-trace-1776027682.log — First hardware trace for the new presenter-driven architecture
+- /home/manuel/code/wesen/2026-04-11--loupedeck-test/ttmp/2026/04/12/LOUPE-010--simulation-paced-state-with-flush-gated-presentation-for-the-cyb-ito-full-page-runtime/scripts/05-capture-presenter-trace.sh — Reproducible no-input capture command for the new architecture
+- /home/manuel/code/wesen/2026-04-11--loupedeck-test/ttmp/2026/04/12/LOUPE-010--simulation-paced-state-with-flush-gated-presentation-for-the-cyb-ito-full-page-runtime/scripts/06-analyze-presenter-trace.py — Analysis script that computes rebuilds-per-flush for the new architecture
+- /home/manuel/code/wesen/2026-04-11--loupedeck-test/ttmp/2026/04/12/LOUPE-010--simulation-paced-state-with-flush-gated-presentation-for-the-cyb-ito-full-page-runtime/tasks.md — Marked Phase E complete and recorded that deeper tracing is not currently the top priority
+

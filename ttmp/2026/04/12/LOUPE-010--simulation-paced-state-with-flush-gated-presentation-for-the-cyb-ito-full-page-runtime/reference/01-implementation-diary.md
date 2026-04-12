@@ -283,3 +283,75 @@ go test ./...
 - Run the hardware validation and compare the new trace against the old baseline.
 - Store those commands under `scripts/` and summarize the before/after rebuilds-per-flush delta in the ticket.
 - If the ratio collapses the way we expect, the architecture change can be considered validated and we can decide whether any deeper tuning is still necessary.
+
+## Step 5: Validate the new architecture on hardware and compare it against the old trace baseline
+
+Once the presenter runtime, the JS module, the live-runner refactor, and the scene migration were all in place, the next question was simple and binary: did the new architecture actually fix the pathological rebuilds-per-flush ratio, or did it merely move complexity around? The answer needed to come from a new hardware trace, not from hope.
+
+### What I did
+- Added new ticket-local validation scripts:
+  - `scripts/05-capture-presenter-trace.sh`
+  - `scripts/06-analyze-presenter-trace.py`
+- Captured a new no-input hardware trace:
+  - `/tmp/loupe-cyb-ito-full10-presenter-trace-1776027682.log`
+- Analyzed it with the ticket-local script.
+
+### What I found
+The result is the clearest possible validation of the new architecture.
+
+Old baseline from the pre-refactor architecture:
+- traced average rebuilds per non-empty flush: about `33.6`
+- median: `27`
+- worst observed flush bucket: `119`
+
+New presenter-driven trace:
+- `renderAll.begin = 390`
+- `loop.tick = 750`
+- non-empty flushes = `389`
+- rebuilds-per-flush:
+  - average: `1.00`
+  - median: `1.00`
+  - min: `1`
+  - max: `1`
+
+This is exactly the outcome the implementation plan was aiming for. Loop ticks are still happening more frequently than presentations, which is correct because simulation time is still advancing independently. But the key change is that repeated invalidations are no longer turning into repeated full-page rebuilds while the flush path is still busy.
+
+### Why this matters
+This means the main architectural problem is solved.
+
+Before:
+- one flush often had dozens of rebuilds behind it
+- long flush windows still contained many additional scene rebuilds
+
+After:
+- one non-empty flush corresponds to one rebuild
+- repeated loop invalidations are being coalesced correctly
+- the presenter is doing its job as the gatekeeper of frame production
+
+That is the behavior we wanted.
+
+### What worked
+- The new architecture validated cleanly against the exact metric that had previously exposed the problem.
+- The ticket-local scripts now make the validation reproducible.
+- The result is strong enough that we do not immediately need deeper renderer/writer trace work.
+
+### What didn’t work
+- The run still ends with the familiar close-time lifecycle noise from the device path. That is a separate lifecycle issue, not a failure of the new presentation model.
+- We have not yet turned this result into higher-level user documentation or an Obsidian note.
+
+### What I learned
+- The core problem really was architectural. Once the presenter owned frame production, the rebuild storm disappeared immediately in the trace metric that mattered most.
+- The correct model for this hardware path is indeed: simulation-paced state, flush-gated presentation, latest-state coalescing.
+
+### What was tricky to build
+- The hardest part was not the presenter loop itself; it was getting to the point where we could trust the before/after comparison enough to make a forward-only architectural change confidently.
+- The validation scripts are small, but they matter a lot because they prevent the result from becoming another anecdote.
+
+### What warrants a second pair of eyes
+- Someone should review whether we want explicit presenter-specific trace event names later, even though they are not currently necessary for this main success metric.
+- We should also review whether the remaining hardware-visible behavior still has any transport or visual smoothness issues independent of the solved rebuilds-per-flush problem.
+
+### What should be done in the future
+- Treat the presenter-driven architecture as the correct foundation for the full-page cyb-ito runtime.
+- Decide whether the next work should focus on visual smoothness, remaining transport quirks, or scene fidelity now that the rebuild storm is under control.
+- If needed, write a higher-level summary note or report for the new architecture and validation result.
