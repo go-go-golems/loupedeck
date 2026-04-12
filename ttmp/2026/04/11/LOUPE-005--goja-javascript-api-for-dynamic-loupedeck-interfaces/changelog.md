@@ -195,3 +195,16 @@ Added a real hardware-backed JS live runner plus an initial example pack, then v
 - /home/manuel/code/wesen/2026-04-11--loupedeck-test/examples/js/05-pulse-animation.js — Auto-running pulse animation example
 - /home/manuel/code/wesen/2026-04-11--loupedeck-test/examples/js/06-page-switcher.js — Multi-page switching example
 - /home/manuel/code/wesen/2026-04-11--loupedeck-test/runtime/js/examples_test.go — Smoke test that boots every example script under the owned runtime
+
+## 2026-04-11
+
+Extended the live-runner validation from the initial static/animation smoke checks to the interactive example set on actual Loupedeck Live hardware. Human-in-the-loop validation confirmed that `02-counter-button.js` updates from Circle presses, `03-knob-meter.js` responds to `Knob1`, `04-touch-feedback.js` responds to `Touch1` / `Touch6` / `Touch12`, and `06-page-switcher.js` switches pages from `Button1` / `Button2`. During this pass, `04-touch-feedback.js` was corrected so its visible labels match the actual touched regions, and the live runner gained optional high-level event logging to make hardware validation easier to verify from logs and tmux pane capture.
+
+### Related Files
+
+- /home/manuel/code/wesen/2026-04-11--loupedeck-test/cmd/loupe-js-live/main.go — Added optional button/touch/knob event logging for live hardware validation
+- /home/manuel/code/wesen/2026-04-11--loupedeck-test/examples/js/04-touch-feedback.js — Fixed the visible tile layout so `Touch1`, `Touch6`, and `Touch12` labels line up with the actual touched regions
+- /home/manuel/code/wesen/2026-04-11--loupedeck-test/examples/js/02-counter-button.js — Human-validated Circle-button counter example
+- /home/manuel/code/wesen/2026-04-11--loupedeck-test/examples/js/03-knob-meter.js — Human-validated `Knob1` reactive state example
+- /home/manuel/code/wesen/2026-04-11--loupedeck-test/examples/js/06-page-switcher.js — Human-validated retained page switching example
+- /home/manuel/code/wesen/2026-04-11--loupedeck-test/ttmp/2026/04/11/LOUPE-005--goja-javascript-api-for-dynamic-loupedeck-interfaces/reference/01-javascript-api-example-scripts.md — Updated to distinguish exploratory API sketches from the concrete live example pack that now exists in the repo

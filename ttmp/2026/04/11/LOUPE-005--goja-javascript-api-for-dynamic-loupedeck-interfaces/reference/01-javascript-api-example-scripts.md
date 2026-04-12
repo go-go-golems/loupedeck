@@ -45,6 +45,32 @@ The examples assume modules like:
 - `require("loupedeck/easing")`
 - `require("loupedeck/assets")`
 
+## Implemented live examples in this repository
+
+The exploratory examples below are broader than the currently implemented runtime, but the repository now also contains a concrete live example pack under:
+
+- `examples/js/01-hello.js`
+- `examples/js/02-counter-button.js`
+- `examples/js/03-knob-meter.js`
+- `examples/js/04-touch-feedback.js`
+- `examples/js/05-pulse-animation.js`
+- `examples/js/06-page-switcher.js`
+
+Those scripts are intended to run through:
+
+- `cmd/loupe-js-live/main.go`
+
+and the following were validated on actual Loupedeck Live hardware during this ticket:
+
+- `01-hello.js` — static retained page render
+- `02-counter-button.js` — Circle-button counter updates (run with `--exit-on-circle=false`)
+- `03-knob-meter.js` — `Knob1` updates reactive numeric state
+- `04-touch-feedback.js` — `Touch1`, `Touch6`, and `Touch12` update a status tile
+- `05-pulse-animation.js` — auto-running animated state updates
+- `06-page-switcher.js` — `Button1` / `Button2` switch retained pages
+
+Note: `04-touch-feedback.js` was corrected during hardware validation so its visible tile labels now match the actual touched regions (`Touch1` at top-left, `Touch6` in the middle row, second tile, and `Touch12` at bottom-right).
+
 ## Quick reference
 
 ### Example 1: smallest possible imperative script

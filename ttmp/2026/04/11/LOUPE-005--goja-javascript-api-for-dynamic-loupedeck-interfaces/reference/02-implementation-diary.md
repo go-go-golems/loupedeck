@@ -1964,3 +1964,234 @@ connect device
 01-hello.js
 05-pulse-animation.js
 ```
+
+## Step 17: Validate the interactive live examples with a human operator and tighten the touch demo
+
+After the first live-runner pass proved that static and auto-running animated scripts worked on hardware, the next missing proof point was the interactive path: physical button input, knob motion, touchscreen regions, and page switches all had to be exercised by a real human rather than inferred only from logs.
+
+This step also exposed a small but important UX bug in the touch example: the script worked logically, but the on-screen labels were misleading because only the top row was labeled even though the handlers were bound to `Touch1`, `Touch6`, and `Touch12`. That made the hardware test ambiguous until the visible layout was corrected.
+
+### Prompt Context
+
+**User prompt (verbatim):** "yes continue. if you need feedback from me, ask me."
+
+**Assistant interpretation:** Continue the next practical validation work, but ask the user for exact device-side observations when a hardware-backed check requires human interaction.
+
+**Inferred user intent:** Finish the remaining live-example validation loop collaboratively, using the actual hardware and capturing both logs and direct human observations.
+
+**Commit (code support):** `2feeb0b` — `Log live JS runner hardware events`
+
+### What I did
+- Added optional high-level hardware event logging to:
+
+```text
+cmd/loupe-js-live/main.go
+```
+
+so the live runner can log:
+- button names and up/down state
+- touch region names and coordinates
+- knob names and delta values
+
+using:
+
+```text
+--log-events
+```
+
+- Realized that `02-counter-button.js` uses the Circle button, which conflicts with the live runner’s default `--exit-on-circle=true`, so I ran that example with:
+
+```text
+--exit-on-circle=false
+```
+
+- Validated the counter example with the user pressing Circle three times.
+- Validated the knob example with the user turning `Knob1`.
+- Switched the remaining live runs to a tmux-based workflow after the user suggested it, so I could:
+  - run the live runner in a named session
+  - inspect output with `tmux capture-pane`
+  - stop the process with `tmux send-keys ... C-c`
+- Ran the touch example and got useful operator feedback that the screen only visibly labeled the top row, which made the `Touch6` and `Touch12` actions unclear.
+- Fixed:
+
+```text
+examples/js/04-touch-feedback.js
+```
+
+so the visible labels now line up with the actual regions being tested:
+- `Touch1` at top-left
+- `Touch6` at middle row, second tile
+- `Touch12` at bottom-right
+- status tile at top-right
+- Re-ran the corrected touch demo in tmux and had the user confirm that the final status reached `T12`.
+- Ran and validated the page-switcher example with the user confirming that the page sequence worked from hardware button presses.
+
+### Hardware validation I ran
+
+#### Counter button
+
+Started:
+
+```bash
+go run ./cmd/loupe-js-live --script ./examples/js/02-counter-button.js --duration 90s --exit-on-circle=false --log-events
+```
+
+Observed in logs:
+
+```text
+button event button=Circle status=down
+```
+
+repeated for the user presses.
+
+User-reported result:
+
+```text
+yes it worked
+```
+
+This confirmed the Circle-button callback path end to end.
+
+#### Knob meter
+
+Started:
+
+```bash
+go run ./cmd/loupe-js-live --script ./examples/js/03-knob-meter.js --duration 90s --log-events
+```
+
+Observed in logs:
+
+```text
+knob event knob=Knob1 value=-1
+```
+
+and repeated updates as the knob moved.
+
+User-reported result:
+
+```text
+it worked
+```
+
+This confirmed the `Knob1` event path end to end.
+
+#### Touch feedback — first operator pass
+
+Started against the original script. The user reported:
+
+```text
+i only see the top row, and i pressed touch1, and now it says touch1 touch6 touch12 t1 and nothing else happens
+```
+
+This revealed that the original demo was logically wired but visually confusing.
+
+#### Touch feedback — corrected layout
+
+After fixing `examples/js/04-touch-feedback.js`, I re-ran it via tmux using:
+
+```bash
+tmux new-session -d -s loupe-touch
+tmux send-keys -t loupe-touch 'cd /home/manuel/code/wesen/2026-04-11--loupedeck-test && go run ./cmd/loupe-js-live --script ./examples/js/04-touch-feedback.js --duration 120s --log-events' Enter
+```
+
+and inspected output with:
+
+```bash
+tmux capture-pane -pt loupe-touch
+```
+
+User-reported final result:
+
+```text
+cool, it works . T12
+```
+
+This confirmed the touch path for the intended regions after the layout fix.
+
+#### Page switcher
+
+Started via tmux using:
+
+```bash
+tmux new-session -d -s loupe-pages
+tmux send-keys -t loupe-pages 'cd /home/manuel/code/wesen/2026-04-11--loupedeck-test && go run ./cmd/loupe-js-live --script ./examples/js/06-page-switcher.js --duration 120s --log-events' Enter
+```
+
+The user confirmed:
+
+```text
+cool, it works
+```
+
+which validated the retained page-switching path via `Button1` / `Button2`.
+
+### Why
+- The runtime had already passed automated tests and limited hardware smoke tests, but interactive scripts are the real acceptance test for the owner-thread/event/retained-render integration.
+- Human feedback was necessary because some important outcomes are easier to confirm visually than from logs alone.
+- The tmux workflow is materially better for this type of hardware iteration because it avoids orphaned child processes and makes live output capture practical.
+
+### What worked
+- Counter, knob, touch, and page-switcher examples all worked on actual hardware.
+- The newly added `--log-events` mode made it much easier to correlate user actions with the runtime.
+- The tmux workflow made process lifecycle management simpler than the earlier `nohup` / PID / child-process cleanup dance.
+- The touch-demo mislabeling was caught and corrected immediately because the operator feedback loop was direct.
+
+### What didn't work
+- The original `04-touch-feedback.js` layout was misleading even though the actual bindings were correct.
+- Process management with `nohup` and `go run` wrappers was awkward because compiled child processes sometimes kept `/dev/ttyACM0` open after the parent wrapper was killed.
+- Device-busy and reconnect-fragility symptoms still appeared intermittently when switching between runs.
+
+### What I learned
+- The first-pass Phase H runtime is not just theoretically correct; it now supports the full interactive example set on real hardware.
+- Operator-facing example clarity matters. A technically correct script can still fail as a validation artifact if its screen labels do not match the actual physical gesture being tested.
+- For future hardware-backed iteration in this repo, tmux should be the default session-management tool.
+
+### What was tricky to build
+- The hardest part was not the runtime itself but the live validation workflow: reconnection noise, stale child processes holding the serial port, and the need to keep a long-running session accessible while still being able to inspect logs and stop it cleanly.
+- Another subtle point was Circle-button semantics in the counter example. The live runner’s default Circle-exits behavior had to be explicitly disabled for that script.
+
+### What warrants a second pair of eyes
+- Reviewers should look at whether `cmd/loupe-js-live` should learn a more built-in session/test mode for interactive validation, or whether keeping it small and relying on tmux remains the right tradeoff.
+- The event logging is useful for validation but may be too noisy for everyday use. It is correctly optional now, but a reviewer may want to refine the output further later.
+
+### What should be done in the future
+- Consider adding a small runbook or helper script for tmux-based interactive example validation.
+- Consider adding a quieter high-level debug mode to the live runner so the low-level `Display.Draw()` logging does not dominate long animation runs.
+- Optionally re-upload the updated LOUPE-005 bundle to reMarkable after this stronger hardware-validation pass.
+
+### Code review instructions
+- Review these files first:
+  - `cmd/loupe-js-live/main.go`
+  - `examples/js/02-counter-button.js`
+  - `examples/js/03-knob-meter.js`
+  - `examples/js/04-touch-feedback.js`
+  - `examples/js/06-page-switcher.js`
+- Reproduce the live workflow with tmux, for example:
+
+```bash
+tmux new-session -d -s loupe-touch
+tmux send-keys -t loupe-touch 'cd /home/manuel/code/wesen/2026-04-11--loupedeck-test && go run ./cmd/loupe-js-live --script ./examples/js/04-touch-feedback.js --duration 120s --log-events' Enter
+tmux capture-pane -pt loupe-touch
+tmux send-keys -t loupe-touch C-c
+```
+
+### Technical details
+- Interactive live examples now validated on hardware:
+
+```text
+02-counter-button.js
+03-knob-meter.js
+04-touch-feedback.js
+06-page-switcher.js
+```
+
+- Recommended interactive-runner workflow from this point onward:
+
+```text
+tmux session
+-> send command into pane
+-> observe hardware
+-> inspect with capture-pane
+-> stop with C-c
+```
