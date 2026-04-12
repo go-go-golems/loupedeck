@@ -170,10 +170,13 @@ The planned implementation now exists in the repository in concrete form:
   - validates extraction, normalization, and rasterization on a representative sample library fragment
 - `cmd/loupe-svg-buttons/main.go`
   - loads the imported library from the ticket workspace by default
-  - selects 12 icons
+  - supports curated comma-separated icon selection via `--icons`
+  - supports a rotated starting point via `--offset`
+  - supports automatic bank cycling via `--page-every`
   - trims transparent bounds for better visual scaling
   - composes `90×90` button frames with lightweight animation transforms
-  - renders the animated grid to the Loupedeck Live main display
+  - renders a banked animated grid to the Loupedeck Live main display
+  - switches banks via physical buttons (`Button1`, `Button2`, `Button3`) and touch controls (`Touch1`, `Touch12`, `Touch6`)
   - exits via Circle or optional duration flag
 
 Hardware validation summary so far:
@@ -181,6 +184,7 @@ Hardware validation summary so far:
 - the animated demo built and ran on the actual device
 - the first run showed repeated per-tile draw/ack traffic without an immediate protocol failure
 - a quieter follow-up run with `--duration 6s` completed the visible animation window, though the known connect/close lifecycle warnings (`Port has been closed`, short `Version` response, close-time read exit) still appeared around startup/shutdown
+- a later banked run with curated icons, non-zero offset, and `--page-every 2s` successfully cycled between two icon banks on hardware after one initial busy-port failure caused by another open process
 
 ## Open Questions
 

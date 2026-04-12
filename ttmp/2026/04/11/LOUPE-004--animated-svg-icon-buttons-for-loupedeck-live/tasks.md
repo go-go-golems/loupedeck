@@ -26,6 +26,15 @@
 - [x] Validate the command builds with `go test ./...`
 - [x] Run the demo on actual hardware
 
+### Icon-bank navigation and selection
+- [x] Add `--offset` support for starting from a later icon in the selected list
+- [x] Add `--icons` support for curated comma-separated icon subsets
+- [x] Add automatic page cycling between banks of 12 via `--page-every`
+- [x] Add physical-button bank controls (previous/next/toggle-cycle)
+- [x] Add touch-based bank controls (previous/next/toggle-cycle)
+- [x] Add tests for selection ordering and bank padding behavior
+- [x] Run the banked/curated SVG demo on actual hardware
+
 ### Documentation and continuity
 - [x] Update the diary after each major implementation step
 - [x] Update changelog and related-file bookkeeping

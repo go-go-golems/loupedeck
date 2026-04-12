@@ -29,3 +29,13 @@ Ran the animated SVG button demo on actual hardware, then reduced default log no
 
 - /home/manuel/code/wesen/2026-04-11--loupedeck-test/cmd/loupe-svg-buttons/main.go — Lower default log level and concise startup logging for the hardware demo
 - /home/manuel/code/wesen/2026-04-11--loupedeck-test/ttmp/2026/04/11/LOUPE-004--animated-svg-icon-buttons-for-loupedeck-live/reference/01-implementation-diary.md — Captures the exact hardware-validation commands and warning output
+
+## 2026-04-11
+
+Extended the SVG demo with icon-bank paging, curated icon selection, starting offsets, automatic page cycling, and live bank switching through both physical buttons and touch controls.
+
+### Related Files
+
+- /home/manuel/code/wesen/2026-04-11--loupedeck-test/cmd/loupe-svg-buttons/main.go — Adds `--offset`, `--icons`, `--page-every`, bank state management, and button/touch control bindings
+- /home/manuel/code/wesen/2026-04-11--loupedeck-test/cmd/loupe-svg-buttons/main_test.go — Tests curated ordering, offset rotation, and bank padding behavior
+- /home/manuel/code/wesen/2026-04-11--loupedeck-test/ttmp/2026/04/11/LOUPE-004--animated-svg-icon-buttons-for-loupedeck-live/reference/01-implementation-diary.md — Records the failed busy-port attempt and the successful banked hardware run

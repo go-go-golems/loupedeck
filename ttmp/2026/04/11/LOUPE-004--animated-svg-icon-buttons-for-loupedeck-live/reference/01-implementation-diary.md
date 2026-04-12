@@ -27,7 +27,7 @@ RelatedFiles:
 ExternalSources:
     - local:macos1-icon-library.html
 Summary: Chronological diary for the SVG icon button rendering ticket, including source import, extraction strategy, implementation, and hardware validation.
-LastUpdated: 2026-04-11T19:24:30-04:00
+LastUpdated: 2026-04-11T20:40:45-04:00
 WhatFor: Preserve the exact implementation sequence, commands, failures, and decisions for rendering animated SVG buttons on the Loupedeck Live.
 WhenToUse: Use when resuming the SVG renderer work or reviewing how the imported icon library was normalized for Go-side rendering.
 ---
@@ -319,3 +319,138 @@ go run ./cmd/loupe-svg-buttons --fps 12 --duration 6s
 ### Technical details
 - The first hardware run produced enough draw/ack traffic to confirm the command was really exercising the device, but the log volume was too high to keep as the default operator experience.
 - The second run used the quieter logging path introduced in commit `c1e62d0`.
+
+## Step 4: Add bank paging, curated icon selection, offsets, and live button/touch bank controls
+
+After the basic SVG demo was working, I extended it from a fixed one-bank showcase into a browsable icon browser for the device. The goal was to let the command address the full imported icon library rather than just whichever 12 icons happened to be first in the sorted list.
+
+This step added two kinds of control. First, command-line control: `--icons` for curated subsets, `--offset` for rotating the starting point, and `--page-every` for automatic bank cycling. Second, live hardware control: physical buttons and touch controls that let the operator page backward and forward or toggle auto-cycling while the animation is running.
+
+### Prompt Context
+
+**User prompt (verbatim):** "yes, 1. 2. and 3."
+
+**Assistant interpretation:** Implement all three follow-ups: paging/cycling through icon banks, command-line icon selection/offset control, and on-device bank switching through touches/buttons.
+
+**Inferred user intent:** Turn the demo from a fixed 12-icon sample into a practical browser for the larger imported icon set, with both scripted and interactive ways to navigate it.
+
+**Commit (code):** `dea1666` — "Add icon paging and bank controls to SVG demo"
+
+### What I did
+- Refactored `cmd/loupe-svg-buttons/main.go` around a small bank-selection model.
+- Added new command-line flags:
+  - `--icons`
+  - `--offset`
+  - `--page-every`
+- Added selection helpers that:
+  - resolve requested icon names in user-specified order
+  - rotate the selected list by offset
+  - divide the resulting list into banks of 12
+- Changed the render path so the command now prepares the whole selected icon list once, then materializes the current bank on demand.
+- Added bank controls via physical buttons:
+  - `Button1` → previous bank
+  - `Button2` → next bank
+  - `Button3` → toggle auto-cycle
+- Added parallel touch controls:
+  - `Touch1` → previous bank
+  - `Touch12` → next bank
+  - `Touch6` → toggle auto-cycle
+- Added placeholder rendering for trailing empty slots in partial banks so the last bank does not leave stale images behind.
+- Added `cmd/loupe-svg-buttons/main_test.go` covering:
+  - curated icon ordering
+  - offset rotation
+  - bank counting / padding behavior
+- Ran:
+
+```bash
+gofmt -w cmd/loupe-svg-buttons/main.go cmd/loupe-svg-buttons/main_test.go
+go test ./cmd/loupe-svg-buttons ./...
+```
+
+- First attempted a hardware run while another process still had the device open and got:
+
+```text
+connect: unable to open port "/dev/ttyACM0"
+exit status 1
+```
+
+- After the user closed the other process, reran with a curated, banked scenario:
+
+```bash
+go run ./cmd/loupe-svg-buttons --icons 'Finder,Trash,Clock,Document,Disk,Folder,Key,Mic,Music,Network,Pause,Play,Record,Speaker,Stop' --offset 3 --page-every 2s --fps 10 --duration 5s
+```
+
+- Observed the following concise hardware evidence:
+
+```text
+time=2026-04-11T20:40:40.762-04:00 level=WARN msg="dial failed" err="Port has been closed"
+Starting animated SVG button demo library=/home/manuel/code/wesen/2026-04-11--loupedeck-test/ttmp/2026/04/11/LOUPE-004--animated-svg-icon-buttons-for-loupedeck-live/sources/local/macos1-icon-library.html selected_icons=15 banks=2 fps=10.00 controls=[Button1/Touch1 prev, Button2/Touch12 next, Button3/Touch6 toggle-cycle, Circle exit]
+Bank 1/2 auto-cycle=on(2s) first="Document" last="Stop"
+time=2026-04-11T20:40:41.787-04:00 level=WARN msg="Received short 'Version' response" message_type=15 length=1 data="\x01"
+Bank 2/2 auto-cycle=on(2s) first="Finder" last="Clock"
+Bank 1/2 auto-cycle=on(2s) first="Document" last="Stop"
+time=2026-04-11T20:40:45.973-04:00 level=WARN msg="Read error, exiting" error="Port has been closed"
+```
+
+### Why
+- The imported library has far more than 12 icons, so a fixed grid demo left most of the asset set inaccessible.
+- Curated subsets and offsets make the command much more useful for experimenting with groups of icons without editing code.
+- Live navigation matters because the device itself is the natural UI for browsing the icon banks.
+
+### What worked
+- The new paging/selection logic built and tested cleanly.
+- The curated/offset banked run exercised two banks on hardware and printed the expected bank transitions.
+- The operator controls are now explicit and discoverable in the startup line.
+- Partial-bank padding prevents stale frames from earlier banks from lingering on the display.
+
+### What didn't work
+- The first attempt to validate the new banked flow failed because another process still had the device open:
+
+```text
+connect: unable to open port "/dev/ttyACM0"
+exit status 1
+```
+
+- The familiar lifecycle warnings still appeared on the successful rerun as well (`dial failed ... Port has been closed`, short `Version` response, close-time read exit).
+- I validated the automatic bank cycling path on hardware, but the physical-button and touch control paths were implemented from the same control channel and build/tested cleanly rather than being individually exercised by me through direct interaction during this run.
+
+### What I learned
+- Treating the prepared icon list as a reusable pre-rasterized pool makes bank switching cheap and predictable.
+- `--offset` is more useful when applied as a rotation of the selected list rather than as a separate bank number because it works naturally with both the full library and curated subsets.
+- A simple control channel is a clean way to merge button/touch events with the animation ticker and optional auto-page ticker.
+
+### What was tricky to build
+- The main tricky part was avoiding state races between animation, automatic page cycling, and interactive hardware controls. Routing all of those through a single channel and letting the main loop own the current bank solved that cleanly.
+- Another subtle point was the last bank. Without explicit blank-tile rendering, partial banks would leave stale icon images from the previous bank on screen, which would make the demo look wrong even though the navigation logic was correct.
+
+### What warrants a second pair of eyes
+- The current touch bindings (`Touch1`, `Touch12`, `Touch6`) are functional but somewhat arbitrary. If a stronger on-screen affordance is wanted later, the control mapping may need a small UI hint system.
+- Name resolution for `--icons` is exact case-insensitive matching. If operators want prefix or fuzzy matching later, the selection helper can be expanded deliberately.
+
+### What should be done in the future
+- If desired, add a small on-screen bank indicator or control legend for the touch bindings.
+- Optionally validate the physical-button and touch bank controls directly in a live interactive session now that the control paths are wired.
+
+### Code review instructions
+- Review:
+  - `cmd/loupe-svg-buttons/main.go`
+  - `cmd/loupe-svg-buttons/main_test.go`
+- Validate with:
+
+```bash
+gofmt -w cmd/loupe-svg-buttons/main.go cmd/loupe-svg-buttons/main_test.go
+go test ./cmd/loupe-svg-buttons ./...
+go run ./cmd/loupe-svg-buttons --icons 'Finder,Trash,Clock,Document,Disk,Folder,Key,Mic,Music,Network,Pause,Play,Record,Speaker,Stop' --offset 3 --page-every 2s --fps 10 --duration 5s
+```
+
+### Technical details
+- Current live controls are:
+
+```text
+Button1 / Touch1   -> previous bank
+Button2 / Touch12  -> next bank
+Button3 / Touch6   -> toggle auto-cycle
+Circle             -> exit
+```
+
+- The bank count is computed as `ceil(selected_icons / 12)` and the final bank pads unused slots with blank placeholder tiles.
