@@ -27,6 +27,10 @@ topics:
       description: Embedded JavaScript execution with the goja VM inside Go applications.
     - slug: javascript
       description: JavaScript API design, scripting runtimes, and embedded JS execution models.
+    - slug: benchmarking
+      description: Benchmarking and measurement workflows
+    - slug: performance
+      description: Performance analysis and tuning work
 docTypes:
     - slug: design-doc
       description: Structured rationale and architecture notes
