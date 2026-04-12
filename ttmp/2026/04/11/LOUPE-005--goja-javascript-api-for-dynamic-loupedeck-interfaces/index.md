@@ -85,7 +85,7 @@ Current completion state:
 - Milestone E complete: first goja modules (`loupedeck/state`, `loupedeck/ui`) and JS demo command
 - Milestone F complete: animation/easing packages and JS modules (`loupedeck/anim`, `loupedeck/easing`)
 - Milestone G complete: retained replay semantics for reconnect-safe redraws
-- Convergence phase H in progress: local `runtimeowner` and `runtimebridge` ports are in place; callback-boundary refits remain next
+- Convergence phase H in progress: owner/thread serialization is now in place for JS callback boundaries; module-registration cleanup and live hardware example work remain next
 - Diary actively maintained with per-milestone commits and validation evidence
 
 ## Topics

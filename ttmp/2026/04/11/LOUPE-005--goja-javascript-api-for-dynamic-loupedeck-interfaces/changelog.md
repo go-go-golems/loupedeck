@@ -156,3 +156,15 @@ Completed H2 by adding a local `runtimebridge` package and wiring it into the ow
 - /home/manuel/code/wesen/2026-04-11--loupedeck-test/pkg/runtimebridge/runtimebridge_test.go — Tests for store/lookup/delete behavior
 - /home/manuel/code/wesen/2026-04-11--loupedeck-test/runtime/js/runtime.go — Owned JS runtime now installs runtime bridge bindings and exposes runtime context cleanup semantics
 - /home/manuel/code/wesen/2026-04-11--loupedeck-test/runtime/js/runtime_test.go — Tests proving bindings are installed and removed correctly
+
+## 2026-04-11
+
+Completed H3 by refitting the live JS callback boundaries onto the owner-runner model. Hardware event callbacks now post back onto the owner thread, animation loops settle JS callbacks through the owner, numeric animation targets/easing functions use owner-aware call paths, and the reactive JS closures used by `state.computed`, `state.watch`, `signal.update`, and tile text/icon/visible bindings now run through the same owner-aware discipline. Added tests for async callback application, concurrent event serialization, and post-close callback suppression.
+
+### Related Files
+
+- /home/manuel/code/wesen/2026-04-11--loupedeck-test/runtime/js/module_ui/module.go — Refit UI event callbacks and reactive tile-binding closures to owner-aware execution paths
+- /home/manuel/code/wesen/2026-04-11--loupedeck-test/runtime/js/module_anim/module.go — Refit animation callbacks, numeric target access, and easing callbacks to owner-aware execution paths
+- /home/manuel/code/wesen/2026-04-11--loupedeck-test/runtime/js/module_state/module.go — Refit computed/watch/update reactive JS closures to owner-aware execution paths
+- /home/manuel/code/wesen/2026-04-11--loupedeck-test/runtime/js/runtime_test.go — Added tests covering asynchronous button callback application, concurrent event serialization, and no-op callback behavior after runtime close
+- /home/manuel/code/wesen/2026-04-11--loupedeck-test/pkg/runtimeowner/runner.go — Added public owner-context helper used by module code at known owner-thread entry points

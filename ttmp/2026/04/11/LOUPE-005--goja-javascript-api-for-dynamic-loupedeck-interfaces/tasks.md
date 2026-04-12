@@ -119,8 +119,8 @@
 - [x] Decide dependency strategy: direct dependency on `go-go-goja` vs local port of `runtimeowner`/`runtimebridge`
 - [x] Add an owner-runner layer to the local JS runtime bootstrap
 - [x] Add runtime-scoped bindings for owner/context/loop and Loupedeck services
-- [ ] Refit all JS callback boundaries (`onButton`, `onTouch`, `onKnob`, timers, animation, reactive JS closures) to owner-thread scheduling
-- [ ] Add tests for owner-thread callback serialization and shutdown behavior
+- [x] Refit all JS callback boundaries (`onButton`, `onTouch`, `onKnob`, timers, animation, reactive JS closures) to owner-thread scheduling
+- [x] Add tests for owner-thread callback serialization and shutdown behavior
 - [ ] Refactor module wiring toward runtime-scoped registration rather than ad hoc env lookups where practical
 - [ ] Add a hardware-backed JS live runner command
 - [ ] Add multiple JS example scripts for live runtime validation

@@ -1562,3 +1562,120 @@ Values["environment"]
 ```
 
 so future modules can look up the Loupedeck runtime environment from the VM rather than relying only on constructor capture.
+
+## Step 14: Complete H3 by refitting JS callback boundaries onto the owner-runner model
+
+This was the first genuinely behavior-changing convergence step. H1 and H2 added the plumbing; H3 makes the runtime actually use it where it matters. The goal here was to ensure that the places where Go-side events or background activity reach back into JavaScript are no longer doing that via ad hoc direct function calls. Instead, they now route through owner-thread posting/calling semantics.
+
+I also finished a second sub-part of H3 while I was in this area: the reactive JS closures themselves now use the same owner-aware discipline. That includes `state.computed`, `state.watch`, `signal.update`, and the tile text/icon/visible closures used in the retained UI bindings.
+
+### Prompt Context
+
+**User prompt (verbatim):** (same as Step 12)
+
+**Assistant interpretation:** Continue with the next convergence-phase coding task after the bridge is in place, and complete the meaningful behavior refit rather than stopping at plumbing.
+
+**Inferred user intent:** Make the runtime actually safe for live interactive use by removing the direct host/timer/animation-to-JS callback paths, not just by introducing new helper packages.
+
+**Commit (code):** `d82f84d` — `Serialize JS callbacks through runtime owner`
+
+### What I did
+- Refactored `runtime/js/module_ui/module.go` so that:
+  - `onButton(...)` callbacks post back to the owner thread via `bindings.Owner.Post(...)`
+  - `onTouch(...)` callbacks post back to the owner thread
+  - `onKnob(...)` callbacks post back to the owner thread
+  - tile binding closures for `.text(...)`, `.icon(...)`, and `.visible(...)` now use owner-aware `Call(...)` paths rather than directly invoking JS closures from arbitrary future call sites
+- Refactored `runtime/js/module_anim/module.go` so that:
+  - `anim.loop(...)` callback settlement posts back to the owner thread
+  - numeric animation target `get()` / `set()` use owner-aware call paths
+  - JS easing functions used during animation also run through owner-aware call paths
+- Added a small public helper to `pkg/runtimeowner/runner.go`:
+
+```go
+runtimeowner.OwnerContext(...)
+```
+
+so module code running at known owner-thread entry points can preserve the fast-path owner context for nested calls without deadlocking itself.
+- Refactored `runtime/js/module_state/module.go` so that:
+  - `state.computed(...)` closure evaluation uses the owner-runner
+  - `state.watch(...)` closure evaluation uses the owner-runner
+  - `signal.update(...)` callback evaluation uses the owner-runner
+  - `state.batch(...)` callback execution also flows through the owner-aware path
+- Expanded `runtime/js/runtime_test.go` with tests for:
+  - async button-callback application (`waitForText(...)` rather than assuming direct sync mutation)
+  - concurrent button callback serialization onto the owner thread
+  - post-close event no-op behavior
+- Ran:
+
+```bash
+gofmt -w runtime/js/module_state/*.go runtime/js/module_ui/*.go runtime/js/module_anim/*.go
+
+go test ./...
+```
+
+### Why
+- This is the step that actually makes the owner/bridge architecture meaningful for live use.
+- Without this refit, the runtime would still have been structurally unsafe in the exact places where hardware-backed interactivity matters most: device events, timers, and animation-driven callbacks.
+- Extending the refit to reactive JS closures in the same step keeps the semantics more uniform and reduces the chance of leaving one foot in each execution model.
+
+### What worked
+- The owner-runner model handled the callback-boundary refit well once the owner-context helper was added.
+- The new tests prove the behavior is now asynchronous where appropriate and serialized rather than implicitly synchronous.
+- The full repository test suite passed after the refit.
+
+### What didn't work
+- The first attempt at the animation callback refit exposed an important subtlety: `anim.to(...)` creates numeric target closures while already on the owner thread, but those closures must also be callable later from background animation goroutines.
+- Symptom in the test suite:
+
+```text
+expected tweened value 9, got "0"
+```
+
+- Cause: the numeric target/easing callback path needed an owner-aware fast path when created/invoked from a known owner-thread entry point.
+- Fix: add `runtimeowner.OwnerContext(...)` and use it to seed nested owner-aware `Call(...)` paths in the animation module.
+
+### What I learned
+- The owner-runner refit is not just about background goroutines. It also needs a clean nested-call story for code that starts on the owner thread and later reuses the same closures off-thread.
+- The runtime tests needed to stop assuming immediate synchronous mutation after event emission. That change itself is good evidence that the execution model is becoming more honest.
+
+### What was tricky to build
+- The hardest part was the owner-context fast path for nested calls. A naive `Owner.Call(...)` from code already executing on the owner goroutine can deadlock if it cannot recognize that it is already on the owner thread. The new helper solves that for known VM-entry module code.
+- Another subtle point was identifying which closures really counted as “JS callback boundaries”. The answer here is broader than just hardware events: any Go-held JS closure that may be invoked later from outside the immediate synchronous JS call stack needed scrutiny.
+
+### What warrants a second pair of eyes
+- The new owner-context helper should get a close read because it is intentionally a power tool: safe when used only at known owner-thread entry points, but not something that should be sprayed around blindly.
+- Reviewers should also look carefully at the module refits to confirm that async boundaries now consistently use `bindings.Owner.Post(...)` or owner-aware `Call(...)` as intended.
+
+### What should be done in the future
+- Move to H4 next: reduce remaining ad hoc module/env wiring and move toward a more runtime-scoped registration discipline.
+- Then build the hardware-backed live runner and example pack on top of the now-owner-safe JS callback model.
+
+### Code review instructions
+- Start with:
+  - `runtime/js/module_ui/module.go`
+  - `runtime/js/module_anim/module.go`
+  - `runtime/js/module_state/module.go`
+  - `pkg/runtimeowner/runner.go`
+  - `runtime/js/runtime_test.go`
+- Validate with:
+
+```bash
+gofmt -w runtime/js/module_state/*.go runtime/js/module_ui/*.go runtime/js/module_anim/*.go
+
+go test ./...
+```
+
+### Technical details
+- The core behavioral change from this step is:
+
+```text
+host events / animation callbacks / reactive JS closures
+-> owner Post/Call
+-> JS function invocation on the VM owner thread
+```
+
+- The owner-context helper added here is meant specifically for code that is already known to be executing from a VM entrypoint and needs nested owner-aware calls later:
+
+```go
+ownerCtx := runtimeowner.OwnerContext(bindings.Owner, bindings.Context)
+```
