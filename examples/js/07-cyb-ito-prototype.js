@@ -8,6 +8,7 @@ const MAIN_W = 360;
 const MAIN_H = 270;
 const SIDE_W = 60;
 const SIDE_H = 270;
+const VISIBLE_TOP_INSET = 3;
 
 const main = gfx.surface(MAIN_W, MAIN_H);
 const mainScan = gfx.surface(MAIN_W, MAIN_H);
@@ -25,9 +26,22 @@ const flash = state.signal(0);
 let rippleHandle = null;
 let flashHandle = null;
 
-const titles = ["01", "02", "03", "04", "05", "06", "07", "08", "09", "10", "11", "12"];
-const subs = ["EYE", "SPIN", "TEETH", "MELT", "HOLE", "FACE", "WORM", "NOISE", "WARP", "CRACK", "PULSE", "VOID"];
 const sideText = ["EYE", "SPIN", "TEETH", "MELT", "HOLE", "FACE", "WORM", "NOISE", "WARP", "CRACK", "PULSE", "VOID", "TOUCH", "B1", "B2", "LIVE"];
+
+const tiles = [
+  { key: "EYE", short: "EYE", draw: drawEyeTile },
+  { key: "SPIRAL", short: "SPIR", draw: drawSpiralTile },
+  { key: "TEETH", short: "TEETH", draw: drawTeethTile },
+  { key: "MELT", short: "MELT", draw: drawGenericTile },
+  { key: "HOLE", short: "HOLE", draw: drawGenericTile },
+  { key: "FACE", short: "FACE", draw: drawGenericTile },
+  { key: "WORM", short: "WORM", draw: drawGenericTile },
+  { key: "NOISE", short: "NOISE", draw: drawGenericTile },
+  { key: "WARP", short: "WARP", draw: drawGenericTile },
+  { key: "CRACK", short: "CRACK", draw: drawGenericTile },
+  { key: "PULSE", short: "PULSE", draw: drawGenericTile },
+  { key: "VOID", short: "VOID", draw: drawGenericTile },
+];
 
 function clamp(v, min, max) {
   return Math.max(min, Math.min(max, v));
@@ -39,44 +53,213 @@ function tileRect(idx) {
   return { col, row, x: col * TILE, y: row * TILE };
 }
 
-function drawTile(idx, t, activeIdx) {
-  const { x, y } = tileRect(idx);
-  const isActive = idx === activeIdx;
-  const pulse = Math.floor((Math.sin(t * Math.PI * 2 + idx * 0.4) * 0.5 + 0.5) * 28);
+function addP(surface, x, y, v) {
+  surface.add(x | 0, y | 0, Math.max(0, Math.min(255, v | 0)));
+}
 
-  main.fillRect(x, y, TILE, TILE, isActive ? 72 : 8);
-  main.fillRect(x + 6, y + 6, TILE - 12, TILE - 12, isActive ? 8 : 0);
-  main.line(x, y, x + TILE - 1, y, isActive ? 255 : 24);
-  main.line(x, y + TILE - 1, x + TILE - 1, y + TILE - 1, isActive ? 255 : 24);
-  main.line(x, y, x, y + TILE - 1, isActive ? 255 : 24);
-  main.line(x + TILE - 1, y, x + TILE - 1, y + TILE - 1, isActive ? 255 : 24);
-  main.line(x + 1, y + 1, x + TILE - 2, y + 1, isActive ? 180 : 0);
-  main.line(x + 1, y + TILE - 2, x + TILE - 2, y + TILE - 2, isActive ? 180 : 0);
-  main.line(x + 1, y + 1, x + 1, y + TILE - 2, isActive ? 180 : 0);
-  main.line(x + TILE - 2, y + 1, x + TILE - 2, y + TILE - 2, isActive ? 180 : 0);
+function setP(surface, x, y, v) {
+  surface.set(x | 0, y | 0, Math.max(0, Math.min(255, v | 0)));
+}
 
-  main.crosshatch(x + 10, y + 18, TILE - 20, TILE - 34, isActive ? 5 : 7, isActive ? 28 + pulse : 10 + pulse);
+function lineH(surface, x1, x2, y, v) {
+  for (let x = x1; x <= x2; x++) addP(surface, x, y, v);
+}
 
+function lineV(surface, x, y1, y2, v) {
+  for (let y = y1; y <= y2; y++) addP(surface, x, y, v);
+}
+
+function drawText(surface, text, x, y, brightness, width, height) {
+  surface.text(text, { x, y, width, height, brightness, center: true });
+}
+
+function drawSpiral(surface, cx, cy, turns, size, brt, speed, t, thick) {
+  const steps = turns * 120;
+  for (let i = 0; i < steps; i++) {
+    const angle = i * 0.05 + t * speed;
+    const r = i * size / steps;
+    const px = (cx + Math.cos(angle) * r) | 0;
+    const py = (cy + Math.sin(angle) * r) | 0;
+    const fade = 1 - i / steps * 0.3;
+    addP(surface, px, py, brt * fade);
+    if (thick > 1) addP(surface, px + 1, py, brt * fade * 0.5);
+    if (thick > 2) addP(surface, px, py + 1, brt * fade * 0.3);
+  }
+}
+
+function drawTileFrame(x, y, isActive) {
+  const border = isActive ? 255 : 24;
+  const glow = isActive ? 180 : 0;
+  main.line(x, y, x + TILE - 1, y, border);
+  main.line(x, y + TILE - 1, x + TILE - 1, y + TILE - 1, border);
+  main.line(x, y, x, y + TILE - 1, border);
+  main.line(x + TILE - 1, y, x + TILE - 1, y + TILE - 1, border);
+  main.line(x + 1, y + 1, x + TILE - 2, y + 1, glow);
+  main.line(x + 1, y + TILE - 2, x + TILE - 2, y + TILE - 2, glow);
+  main.line(x + 1, y + 1, x + 1, y + TILE - 2, glow);
+  main.line(x + TILE - 2, y + 1, x + TILE - 2, y + TILE - 2, glow);
+  for (let i = 0; i < 5; i++) {
+    addP(main, x + 1 + i, y + 1, isActive ? 150 : 14);
+    addP(main, x + 1, y + 1 + i, isActive ? 150 : 14);
+    addP(main, x + TILE - 2 - i, y + 1, isActive ? 150 : 14);
+    addP(main, x + TILE - 2, y + 1 + i, isActive ? 150 : 14);
+  }
+}
+
+function drawTileChrome(idx, x, y, isActive) {
+  const titleY = y + VISIBLE_TOP_INSET + 2;
+  const dividerY = y + VISIBLE_TOP_INSET + 13;
+  drawText(main, String(idx + 1).padStart(2, "0"), x + 15, titleY, isActive ? 180 : 70, 22, 10);
+  drawText(main, tiles[idx].short, x + 58, titleY, isActive ? 110 : 30, 48, 10);
+  lineH(main, x + 2, x + TILE - 3, dividerY, isActive ? 30 : 6);
+}
+
+function drawGenericTile(idx, x, y, t, isActive) {
+  const pulse = Math.floor((Math.sin(t * 2 + idx * 0.4) * 0.5 + 0.5) * 28);
+  main.fillRect(x + 6, y + VISIBLE_TOP_INSET + 18, TILE - 12, TILE - 28, isActive ? 10 : 0);
+  main.crosshatch(x + 10, y + VISIBLE_TOP_INSET + 22, TILE - 20, TILE - 34, isActive ? 5 : 7, isActive ? 28 + pulse : 10 + pulse);
   const cx = x + 45;
   const cy = y + 48;
-  const r = isActive ? 18 : 10 + Math.floor(Math.sin(t * Math.PI * 2 * 0.7 + idx) * 4);
+  const r = isActive ? 18 : 10 + Math.floor(Math.sin(t * 1.4 + idx) * 4);
   main.line(cx - r, cy, cx + r, cy, isActive ? 230 : 70 + pulse);
   main.line(cx, cy - r, cx, cy + r, isActive ? 230 : 60 + pulse);
   main.fillRect(cx - (isActive ? 5 : 2), cy - (isActive ? 5 : 2), isActive ? 10 : 4, isActive ? 10 : 4, isActive ? 255 : 90 + pulse);
-
-  main.text(titles[idx], { x: x + 6, y: y + 4, width: 24, height: 12, brightness: isActive ? 255 : 90, center: true });
-  main.text(subs[idx], { x: x + 28, y: y + 4, width: 54, height: 12, brightness: isActive ? 220 : 60, center: true });
   if (isActive) {
-    main.text("ACTIVE", { x: x + 12, y: y + 66, width: 66, height: 12, brightness: 255, center: true });
+    drawText(main, "ACTIVE", x + 45, y + 68, 255, 66, 12);
+  }
+}
+
+function drawEyeTile(_idx, x, y, t, isActive) {
+  const oy = y + VISIBLE_TOP_INSET;
+  const cx = x + 45;
+  const cy = oy + 41;
+  const brt = isActive ? 210 : 86;
+
+  for (let a = 0; a < Math.PI * 2; a += 0.02) {
+    const rx = 30 * Math.cos(a);
+    const py = Math.sin(a) * 12;
+    addP(main, cx + rx, cy + py, brt);
+    addP(main, cx + rx * 1.04, cy + py * 1.1, brt * 0.4);
+  }
+
+  const irisR = 11 + Math.sin(t * 0.5) * 2;
+  for (let a = 0; a < Math.PI * 2; a += 0.03) {
+    addP(main, cx + Math.cos(a) * irisR, cy + Math.sin(a) * irisR, brt);
+  }
+
+  const pupilR = 5 + Math.sin(t * 1.5) * 2;
+  for (let dy = -pupilR; dy <= pupilR; dy++) {
+    for (let dx = -pupilR; dx <= pupilR; dx++) {
+      if (dx * dx + dy * dy <= pupilR * pupilR) {
+        addP(main, cx + dx, cy + dy, brt * 0.9);
+      }
+    }
+  }
+
+  addP(main, cx - 2, cy - 2, 255);
+  addP(main, cx - 3, cy - 2, 255);
+  addP(main, cx - 2, cy - 3, 255);
+
+  for (let i = 0; i < 8; i++) {
+    const a = i * Math.PI / 4 + Math.sin(t * 0.3 + i) * 0.2;
+    for (let r = irisR + 1; r < irisR + 8 + Math.sin(t + i) * 3; r++) {
+      const wx = Math.sin(r * 0.5 + i) * 0.8;
+      addP(main, cx + Math.cos(a) * r + wx, cy + Math.sin(a) * r * 0.5, brt * 0.3 * (1 - r / 25));
+    }
+  }
+
+  main.crosshatch(x + 4, oy + 16, 18, 50, 3, isActive ? 20 : 8);
+  main.crosshatch(x + 68, oy + 16, 18, 50, 3, isActive ? 20 : 8);
+
+  for (let i = 0; i < 3; i++) {
+    for (let a = -0.8; a < 0.8; a += 0.04) {
+      addP(main, cx + Math.cos(a + Math.PI) * 28, cy + Math.sin(a + Math.PI) * 12 + 4 + i * 3, brt * 0.2);
+    }
+  }
+}
+
+function drawSpiralTile(_idx, x, y, t, isActive) {
+  const oy = y + VISIBLE_TOP_INSET;
+  const cx = x + 45;
+  const cy = oy + 43;
+  const brt = isActive ? 190 : 76;
+  drawSpiral(main, cx, cy, 6, 32, brt, 0.5, t, 2);
+  drawSpiral(main, cx, cy, 4, 12, brt * 1.2, 0.85, t, 1);
+  drawSpiral(main, x + 14, oy + 20, 2, 6, brt * 0.3, 1.0, t, 1);
+  drawSpiral(main, x + 76, oy + 70, 2, 6, brt * 0.3, -0.7, t, 1);
+  for (let r = 8; r < 34; r += 7) {
+    const wobble = Math.sin(r * 0.5 + t) * 3;
+    for (let a = 0; a < Math.PI * 2; a += 0.05) {
+      const wr = r + Math.sin(a * 3 + t) * wobble;
+      addP(main, cx + Math.cos(a) * wr, cy + Math.sin(a) * wr, brt * 0.12);
+    }
+  }
+}
+
+function drawTeethTile(_idx, x, y, t, isActive) {
+  const oy = y + VISIBLE_TOP_INSET;
+  const cx = x + 45;
+  const cy = oy + 43;
+  const brt = isActive ? 205 : 84;
+  const gapOpen = 2 + Math.sin(t * 0.5) * 3;
+
+  for (let a = -Math.PI; a < 0; a += 0.03) {
+    const rx = 32;
+    const ry = 8 + Math.sin(t * 0.7) * 2;
+    addP(main, cx + Math.cos(a) * rx, cy - 6 + Math.sin(a) * ry, brt);
+    addP(main, cx + Math.cos(a) * rx, cy + 6 + -Math.sin(a) * ry, brt);
+  }
+
+  const teethW = 7;
+  const teethCount = 8;
+  for (let i = 0; i < teethCount; i++) {
+    const tx = x + 9 + i * teethW + (i >= 4 ? 3 : 0);
+    const th = 10 + Math.sin(i * 1.2 + t * 0.3) * 2;
+    for (let dy = 0; dy < th; dy++) {
+      const taper = 1 - dy / th * 0.3;
+      const w = (teethW * taper) | 0;
+      for (let dx = 0; dx < w; dx++) {
+        addP(main, tx + dx, cy - gapOpen - dy, brt * (0.5 + dy / th * 0.5));
+      }
+      addP(main, tx, cy - gapOpen - dy, brt);
+      addP(main, tx + w - 1, cy - gapOpen - dy, brt);
+    }
+  }
+
+  for (let i = 0; i < teethCount; i++) {
+    const tx = x + 9 + i * teethW + (i >= 4 ? 3 : 0);
+    const th = 8 + Math.sin(i * 0.9 + t * 0.4) * 2;
+    for (let dy = 0; dy < th; dy++) {
+      const taper = 1 - dy / th * 0.3;
+      const w = (teethW * taper) | 0;
+      for (let dx = 0; dx < w; dx++) {
+        addP(main, tx + dx, cy + gapOpen + dy, brt * (0.5 + dy / th * 0.5));
+      }
+      addP(main, tx, cy + gapOpen + dy, brt);
+      addP(main, tx + w - 1, cy + gapOpen + dy, brt);
+    }
+  }
+
+  main.crosshatch(x + 6, cy - gapOpen - 18, 78, 6, 2, brt * 0.15);
+  main.crosshatch(x + 6, cy + gapOpen + 12, 78, 6, 2, brt * 0.15);
+  for (let py = cy - gapOpen + 1; py < cy + gapOpen; py++) {
+    for (let px = x + 12; px < x + 78; px++) {
+      if ((px + py) % 3 === 0) addP(main, px, py, brt * 0.08);
+    }
   }
 }
 
 function renderMain() {
   main.clear(0);
-  const t = phase.get();
+  const t = phase.get() * Math.PI * 2;
   const activeIdx = active.get();
   for (let i = 0; i < 12; i++) {
-    drawTile(i, t, activeIdx);
+    const { x, y } = tileRect(i);
+    const isActive = i === activeIdx;
+    main.fillRect(x, y, TILE, TILE, isActive ? 32 : 6);
+    drawTileFrame(x, y, isActive);
+    drawTileChrome(i, x, y, isActive);
+    tiles[i].draw(i, x, y, t, isActive);
   }
 }
 
@@ -86,11 +269,11 @@ function renderMainScan() {
   const activeIdx = active.get();
   for (let i = 0; i < 12; i++) {
     const { x, y } = tileRect(i);
-    const localY = 20 + ((Math.floor(t * 80) + i * 5) % (TILE - 28));
-    mainScan.fillRect(x + 8, y + localY, TILE - 16, 2, i === activeIdx ? 180 : 40);
+    const localY = 20 + VISIBLE_TOP_INSET + ((Math.floor(t * 80) + i * 5) % (TILE - 28));
+    mainScan.fillRect(x + 8, y + localY, TILE - 16, 2, i === activeIdx ? 180 : 36);
   }
   const sweepY = Math.floor(t * (MAIN_H - 6));
-  mainScan.fillRect(0, sweepY, MAIN_W, 2, 24);
+  mainScan.fillRect(0, sweepY, MAIN_W, 2, 18);
   const f = flash.get();
   if (f > 0) {
     const { x, y } = tileRect(activeIdx);
@@ -99,6 +282,9 @@ function renderMainScan() {
     mainScan.fillRect(x + 3, y + TILE - 5, TILE - 6, 2, b);
     mainScan.fillRect(x + 3, y + 3, 2, TILE - 6, b);
     mainScan.fillRect(x + TILE - 5, y + 3, 2, TILE - 6, b);
+  }
+  for (let yy = 0; yy < MAIN_H; yy += 3) {
+    mainScan.fillRect(0, yy, MAIN_W, 1, 8);
   }
 }
 
@@ -112,11 +298,9 @@ function renderMainRipple() {
   const cy = y + 45;
   const radius = 10 + Math.floor((1 - p) * 34);
   const bright = Math.floor(80 + p * 150);
+  drawSpiral(mainRipple, cx, cy, 3, radius, bright, 0.7, phase.get() * Math.PI * 2, 1);
   mainRipple.line(cx - radius, cy, cx + radius, cy, bright);
   mainRipple.line(cx, cy - radius, cx, cy + radius, bright);
-  mainRipple.line(cx - radius, cy - radius, cx + radius, cy + radius, Math.floor(bright * 0.5));
-  mainRipple.line(cx - radius, cy + radius, cx + radius, cy - radius, Math.floor(bright * 0.5));
-  mainRipple.fillRect(x + 4, y + 4, TILE - 8, 3, Math.floor(bright * 0.6));
 }
 
 function renderMainHUD() {
@@ -124,25 +308,24 @@ function renderMainHUD() {
   const activeIdx = active.get();
   const row = Math.floor(activeIdx / 4) + 1;
   const col = (activeIdx % 4) + 1;
-  mainHUD.fillRect(96, 118, 168, 34, 0);
-  mainHUD.line(96, 118, 263, 118, 255);
-  mainHUD.line(96, 151, 263, 151, 255);
-  mainHUD.line(96, 118, 96, 151, 255);
-  mainHUD.line(263, 118, 263, 151, 255);
-  mainHUD.text(`SEL ${titles[activeIdx]} R${row}C${col}`, { x: 102, y: 121, width: 156, height: 12, brightness: 255, center: true });
-  mainHUD.text(lastEvent.get(), { x: 102, y: 135, width: 156, height: 12, brightness: 190, center: true });
-  mainHUD.text("TOUCH/B1/B2", { x: 108, y: 152, width: 144, height: 12, brightness: 120, center: true });
+  mainHUD.fillRect(92, 116, 176, 38, 0);
+  mainHUD.line(92, 116, 267, 116, 255);
+  mainHUD.line(92, 153, 267, 153, 255);
+  mainHUD.line(92, 116, 92, 153, 255);
+  mainHUD.line(267, 116, 267, 153, 255);
+  drawText(mainHUD, `SEL ${tiles[activeIdx].key} R${row}C${col}`, 180, 120, 255, 162, 12);
+  drawText(mainHUD, lastEvent.get(), 180, 134, 190, 162, 12);
 }
 
 function renderLeft() {
   left.clear(0);
-  const t = phase.get();
-  left.text("B1", { x: 8, y: 2, width: 44, height: 12, brightness: 220, center: true });
-  left.text("B2", { x: 8, y: 16, width: 44, height: 12, brightness: 220, center: true });
+  const t = phase.get() * Math.PI * 2;
+  drawText(left, "B1", 30, 6, 220, 40, 12);
+  drawText(left, "B2", 30, 20, 220, 40, 12);
   for (let seg = 0; seg < 10; seg++) {
     const sy = 40 + seg * 22;
     const sh = 18;
-    const level = Math.sin(t * Math.PI * 2 * 1.2 + seg * 0.8) * 0.4 + 0.5;
+    const level = Math.sin(t * 1.2 + seg * 0.8) * 0.4 + 0.5;
     const fillH = Math.floor(level * sh);
     const brt = Math.floor(20 + level * 80);
     left.fillRect(4, sy, SIDE_W - 8, sh, 6);
@@ -201,7 +384,7 @@ function activate(idx, reason) {
   active.set(next);
   rippleHandle = retrigger(ripple, 1, 220, rippleHandle);
   flashHandle = retrigger(flash, 1, 140, flashHandle);
-  lastEvent.set(`${reason} -> ${titles[next]}`);
+  lastEvent.set(`${reason} -> ${tiles[next].key}`);
   renderAll();
 }
 

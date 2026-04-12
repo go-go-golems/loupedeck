@@ -33,6 +33,22 @@ func surfaceObject(runtime *goja.Runtime, surface *gfx.Surface) goja.Value {
 		surface.Clear(uint8(call.Argument(0).ToInteger()))
 		return goja.Undefined()
 	})
+	_ = obj.Set("set", func(call goja.FunctionCall) goja.Value {
+		surface.Set(
+			int(call.Argument(0).ToInteger()),
+			int(call.Argument(1).ToInteger()),
+			uint8(call.Argument(2).ToInteger()),
+		)
+		return goja.Undefined()
+	})
+	_ = obj.Set("add", func(call goja.FunctionCall) goja.Value {
+		surface.Add(
+			int(call.Argument(0).ToInteger()),
+			int(call.Argument(1).ToInteger()),
+			uint8(call.Argument(2).ToInteger()),
+		)
+		return goja.Undefined()
+	})
 	_ = obj.Set("fillRect", func(call goja.FunctionCall) goja.Value {
 		surface.FillRect(
 			int(call.Argument(0).ToInteger()),

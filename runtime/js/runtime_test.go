@@ -232,6 +232,8 @@ func TestGfxModuleCanBuildAndCompositeSurface(t *testing.T) {
 		const gfx = require("loupedeck/gfx");
 		const base = gfx.surface(16, 16);
 		base.clear(0);
+		base.set(1, 1, 30);
+		base.add(1, 1, 20);
 		base.line(0, 0, 15, 0, 50);
 		base.crosshatch(0, 0, 8, 8, 2, 20);
 		base.text("EYE", { x: 0, y: 0, width: 16, height: 16, brightness: 120, center: true });
