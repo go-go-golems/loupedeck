@@ -107,3 +107,13 @@ Implemented milestone F as the first animation/easing slice, adding pure-Go easi
 - /home/manuel/code/wesen/2026-04-11--loupedeck-test/runtime/js/module_anim/module.go — `loupedeck/anim` native module exposing `to(...)`, `loop(...)`, and `timeline()`
 - /home/manuel/code/wesen/2026-04-11--loupedeck-test/runtime/js/module_easing/module.go — `loupedeck/easing` native module exposing easing functions to JS
 - /home/manuel/code/wesen/2026-04-11--loupedeck-test/runtime/js/runtime_test.go — JS integration tests covering button-triggered tweens and loop-driven reactive updates
+
+## 2026-04-11
+
+Implemented milestone G as the first reconnect-safe retained replay slice. The chosen behavior is intentionally conservative: when the host decides a reconnect requires visual restoration, it can explicitly re-invalidate the currently active retained page so the renderer redraws it, without rerunning page-show hooks and without attempting to reconstruct or restart animation timelines automatically.
+
+### Related Files
+
+- /home/manuel/code/wesen/2026-04-11--loupedeck-test/runtime/ui/ui.go — Added explicit active-page invalidation support for retained visual replay
+- /home/manuel/code/wesen/2026-04-11--loupedeck-test/runtime/host/pages.go — Added `ReplayActivePage()` reconnect/replay entry point with non-hook-replaying semantics
+- /home/manuel/code/wesen/2026-04-11--loupedeck-test/runtime/host/runtime_test.go — Added coverage proving replay marks tiles dirty again without rerunning page-show hooks

@@ -105,10 +105,10 @@
 - [x] Record milestone F in diary/changelog
 
 ### Implementation milestone G: reconnect-safe retained replay
-- [ ] Decide retained-runtime reconnect semantics
-- [ ] Implement retained UI/state replay after reconnect
-- [ ] Decide animation resume vs restart behavior after reconnect
-- [ ] Add tests for retained replay logic where practical
-- [ ] Run `go test ./...`
-- [ ] Commit milestone G
-- [ ] Record milestone G in diary/changelog
+- [x] Decide retained-runtime reconnect semantics
+- [x] Implement retained UI/state replay after reconnect
+- [x] Decide animation resume vs restart behavior after reconnect
+- [x] Add tests for retained replay logic where practical
+- [x] Run `go test ./...`
+- [x] Commit milestone G
+- [x] Record milestone G in diary/changelog

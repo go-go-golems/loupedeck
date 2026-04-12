@@ -1110,3 +1110,98 @@ const easing = require("loupedeck/easing")
 const value = state.signal(0)
 anim.to(value, 10, 250, easing.inOutCubic)
 ```
+
+## Step 10: Implement milestone G as retained replay after reconnect
+
+The final milestone in this first implementation pass was reconnect-safe retained replay. I deliberately kept this conservative. The goal was not to build a magical full reconnect orchestrator, but to formalize the first safe behavior: the runtime should be able to explicitly re-invalidate the active retained page so it can be redrawn after reconnect, without pretending that page lifecycle callbacks or animation timelines can simply be replayed as if nothing happened.
+
+This step matters because it turns reconnect handling from a vague future concern into a concrete policy. The retained runtime now has an explicit replay behavior, and that behavior is narrow enough to be testable and understandable.
+
+### Prompt Context
+
+**User prompt (verbatim):** (same as Step 4)
+
+**Assistant interpretation:** Finish the remaining planned milestone after animation/easing by making reconnect-safe retained replay semantics explicit in code and tests.
+
+**Inferred user intent:** Complete the planned first implementation pass, including the tricky lifecycle question of what the runtime should restore after reconnect and what it should not try to pretend it can restore automatically.
+
+**Commit (code):** `4db36b6` — `Add retained UI replay on reconnect`
+
+### What I did
+- Extended `runtime/ui/ui.go` with:
+
+```go
+func (u *UI) InvalidateActivePage() bool
+```
+
+- Updated `UI.Show(...)` to share the same internal page-invalidation helper.
+- Added to `runtime/host/pages.go`:
+
+```go
+func (r *Runtime) ReplayActivePage() bool
+```
+
+- Chose replay semantics intentionally:
+  - replay marks the currently active retained page dirty again
+  - replay does **not** rerun `OnShow` page hooks
+  - replay does **not** attempt to reconstruct or restart animation timelines automatically
+- Added a host-runtime test proving:
+  - the tile becomes dirty again after replay
+  - page-show hooks are not rerun
+- Ran:
+
+```bash
+gofmt -w runtime/ui/*.go runtime/host/*.go
+go test ./...
+```
+
+### Why
+- The existing retained model already contains enough information to redraw the visible page. That is the safest first reconnect feature to implement.
+- Rerunning page-show hooks during reconnect replay would blur the line between “restore visuals” and “re-trigger page-entry logic”, which can be very different things.
+- Automatically restarting animations would require much more state capture and policy than this first reconnect milestone can honestly support.
+
+### What worked
+- The replay slice stayed small and testable.
+- The chosen behavior fits the architecture: retained state is replayed by invalidating retained visuals, not by replaying arbitrary UI logic.
+- The full repository test suite passed with the replay behavior added.
+
+### What didn't work
+- No build or test failures occurred in this milestone.
+- The limitation is intentional: replay currently restores retained visible state only. It does not attempt to recover event subscriptions from a process restart scenario, nor does it attempt to reconstruct in-flight animations from historical timing data.
+
+### What I learned
+- Reconnect behavior becomes much clearer once page invalidation is separated from page lifecycle hooks. Those are related but not the same concept.
+- A conservative replay primitive is better than a misleading “auto-resume everything” API. The latter would sound nicer but be much harder to make correct.
+
+### What was tricky to build
+- The main tricky point was semantic, not mechanical: deciding what “replay” should mean. The temptation is to make it sound like the runtime can fully restore the world. In reality, the most honest first behavior is simply “mark the retained visible page dirty and redraw it”.
+- Another subtle point was avoiding side effects. If replay reused `Show(...)` directly, it would rerun `OnShow` hooks and potentially trigger behavior meant only for genuine navigation. The solution was to add a distinct `InvalidateActivePage()` path and have `ReplayActivePage()` call that instead.
+
+### What warrants a second pair of eyes
+- Reviewers should confirm that the chosen policy is the right one for this stage: retained visuals replayed, page-entry hooks not replayed, animations not auto-resumed.
+- If future reconnect behavior needs to be richer, the team should be careful not to overload `ReplayActivePage()` with too many responsibilities.
+
+### What should be done in the future
+- If hardware reconnect handling is wired into a top-level runtime/app, call `ReplayActivePage()` after the device/output path is healthy again.
+- Later, if desired, define a more explicit policy for long-running animations after reconnect (for example: stop, continue if still alive, or restart from canonical state).
+
+### Code review instructions
+- Start with:
+  - `runtime/ui/ui.go`
+  - `runtime/host/pages.go`
+  - `runtime/host/runtime_test.go`
+- Validate with:
+
+```bash
+gofmt -w runtime/ui/*.go runtime/host/*.go
+go test ./...
+```
+
+### Technical details
+- The reconnect policy chosen in code is now:
+
+```text
+reconnect replay = invalidate current retained page so it redraws
+not = rerun page-entry hooks
+not = reconstruct animation timelines automatically
+```
