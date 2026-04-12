@@ -3,7 +3,7 @@ package ui
 import "github.com/go-go-golems/loupedeck/runtime/reactive"
 
 type Tile struct {
-	page *Page
+	display *Display
 
 	Col int
 	Row int
@@ -46,7 +46,7 @@ func (t *Tile) BindText(fn func() string) {
 	if t.textSub != nil {
 		t.textSub.Stop()
 	}
-	t.textSub = t.page.ui.Reactive.Watch(func() {
+	t.textSub = t.display.page.ui.Reactive.Watch(func() {
 		t.SetText(fn())
 	})
 }
@@ -63,7 +63,7 @@ func (t *Tile) BindIcon(fn func() string) {
 	if t.iconSub != nil {
 		t.iconSub.Stop()
 	}
-	t.iconSub = t.page.ui.Reactive.Watch(func() {
+	t.iconSub = t.display.page.ui.Reactive.Watch(func() {
 		t.SetIcon(fn())
 	})
 }
@@ -80,7 +80,7 @@ func (t *Tile) BindVisible(fn func() bool) {
 	if t.visibleSub != nil {
 		t.visibleSub.Stop()
 	}
-	t.visibleSub = t.page.ui.Reactive.Watch(func() {
+	t.visibleSub = t.display.page.ui.Reactive.Watch(func() {
 		t.SetVisible(fn())
 	})
 }
@@ -90,5 +90,5 @@ func (t *Tile) markDirty() {
 		return
 	}
 	t.dirty = true
-	t.page.ui.markDirty(t)
+	t.display.page.ui.markDirtyTile(t)
 }

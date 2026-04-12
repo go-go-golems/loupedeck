@@ -12,8 +12,12 @@ import (
 )
 
 const (
-	TileWidth  = 90
-	TileHeight = 90
+	TileWidth         = 90
+	TileHeight        = 90
+	MainDisplayWidth  = 360
+	MainDisplayHeight = 270
+	SideDisplayWidth  = 60
+	SideDisplayHeight = 270
 )
 
 type DrawTarget interface {
@@ -21,9 +25,9 @@ type DrawTarget interface {
 }
 
 type Renderer struct {
-	UI     *ui.UI
-	Target DrawTarget
-	Theme  Theme
+	UI      *ui.UI
+	Targets map[string]DrawTarget
+	Theme   Theme
 }
 
 type Theme struct {
@@ -45,28 +49,73 @@ func TileRect(col, row int) image.Rectangle {
 }
 
 func New(uiRuntime *ui.UI, target DrawTarget) *Renderer {
+	return NewWithDisplays(uiRuntime, map[string]DrawTarget{
+		ui.DisplayMain: target,
+	})
+}
+
+func NewWithDisplays(uiRuntime *ui.UI, targets map[string]DrawTarget) *Renderer {
 	return &Renderer{
-		UI:     uiRuntime,
-		Target: target,
-		Theme:  DefaultTheme(),
+		UI:      uiRuntime,
+		Targets: targets,
+		Theme:   DefaultTheme(),
 	}
 }
 
 func (r *Renderer) Flush() int {
-	if r == nil || r.UI == nil || r.Target == nil {
+	if r == nil || r.UI == nil || len(r.Targets) == 0 {
 		return 0
 	}
+	flushed := 0
+
+	displays := r.UI.DirtyDisplays()
+	for _, display := range displays {
+		target := r.Targets[display.Name]
+		if target == nil {
+			continue
+		}
+		target.Draw(r.renderDisplay(display), 0, 0)
+		flushed++
+	}
+	r.UI.ClearDirtyDisplays(displays)
+
 	tiles := r.UI.DirtyTiles()
-	if len(tiles) == 0 {
-		return 0
-	}
 	for _, tile := range tiles {
+		target := r.Targets[ui.DisplayMain]
+		if target == nil {
+			continue
+		}
 		rect := TileRect(tile.Col, tile.Row)
-		im := r.renderTile(tile)
-		r.Target.Draw(im, rect.Min.X, rect.Min.Y)
+		target.Draw(r.renderTile(tile), rect.Min.X, rect.Min.Y)
+		flushed++
 	}
 	r.UI.ClearDirtyTiles(tiles)
-	return len(tiles)
+
+	return flushed
+}
+
+func (r *Renderer) renderDisplay(display *ui.Display) image.Image {
+	bounds := displayBounds(display)
+	im := image.NewRGBA(bounds)
+	draw.Draw(im, im.Bounds(), &image.Uniform{r.Theme.Background}, image.Point{}, draw.Src)
+	if display == nil || !display.Visible() {
+		return im
+	}
+
+	accentHeight := 8
+	if im.Bounds().Dy() < accentHeight {
+		accentHeight = im.Bounds().Dy()
+	}
+	accent := image.Rect(0, 0, im.Bounds().Dx(), accentHeight)
+	draw.Draw(im, accent, &image.Uniform{r.Theme.Accent}, image.Point{}, draw.Src)
+
+	if icon := display.Icon(); icon != "" {
+		drawCenteredLabel(im, icon, im.Bounds().Dy()/2-12, r.Theme.Foreground)
+	}
+	if text := display.Text(); text != "" {
+		drawCenteredLabel(im, text, im.Bounds().Dy()/2+12, r.Theme.Foreground)
+	}
+	return im
 }
 
 func (r *Renderer) renderTile(tile *ui.Tile) image.Image {
@@ -86,6 +135,20 @@ func (r *Renderer) renderTile(tile *ui.Tile) image.Image {
 		drawCenteredLabel(im, text, 58, r.Theme.Foreground)
 	}
 	return im
+}
+
+func displayBounds(display *ui.Display) image.Rectangle {
+	if display == nil {
+		return image.Rect(0, 0, MainDisplayWidth, MainDisplayHeight)
+	}
+	switch display.Name {
+	case ui.DisplayLeft, ui.DisplayRight:
+		return image.Rect(0, 0, SideDisplayWidth, SideDisplayHeight)
+	case ui.DisplayMain:
+		fallthrough
+	default:
+		return image.Rect(0, 0, MainDisplayWidth, MainDisplayHeight)
+	}
 }
 
 func drawCenteredLabel(dst draw.Image, text string, baseline int, fg color.Color) {

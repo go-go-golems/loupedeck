@@ -119,3 +119,55 @@ func TestReactiveTileBindingsUpdateProperties(t *testing.T) {
 		t.Fatal("expected reactive updates to mark tile dirty")
 	}
 }
+
+func TestDisplayActivationAndDirtyFiltering(t *testing.T) {
+	rt := reactive.NewRuntime()
+	ui := New(rt)
+
+	home := ui.AddPage("home")
+	left := home.AddDisplay(DisplayLeft)
+	left.SetText("LEFT")
+	right := home.AddDisplay(DisplayRight)
+	right.SetText("RIGHT")
+
+	alt := ui.AddPage("alt")
+	altLeft := alt.AddDisplay(DisplayLeft)
+	altLeft.SetText("ALT")
+
+	if err := ui.Show("home"); err != nil {
+		t.Fatalf("show home: %v", err)
+	}
+	dirty := ui.DirtyDisplays()
+	if len(dirty) != 2 || dirty[0] != left || dirty[1] != right {
+		t.Fatalf("unexpected home dirty displays: %#v", dirty)
+	}
+
+	ui.ClearDirty()
+	altLeft.SetText("ALT2")
+	dirty = ui.DirtyDisplays()
+	if len(dirty) != 0 {
+		t.Fatalf("expected hidden-page dirty displays to be filtered out, got %d", len(dirty))
+	}
+
+	if err := ui.Show("alt"); err != nil {
+		t.Fatalf("show alt: %v", err)
+	}
+	dirty = ui.DirtyDisplays()
+	if len(dirty) != 1 || dirty[0] != altLeft {
+		t.Fatalf("expected alt display to become dirty/visible after show, got %#v", dirty)
+	}
+}
+
+func TestDisplayMainTileCompatibility(t *testing.T) {
+	ui := New(nil)
+	page := ui.AddPage("home")
+	main := page.Display(DisplayMain)
+	if main == nil {
+		t.Fatal("expected implicit main display")
+	}
+	tileViaPage := page.AddTile(2, 1)
+	tileViaDisplay := main.Tile(2, 1)
+	if tileViaPage == nil || tileViaDisplay == nil || tileViaPage != tileViaDisplay {
+		t.Fatal("expected page tile API to delegate to main display")
+	}
+}

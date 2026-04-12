@@ -56,8 +56,12 @@ func main() {
 		}
 	}()
 	deckConn.SetDisplays()
-	mainDisplay := deckConn.GetDisplay("main")
-	if mainDisplay == nil {
+	displays := map[string]*loupedeck.Display{
+		"left":  deckConn.GetDisplay("left"),
+		"main":  deckConn.GetDisplay("main"),
+		"right": deckConn.GetDisplay("right"),
+	}
+	if displays["main"] == nil {
 		fmt.Fprintln(os.Stderr, "missing main display")
 		os.Exit(1)
 	}
@@ -79,7 +83,11 @@ func main() {
 		os.Exit(1)
 	}
 
-	renderer := render.New(rt.Env.UI, mainDisplay)
+	renderer := render.NewWithDisplays(rt.Env.UI, map[string]render.DrawTarget{
+		"left":  displays["left"],
+		"main":  displays["main"],
+		"right": displays["right"],
+	})
 	renderer.Flush()
 
 	exitCh := make(chan struct{}, 1)
@@ -114,28 +122,30 @@ func main() {
 			if err != nil {
 				fmt.Fprintf(os.Stderr, "listen: %v\n", err)
 			}
-			clearMain(mainDisplay)
+			clearDisplays(displays)
 			return
 		case <-sigCh:
-			clearMain(mainDisplay)
+			clearDisplays(displays)
 			return
 		case <-exitCh:
-			clearMain(mainDisplay)
+			clearDisplays(displays)
 			return
 		case <-timeout:
-			clearMain(mainDisplay)
+			clearDisplays(displays)
 			return
 		}
 	}
 }
 
-func clearMain(display *loupedeck.Display) {
-	if display == nil {
-		return
+func clearDisplays(displays map[string]*loupedeck.Display) {
+	for _, display := range displays {
+		if display == nil {
+			continue
+		}
+		im := image.NewRGBA(image.Rect(0, 0, display.Width(), display.Height()))
+		draw.Draw(im, im.Bounds(), &image.Uniform{color.Black}, image.Point{}, draw.Src)
+		display.Draw(im, 0, 0)
 	}
-	im := image.NewRGBA(image.Rect(0, 0, display.Width(), display.Height()))
-	draw.Draw(im, im.Bounds(), &image.Uniform{color.Black}, image.Point{}, draw.Src)
-	display.Draw(im, 0, 0)
 	time.Sleep(100 * time.Millisecond)
 }
 

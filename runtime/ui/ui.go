@@ -13,10 +13,11 @@ const (
 )
 
 type UI struct {
-	Reactive   *reactive.Runtime
-	pages      map[string]*Page
-	activePage *Page
-	dirtyTiles map[*Tile]struct{}
+	Reactive      *reactive.Runtime
+	pages         map[string]*Page
+	activePage    *Page
+	dirtyTiles    map[*Tile]struct{}
+	dirtyDisplays map[*Display]struct{}
 }
 
 func New(rt *reactive.Runtime) *UI {
@@ -24,9 +25,10 @@ func New(rt *reactive.Runtime) *UI {
 		rt = reactive.NewRuntime()
 	}
 	return &UI{
-		Reactive:   rt,
-		pages:      map[string]*Page{},
-		dirtyTiles: map[*Tile]struct{}{},
+		Reactive:      rt,
+		pages:         map[string]*Page{},
+		dirtyTiles:    map[*Tile]struct{}{},
+		dirtyDisplays: map[*Display]struct{}{},
 	}
 }
 
@@ -35,10 +37,11 @@ func (u *UI) AddPage(name string) *Page {
 		return page
 	}
 	page := &Page{
-		ui:    u,
-		Name:  name,
-		tiles: map[TileCoord]*Tile{},
+		ui:       u,
+		Name:     name,
+		displays: map[string]*Display{},
 	}
+	page.AddDisplay(DisplayMain)
 	u.pages[name] = page
 	return page
 }
@@ -75,7 +78,7 @@ func (u *UI) DirtyTiles() []*Tile {
 	}
 	ret := make([]*Tile, 0, len(u.dirtyTiles))
 	for tile := range u.dirtyTiles {
-		if tile.page == u.activePage {
+		if tile.display.page == u.activePage {
 			ret = append(ret, tile)
 		}
 	}
@@ -88,12 +91,33 @@ func (u *UI) DirtyTiles() []*Tile {
 	return ret
 }
 
+func (u *UI) DirtyDisplays() []*Display {
+	if u.activePage == nil || len(u.dirtyDisplays) == 0 {
+		return nil
+	}
+	ret := make([]*Display, 0, len(u.dirtyDisplays))
+	for display := range u.dirtyDisplays {
+		if display.page == u.activePage {
+			ret = append(ret, display)
+		}
+	}
+	sort.Slice(ret, func(i, j int) bool {
+		return displayOrder(ret[i].Name) < displayOrder(ret[j].Name)
+	})
+	return ret
+}
+
 func (u *UI) ClearDirty() {
 	tiles := make([]*Tile, 0, len(u.dirtyTiles))
 	for tile := range u.dirtyTiles {
 		tiles = append(tiles, tile)
 	}
+	displays := make([]*Display, 0, len(u.dirtyDisplays))
+	for display := range u.dirtyDisplays {
+		displays = append(displays, display)
+	}
 	u.ClearDirtyTiles(tiles)
+	u.ClearDirtyDisplays(displays)
 }
 
 func (u *UI) ClearDirtyTiles(tiles []*Tile) {
@@ -106,12 +130,44 @@ func (u *UI) ClearDirtyTiles(tiles []*Tile) {
 	}
 }
 
-func (u *UI) markDirty(tile *Tile) {
+func (u *UI) ClearDirtyDisplays(displays []*Display) {
+	for _, display := range displays {
+		if display == nil {
+			continue
+		}
+		display.dirty = false
+		delete(u.dirtyDisplays, display)
+	}
+}
+
+func (u *UI) markDirtyTile(tile *Tile) {
 	u.dirtyTiles[tile] = struct{}{}
 }
 
+func (u *UI) markDirtyDisplay(display *Display) {
+	u.dirtyDisplays[display] = struct{}{}
+}
+
 func (u *UI) invalidatePage(page *Page) {
-	for _, tile := range page.tiles {
+	for _, display := range page.displays {
+		if display.Name != DisplayMain || display.Configured() {
+			display.markDirty()
+		}
+	}
+	for _, tile := range page.Tiles() {
 		tile.markDirty()
+	}
+}
+
+func displayOrder(name string) int {
+	switch name {
+	case DisplayLeft:
+		return 0
+	case DisplayMain:
+		return 1
+	case DisplayRight:
+		return 2
+	default:
+		return 99
 	}
 }

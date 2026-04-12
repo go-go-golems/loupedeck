@@ -167,6 +167,94 @@ func pageObject(bindings runtimebridge.Bindings, ownerCtx context.Context, runti
 		}
 		return tileObj
 	})
+	_ = obj.Set("display", func(call goja.FunctionCall) goja.Value {
+		name := call.Argument(0).String()
+		display := page.AddDisplay(name)
+		displayObj := displayObject(bindings, ownerCtx, runtime, env, display)
+		if fn, ok := goja.AssertFunction(call.Argument(1)); ok {
+			if _, err := fn(goja.Undefined(), displayObj); err != nil {
+				panic(runtime.NewGoError(err))
+			}
+		}
+		return displayObj
+	})
+	return obj
+}
+
+func displayObject(bindings runtimebridge.Bindings, ownerCtx context.Context, runtime *goja.Runtime, env *envpkg.Environment, display *ui.Display) *goja.Object {
+	obj := runtime.NewObject()
+	_ = obj.Set("text", func(call goja.FunctionCall) goja.Value {
+		if fn, ok := goja.AssertFunction(call.Argument(0)); ok {
+			display.BindText(func() string {
+				result, err := bindings.Owner.Call(ownerCtx, "ui.display.text", func(_ context.Context, vm *goja.Runtime) (any, error) {
+					value, err := fn(goja.Undefined())
+					if err != nil {
+						return nil, err
+					}
+					return stringify(value), nil
+				})
+				if err != nil {
+					panic(runtime.NewGoError(err))
+				}
+				return result.(string)
+			})
+		} else {
+			display.SetText(stringify(call.Argument(0)))
+		}
+		return goja.Undefined()
+	})
+	_ = obj.Set("icon", func(call goja.FunctionCall) goja.Value {
+		if fn, ok := goja.AssertFunction(call.Argument(0)); ok {
+			display.BindIcon(func() string {
+				result, err := bindings.Owner.Call(ownerCtx, "ui.display.icon", func(_ context.Context, vm *goja.Runtime) (any, error) {
+					value, err := fn(goja.Undefined())
+					if err != nil {
+						return nil, err
+					}
+					return stringify(value), nil
+				})
+				if err != nil {
+					panic(runtime.NewGoError(err))
+				}
+				return result.(string)
+			})
+		} else {
+			display.SetIcon(stringify(call.Argument(0)))
+		}
+		return goja.Undefined()
+	})
+	_ = obj.Set("visible", func(call goja.FunctionCall) goja.Value {
+		if fn, ok := goja.AssertFunction(call.Argument(0)); ok {
+			display.BindVisible(func() bool {
+				result, err := bindings.Owner.Call(ownerCtx, "ui.display.visible", func(_ context.Context, vm *goja.Runtime) (any, error) {
+					value, err := fn(goja.Undefined())
+					if err != nil {
+						return nil, err
+					}
+					return value.ToBoolean(), nil
+				})
+				if err != nil {
+					panic(runtime.NewGoError(err))
+				}
+				return result.(bool)
+			})
+		} else {
+			display.SetVisible(call.Argument(0).ToBoolean())
+		}
+		return goja.Undefined()
+	})
+	_ = obj.Set("tile", func(call goja.FunctionCall) goja.Value {
+		col := int(call.Argument(0).ToInteger())
+		row := int(call.Argument(1).ToInteger())
+		tile := display.AddTile(col, row)
+		tileObj := tileObject(bindings, ownerCtx, runtime, env, tile)
+		if fn, ok := goja.AssertFunction(call.Argument(2)); ok {
+			if _, err := fn(goja.Undefined(), tileObj); err != nil {
+				panic(runtime.NewGoError(err))
+			}
+		}
+		return tileObj
+	})
 	return obj
 }
 

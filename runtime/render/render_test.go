@@ -102,3 +102,38 @@ func TestFlushPreservesHiddenPageDirtyTiles(t *testing.T) {
 		t.Fatal("expected alt tile to be clean after its page flushes")
 	}
 }
+
+func TestFlushDrawsDirtySideDisplays(t *testing.T) {
+	rt := reactive.NewRuntime()
+	uiRuntime := ui.New(rt)
+	page := uiRuntime.AddPage("home")
+	left := page.AddDisplay(ui.DisplayLeft)
+	left.SetText("LEFT")
+	right := page.AddDisplay(ui.DisplayRight)
+	right.SetText("RIGHT")
+	if err := uiRuntime.Show("home"); err != nil {
+		t.Fatalf("show home: %v", err)
+	}
+
+	leftTarget := &fakeTarget{}
+	mainTarget := &fakeTarget{}
+	rightTarget := &fakeTarget{}
+	r := NewWithDisplays(uiRuntime, map[string]DrawTarget{
+		ui.DisplayLeft:  leftTarget,
+		ui.DisplayMain:  mainTarget,
+		ui.DisplayRight: rightTarget,
+	})
+	flushed := r.Flush()
+	if flushed != 2 {
+		t.Fatalf("expected 2 flushed side displays, got %d", flushed)
+	}
+	if len(leftTarget.calls) != 1 || len(rightTarget.calls) != 1 {
+		t.Fatalf("expected one draw call per side display, got left=%d right=%d", len(leftTarget.calls), len(rightTarget.calls))
+	}
+	if len(mainTarget.calls) != 0 {
+		t.Fatalf("expected no main draw calls, got %d", len(mainTarget.calls))
+	}
+	if leftTarget.calls[0].im.Bounds().Dx() != SideDisplayWidth || rightTarget.calls[0].im.Bounds().Dx() != SideDisplayWidth {
+		t.Fatal("expected side display renders to use side display dimensions")
+	}
+}

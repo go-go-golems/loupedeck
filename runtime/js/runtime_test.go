@@ -86,6 +86,9 @@ func TestRequireStateAndUIBuildReactivePage(t *testing.T) {
 		    tile.icon("record");
 		    tile.text(() => mode.get());
 		  });
+		  page.display("left", display => {
+		    display.text("LEFT");
+		  });
 		});
 		ui.show("home");
 		mode.set("REC");
@@ -103,6 +106,10 @@ func TestRequireStateAndUIBuildReactivePage(t *testing.T) {
 	}
 	if tile.Text() != "REC" {
 		t.Fatalf("expected text REC, got %q", tile.Text())
+	}
+	left := env.UI.Page("home").Display("left")
+	if left == nil || left.Text() != "LEFT" {
+		t.Fatalf("expected left display text LEFT, got %#v", left)
 	}
 	if env.UI.ActivePage() == nil || env.UI.ActivePage().Name != "home" {
 		t.Fatal("expected home to be active page")
