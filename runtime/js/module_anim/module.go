@@ -2,6 +2,7 @@ package module_anim
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"time"
 
@@ -100,6 +101,9 @@ func numericTarget(bindings runtimebridge.Bindings, ownerCtx context.Context, ru
 			return nil, err
 		})
 		if err != nil {
+			if errors.Is(err, runtimeowner.ErrClosed) || errors.Is(err, runtimeowner.ErrScheduleRejected) || errors.Is(err, runtimeowner.ErrCanceled) {
+				return
+			}
 			panic(runtime.NewGoError(err))
 		}
 	}

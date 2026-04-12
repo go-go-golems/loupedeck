@@ -22,6 +22,8 @@ const active = state.signal(0);
 const lastEvent = state.signal("BOOT");
 const ripple = state.signal(0);
 const flash = state.signal(0);
+let rippleHandle = null;
+let flashHandle = null;
 
 const titles = ["01", "02", "03", "04", "05", "06", "07", "08", "09", "10", "11", "12"];
 const subs = ["EYE", "SPIN", "TEETH", "MELT", "HOLE", "FACE", "WORM", "NOISE", "WARP", "CRACK", "PULSE", "VOID"];
@@ -186,11 +188,19 @@ ui.page("cyb-ito-proto", page => {
   });
 });
 
+function retrigger(signal, targetValue, durationMs, previousHandle) {
+  if (previousHandle && previousHandle.stop) {
+    previousHandle.stop();
+  }
+  signal.set(targetValue);
+  return anim.to(signal, 0, durationMs);
+}
+
 function activate(idx, reason) {
   const next = clamp(idx, 0, 11);
   active.set(next);
-  ripple.set(1);
-  flash.set(1);
+  rippleHandle = retrigger(ripple, 1, 220, rippleHandle);
+  flashHandle = retrigger(flash, 1, 140, flashHandle);
   lastEvent.set(`${reason} -> ${titles[next]}`);
   renderAll();
 }
@@ -210,8 +220,6 @@ activate(0, "BOOT");
 anim.loop(1200, t => {
   phase.set(t);
   scroll.set((scroll.get() + 1) % (SIDE_H + 20));
-  ripple.set(Math.max(0, ripple.get() - 0.08));
-  flash.set(Math.max(0, flash.get() - 0.12));
   renderAll();
 });
 
