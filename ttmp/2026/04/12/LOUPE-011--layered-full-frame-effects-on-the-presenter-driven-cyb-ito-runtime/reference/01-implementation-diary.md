@@ -370,3 +370,70 @@ Furthermore, the spiral ripple touch should spread actoss the entire canvas, not
   - `/home/manuel/code/wesen/2026-04-11--loupedeck-test/ttmp/2026/04/12/LOUPE-011--layered-full-frame-effects-on-the-presenter-driven-cyb-ito-runtime/scripts/05-run-red-ripple-scene-interactive.sh`
 - Main code file for this tuning pass:
   - `/home/manuel/code/wesen/2026-04-11--loupedeck-test/examples/js/10-cyb-ito-full-page-all12.js`
+
+## Step 5: Fix the fullscreen ripple origin after discovering the touch coordinates were already display-relative
+
+The next bug report was very concrete and extremely useful: touching `T1` spawned the ripple near `T2`, `T2` near `T4`, and other touches landed similarly offset. That pattern made the root cause fairly obvious before I even re-read the event path: I was probably double-applying an X offset somewhere instead of using the event coordinates as they were.
+
+That turned out to be exactly what was happening. The touch callback already provides coordinates relative to the whole display. For the main display, the correct conversion to scene coordinates is to subtract the `60px` left strip. I had instead treated the event coordinates as tile-local and added the tile origin again, which shifted the ripple horizontally and in some cases diagonally depending on which tile was touched.
+
+### Prompt Context
+
+**User prompt (verbatim):** "the computation of the screen position to play the ripple spiral at is off, when i click on T1 th espiral is on T2, on T2 -> T4, T5 it's diagonally one down at T10, T6 is T12. probably just a scaling issue."
+
+**Assistant interpretation:** The fullscreen ripple origin math is wrong; inspect the touch coordinate frame and fix the mapping from touch events to main-surface coordinates.
+
+**Inferred user intent:** The user wants the ripple to originate exactly where they touch, not just to have the general effect present.
+
+**Commit (code):** `7d074db` — `Fix touch ripple origin coordinate mapping`
+
+### What I did
+- Re-read the touch event path in:
+  - `/home/manuel/code/wesen/2026-04-11--loupedeck-test/listen.go`
+  - `/home/manuel/code/wesen/2026-04-11--loupedeck-test/inputs.go`
+- Confirmed that touch callbacks already receive `x` and `y` relative to the whole display.
+- Updated `/home/manuel/code/wesen/2026-04-11--loupedeck-test/examples/js/10-cyb-ito-full-page-all12.js` so the ripple origin uses:
+  - `mainX = touchX - 60`
+  - `mainY = touchY`
+  for main-surface coordinates, with clamping to valid bounds.
+- Ran `go test ./...`.
+
+### Why
+- The scene was treating whole-display coordinates as if they were tile-local coordinates.
+- That caused the X position to be offset by the tile origin one extra time, which matches the user’s observed “one tile over” pattern.
+
+### What worked
+- The bug was small and localized.
+- The user’s touch-to-wrong-tile examples were enough to infer the coordinate-frame mistake quickly.
+- Tests still pass after the correction.
+
+### What didn't work
+- The original assumption about the event coordinate frame was wrong.
+- I initially optimized the visual effect before fully validating the coordinate semantics, which is why this correction was needed.
+
+### What I learned
+- The touch event data in this runtime is already more useful than I first treated it: it is display-relative, not tile-relative.
+- For mixed-display layouts like left/main/right, it is important to explicitly convert coordinates into the target surface’s local space rather than assume locality.
+
+### What was tricky to build
+- The main trickiness here was not the fix itself, but distinguishing between a scaling problem and a coordinate-frame problem. The symptom looked like “scaling,” but the consistent tile-to-tile shift pattern pointed more strongly to a frame-of-reference bug.
+
+### What warrants a second pair of eyes
+- If we later add touch-driven effects on the left or right display strips, we should be equally explicit about how those display-relative coordinates are transformed into each target surface’s coordinate system.
+
+### What should be done in the future
+- Re-run the interactive hardware test and confirm that each touched tile now seeds the ripple from the correct place.
+- If there is still slight misalignment, the next likely issue would be bezel perception or the exact meaning of the touch event X/Y within the tile.
+
+### Code review instructions
+- Start with `/home/manuel/code/wesen/2026-04-11--loupedeck-test/inputs.go` and note the comment that touch coordinates are relative to the whole display.
+- Then inspect the corrected `triggerTouchRipple(...)` in `/home/manuel/code/wesen/2026-04-11--loupedeck-test/examples/js/10-cyb-ito-full-page-all12.js`.
+- Validate with:
+  - `go test ./...`
+  - then run the interactive scene and touch a few known tiles (`T1`, `T2`, `T5`, `T6`) to confirm the ripple origin is now correct.
+
+### Technical details
+- Main corrected code file:
+  - `/home/manuel/code/wesen/2026-04-11--loupedeck-test/examples/js/10-cyb-ito-full-page-all12.js`
+- Supporting input semantics reference:
+  - `/home/manuel/code/wesen/2026-04-11--loupedeck-test/inputs.go`

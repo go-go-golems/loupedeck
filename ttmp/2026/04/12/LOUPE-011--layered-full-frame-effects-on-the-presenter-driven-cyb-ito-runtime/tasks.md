@@ -57,6 +57,15 @@
 - [x] Run `docmgr doctor --ticket LOUPE-011 --stale-after 30`
 - [ ] Commit the bookkeeping slice
 
+## Phase H: touch coordinate correction
+
+- [x] Correct the fullscreen ripple origin mapping so touch coordinates land on the intended tile/canvas position
+- [x] Run `go test ./...`
+- [x] Commit the code slice
+- [x] Update the diary and ticket bookkeeping
+- [x] Run `docmgr doctor --ticket LOUPE-011 --stale-after 30`
+- [ ] Commit the bookkeeping slice
+
 ## Future work candidates after the current slices
 
 - [ ] Cache static base/chrome layers instead of rebuilding everything every frame

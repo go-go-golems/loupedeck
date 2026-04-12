@@ -17,3 +17,4 @@
 - Added an interactive ticket-local run script for user verification: `scripts/05-run-red-ripple-scene-interactive.sh`.
 - Tuned the selected-tile accent so the actual mini-app/art remains visible while being tinted red instead of being partially covered by a red overlay (`a78d513` — `Tune red accent rendering and fullscreen touch ripple`).
 - Tuned the touch ripple so it uses the touch location and reads as a true fullscreen spiral/ring effect rather than a mostly tile-local accent.
+- Corrected the touch-to-main-display coordinate mapping after user feedback showed the ripple origin was shifted by one or more tiles. The touch callback already supplied coordinates relative to the whole display, so the scene now subtracts the `60px` left-strip offset instead of adding tile-local offsets on top (`7d074db` — `Fix touch ripple origin coordinate mapping`).

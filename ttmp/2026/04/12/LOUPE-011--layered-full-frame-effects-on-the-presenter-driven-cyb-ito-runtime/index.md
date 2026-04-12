@@ -51,8 +51,8 @@ Current completion state:
 - First FX slice added: scanlines, grain/noise, and active-tile sweep/ripple overlays
 - Color-tinted display-layer support added for overlays
 - Selected tile now uses a red accent layer that preserves the underlying mini-app/art instead of covering it with a red mask
-- A large touch-triggered spiral ripple overlay now uses the touch position and is tuned to read across the whole screen
-- `go test ./...` passed after the accent/ripple runtime extension and the follow-up scene tuning
+- A large touch-triggered spiral ripple overlay now uses corrected main-display touch coordinates and is tuned to read across the whole screen
+- `go test ./...` passed after the accent/ripple runtime extension, the visual tuning pass, and the touch-coordinate correction
 - Hardware smoke validation was previously successful for the layered compositor slice; the current red/ripple tuning is ready for user verification via the archived interactive run script
 
 ## Topics
