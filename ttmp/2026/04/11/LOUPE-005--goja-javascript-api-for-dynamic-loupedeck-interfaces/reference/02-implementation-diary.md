@@ -839,3 +839,142 @@ type EventSource interface {
 ```text
 JS callback registration -> host.Runtime registration -> existing Loupedeck listener subscription
 ```
+
+## Step 8: Implement milestone E as the first goja adapter slice
+
+After four pure-Go milestones, the project finally crossed the boundary into goja. Because the lower layers already existed, the adapter work stayed relatively focused: build a small environment bootstrap, register native `require(...)` modules, map JS functions onto the host/runtime services, and prove that a script can actually create a page and mutate retained state through those modules.
+
+This was the first milestone where the work became recognizably “JavaScript API” rather than just runtime infrastructure. It also validated the main architectural claim from the design docs: if the domain logic is already in Go, the goja layer can stay thin.
+
+### Prompt Context
+
+**User prompt (verbatim):** (same as Step 4)
+
+**Assistant interpretation:** Continue into the first JS-facing implementation slice after the pure-Go runtime layers are in place, while keeping the same commit/test/diary discipline.
+
+**Inferred user intent:** Reach the first point where a JavaScript script can actually define a reactive page and interact with the retained runtime through `require(...)` modules, not just through future design sketches.
+
+**Commit (code):** `51469ca` — `Add first goja runtime modules`
+
+### What I did
+- Added goja dependencies with:
+
+```bash
+go get github.com/dop251/goja@latest github.com/dop251/goja_nodejs/require@latest
+```
+
+- Added the runtime bootstrap and module packages:
+
+```text
+runtime/js/env/env.go
+runtime/js/runtime.go
+runtime/js/module_state/module.go
+runtime/js/module_ui/module.go
+runtime/js/runtime_test.go
+```
+
+- Added the first end-to-end example command:
+
+```text
+cmd/loupe-js-demo/main.go
+```
+
+- Implemented `loupedeck/state` with:
+  - `signal(...)`
+  - `computed(...)`
+  - `batch(...)`
+  - `watch(...)`
+- Implemented `loupedeck/ui` with:
+  - `page(...)`
+  - `show(...)`
+  - page `.tile(...)`
+  - tile `.text(...)`, `.icon(...)`, `.visible(...)`
+  - `onButton(...)`, `onTouch(...)`, `onKnob(...)`
+- Added integration tests that prove:
+  - `require("loupedeck/state")` and `require("loupedeck/ui")` load successfully
+  - a JS script can create a page and drive tile bindings via signals
+  - a JS button callback can mutate a signal and update retained UI state
+- Added a simple demo command that runs a JS page script and renders dirty tiles to PNG files in an output directory.
+- Ran:
+
+```bash
+go mod tidy
+go test ./...
+```
+
+### Why
+- This is the milestone that actually validates the chosen architecture against a real scripting surface.
+- The first JS slice stayed intentionally narrow and aligned with the design docs: state + UI, but not yet animation/easing.
+- The PNG-rendering demo command gives a low-friction end-to-end path that does not depend on hardware access for validation.
+
+### What worked
+- The pure-Go-first approach paid off. The module adapters are mostly argument decoding and callback bridging because the real logic already exists in `runtime/reactive`, `runtime/ui`, and `runtime/host`.
+- The `Draw(image, x, y)` render bridge made it straightforward to build a non-hardware example command by swapping in a PNG-writing target.
+- The integration tests prove the key milestone-E claim: a JS script can define retained UI and update it through reactive state and input callbacks.
+
+### What didn't work
+- The first `go test ./...` after adding the goja dependencies failed because of missing `go.sum` entries pulled in through the now-upgraded dependency graph:
+
+```text
+missing go.sum entry for module providing package golang.org/x/sys/unix (imported by go.bug.st/serial)
+```
+
+- Command that failed:
+
+```bash
+go test ./...
+```
+
+- Fix: run:
+
+```bash
+go mod tidy
+```
+
+- After that, the full repository test suite passed.
+
+### What I learned
+- The module surface is already expressive enough for a useful first example without adding animation yet.
+- Using `goja_nodejs/require` for native module registration is a pragmatic fit for this milestone because it gives the desired `require("loupedeck/...")` ergonomics without inventing a custom loader first.
+
+### What was tricky to build
+- The trickiest part was callback bridging. The UI module supports both static values and reactive JS functions for tile properties, which means JS callbacks are being invoked from Go-side reactive bindings. That is fine for the current single-threaded/simple test scenarios, but it is a clear area to watch as timers and animation become more sophisticated.
+- Another subtle point was making the environment bootstrap tolerant of partial construction. The `env.Ensure(...)` helper now stitches together `Reactive`, `UI`, and `Host` in a consistent way so tests and commands do not each have to repeat that assembly logic.
+
+### What warrants a second pair of eyes
+- The current JS callback execution model assumes relatively disciplined host usage and is not yet a hardened “all callbacks serialized on one VM thread” runtime. That will matter more once animation/timer-driven JS becomes richer.
+- The current `loupedeck/ui` module accepts named buttons/touches/knobs through string maps. That is fine for the first slice, but reviewers may want to decide later whether the API should also export symbolic constants.
+
+### What should be done in the future
+- Build milestone F: animation and easing modules on top of the now-working state/UI/host JS slice.
+- Later revisit VM-thread ownership and callback serialization once timers and animation start invoking more JS over time.
+
+### Code review instructions
+- Start with:
+  - `runtime/js/runtime.go`
+  - `runtime/js/module_state/module.go`
+  - `runtime/js/module_ui/module.go`
+  - `runtime/js/runtime_test.go`
+  - `cmd/loupe-js-demo/main.go`
+- Validate with:
+
+```bash
+go mod tidy
+go test ./...
+```
+
+### Technical details
+- The milestone-E module names are now real and loadable via:
+
+```javascript
+const state = require("loupedeck/state")
+const ui = require("loupedeck/ui")
+```
+
+- The current environment bootstrap rule is:
+
+```text
+if Host exists, reuse its UI
+else if UI exists, reuse its Reactive runtime
+else create Reactive -> UI -> Host in that order
+```

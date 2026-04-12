@@ -85,14 +85,14 @@
 - [x] Record milestone D in diary/changelog
 
 ### Implementation milestone E: first goja adapters
-- [ ] Add `goja` dependency and any module/runtime support packages needed
-- [ ] Add `runtime/js/module_state` with thin adapters over `runtime/reactive`
-- [ ] Add `runtime/js/module_ui` with thin adapters over retained UI/runtime services
-- [ ] Add initial module-loading integration test using `require(...)`
-- [ ] Add first end-to-end example command that runs a JS page script
-- [ ] Run `go test ./...`
-- [ ] Commit milestone E
-- [ ] Record milestone E in diary/changelog
+- [x] Add `goja` dependency and any module/runtime support packages needed
+- [x] Add `runtime/js/module_state` with thin adapters over `runtime/reactive`
+- [x] Add `runtime/js/module_ui` with thin adapters over retained UI/runtime services
+- [x] Add initial module-loading integration test using `require(...)`
+- [x] Add first end-to-end example command that runs a JS page script
+- [x] Run `go test ./...`
+- [x] Commit milestone E
+- [x] Record milestone E in diary/changelog
 
 ### Implementation milestone F: animation and easing
 - [ ] Add `runtime/anim` package scaffold

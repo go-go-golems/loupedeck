@@ -78,3 +78,18 @@ Implemented milestone D as a host runtime shell in `runtime/host`, covering atta
 - /home/manuel/code/wesen/2026-04-11--loupedeck-test/runtime/host/pages.go — Page-show hooks and `Show(...)` lifecycle routing
 - /home/manuel/code/wesen/2026-04-11--loupedeck-test/runtime/host/timers.go — Host-owned timeout and interval timers
 - /home/manuel/code/wesen/2026-04-11--loupedeck-test/runtime/host/runtime_test.go — Unit tests for callback delivery, page-show hooks, and timer behavior
+
+## 2026-04-11
+
+Implemented milestone E as the first goja adapter slice, adding native `require("loupedeck/state")` and `require("loupedeck/ui")` modules on top of the new pure-Go runtime layers, plus a small JS demo command that renders a script-defined page into PNG tiles. This is the first point where a JS script can create reactive state, define a retained page, register UI callbacks, and drive the retained Go runtime end to end.
+
+### Related Files
+
+- /home/manuel/code/wesen/2026-04-11--loupedeck-test/go.mod — Added `goja` / `goja_nodejs` runtime dependencies needed for native-module loading via `require(...)`
+- /home/manuel/code/wesen/2026-04-11--loupedeck-test/go.sum — Updated dependency lockfile after adding the first goja slice and running `go mod tidy`
+- /home/manuel/code/wesen/2026-04-11--loupedeck-test/runtime/js/env/env.go — Shared environment bootstrap joining reactive, UI, and host runtime services
+- /home/manuel/code/wesen/2026-04-11--loupedeck-test/runtime/js/runtime.go — goja runtime construction and native-module registration
+- /home/manuel/code/wesen/2026-04-11--loupedeck-test/runtime/js/module_state/module.go — `loupedeck/state` native module exposing signals, computed values, batching, and watchers
+- /home/manuel/code/wesen/2026-04-11--loupedeck-test/runtime/js/module_ui/module.go — `loupedeck/ui` native module exposing pages, tiles, show, and input callback registration
+- /home/manuel/code/wesen/2026-04-11--loupedeck-test/runtime/js/runtime_test.go — Integration tests proving `require(...)` module loading and JS-driven reactive page updates
+- /home/manuel/code/wesen/2026-04-11--loupedeck-test/cmd/loupe-js-demo/main.go — First end-to-end example command that runs a JS page script and renders dirty tiles to PNG files
