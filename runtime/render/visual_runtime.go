@@ -102,6 +102,10 @@ func (r *Renderer) renderDisplay(display *ui.Display) image.Image {
 		return im
 	}
 
+	if surface := display.Surface(); surface != nil {
+		return surface.ToRGBA(r.Theme.Foreground, r.Theme.Background)
+	}
+
 	accentHeight := 8
 	if im.Bounds().Dy() < accentHeight {
 		accentHeight = im.Bounds().Dy()

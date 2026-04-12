@@ -10,6 +10,7 @@ import (
 	"github.com/go-go-golems/loupedeck/pkg/runtimebridge"
 	"github.com/go-go-golems/loupedeck/pkg/runtimeowner"
 	envpkg "github.com/go-go-golems/loupedeck/runtime/js/env"
+	"github.com/go-go-golems/loupedeck/runtime/js/module_gfx"
 	"github.com/go-go-golems/loupedeck/runtime/ui"
 )
 
@@ -241,6 +242,10 @@ func displayObject(bindings runtimebridge.Bindings, ownerCtx context.Context, ru
 		} else {
 			display.SetVisible(call.Argument(0).ToBoolean())
 		}
+		return goja.Undefined()
+	})
+	_ = obj.Set("surface", func(call goja.FunctionCall) goja.Value {
+		display.SetSurface(module_gfx.SurfaceFromValue(call.Argument(0), runtime))
 		return goja.Undefined()
 	})
 	_ = obj.Set("tile", func(call goja.FunctionCall) goja.Value {

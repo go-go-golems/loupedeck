@@ -4,6 +4,7 @@ import (
 	"image"
 	"testing"
 
+	"github.com/go-go-golems/loupedeck/runtime/gfx"
 	"github.com/go-go-golems/loupedeck/runtime/reactive"
 	"github.com/go-go-golems/loupedeck/runtime/ui"
 )
@@ -135,5 +136,31 @@ func TestFlushDrawsDirtySideDisplays(t *testing.T) {
 	}
 	if leftTarget.calls[0].im.Bounds().Dx() != SideDisplayWidth || rightTarget.calls[0].im.Bounds().Dx() != SideDisplayWidth {
 		t.Fatal("expected side display renders to use side display dimensions")
+	}
+}
+
+func TestFlushDrawsDisplaySurfaceContent(t *testing.T) {
+	rt := reactive.NewRuntime()
+	uiRuntime := ui.New(rt)
+	page := uiRuntime.AddPage("home")
+	left := page.AddDisplay(ui.DisplayLeft)
+	surface := gfx.NewSurface(SideDisplayWidth, SideDisplayHeight)
+	surface.FillRect(0, 0, 4, 4, 120)
+	left.SetSurface(surface)
+	if err := uiRuntime.Show("home"); err != nil {
+		t.Fatalf("show home: %v", err)
+	}
+	leftTarget := &fakeTarget{}
+	r := NewWithDisplays(uiRuntime, map[string]DrawTarget{ui.DisplayLeft: leftTarget})
+	flushed := r.Flush()
+	if flushed != 1 {
+		t.Fatalf("expected one flushed display surface, got %d", flushed)
+	}
+	if len(leftTarget.calls) != 1 {
+		t.Fatalf("expected one left display draw call, got %d", len(leftTarget.calls))
+	}
+	rv, gv, bv, av := leftTarget.calls[0].im.At(0, 0).RGBA()
+	if rv == 0 && gv == 0 && bv == 0 && av == 0 {
+		t.Fatal("expected rendered surface pixel to be non-zero")
 	}
 }

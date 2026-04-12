@@ -72,4 +72,5 @@ func (s *Surface) Text(text string, opts TextOptions) {
 			s.Add(opts.X+x, opts.Y+y, v)
 		}
 	}
+	s.notifyChanged()
 }

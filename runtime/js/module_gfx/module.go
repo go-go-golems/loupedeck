@@ -71,7 +71,7 @@ func surfaceObject(runtime *goja.Runtime, surface *gfx.Surface) goja.Value {
 		return goja.Undefined()
 	})
 	_ = obj.Set("compositeAdd", func(call goja.FunctionCall) goja.Value {
-		other := exportSurface(call.Argument(0), runtime)
+		other := SurfaceFromValue(call.Argument(0), runtime)
 		surface.CompositeAdd(other, int(call.Argument(1).ToInteger()), int(call.Argument(2).ToInteger()))
 		return goja.Undefined()
 	})
@@ -82,7 +82,7 @@ func surfaceObject(runtime *goja.Runtime, surface *gfx.Surface) goja.Value {
 	return obj
 }
 
-func exportSurface(value goja.Value, runtime *goja.Runtime) *gfx.Surface {
+func SurfaceFromValue(value goja.Value, runtime *goja.Runtime) *gfx.Surface {
 	obj := value.ToObject(runtime)
 	exported := obj.Get("__surface").Export()
 	surface, ok := exported.(*gfx.Surface)

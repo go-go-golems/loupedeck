@@ -10,6 +10,9 @@ type Surface struct {
 	width  int
 	height int
 	pixels []uint8
+
+	nextListenerID uint64
+	listeners      map[uint64]func()
 }
 
 func NewSurface(width, height int) *Surface {
@@ -51,6 +54,7 @@ func (s *Surface) Clear(v uint8) {
 	for i := range s.pixels {
 		s.pixels[i] = v
 	}
+	s.notifyChanged()
 }
 
 func (s *Surface) At(x, y int) uint8 {
@@ -84,6 +88,7 @@ func (s *Surface) FillRect(x, y, width, height int, v uint8) {
 			s.Set(px, py, v)
 		}
 	}
+	s.notifyChanged()
 }
 
 func (s *Surface) Line(x1, y1, x2, y2 int, v uint8) {
@@ -116,6 +121,7 @@ func (s *Surface) Line(x1, y1, x2, y2 int, v uint8) {
 			y1 += sy
 		}
 	}
+	s.notifyChanged()
 }
 
 func (s *Surface) Crosshatch(x, y, width, height, density int, v uint8) {
@@ -135,6 +141,7 @@ func (s *Surface) Crosshatch(x, y, width, height, density int, v uint8) {
 			}
 		}
 	}
+	s.notifyChanged()
 }
 
 func (s *Surface) CompositeAdd(src *Surface, xoff, yoff int) {
@@ -150,6 +157,22 @@ func (s *Surface) CompositeAdd(src *Surface, xoff, yoff int) {
 			s.Add(xoff+x, yoff+y, v)
 		}
 	}
+	s.notifyChanged()
+}
+
+func (s *Surface) OnChange(fn func()) Subscription {
+	if s == nil || fn == nil {
+		return &surfaceSubscription{}
+	}
+	if s.listeners == nil {
+		s.listeners = map[uint64]func(){}
+	}
+	s.nextListenerID++
+	id := s.nextListenerID
+	s.listeners[id] = fn
+	return &surfaceSubscription{closeFn: func() {
+		delete(s.listeners, id)
+	}}
 }
 
 func (s *Surface) ToRGBA(fg, bg color.Color) *image.RGBA {
@@ -178,6 +201,32 @@ func (s *Surface) ToRGBA(fg, bg color.Color) *image.RGBA {
 
 func (s *Surface) inBounds(x, y int) bool {
 	return x >= 0 && x < s.width && y >= 0 && y < s.height
+}
+
+type Subscription interface {
+	Close() error
+}
+
+type surfaceSubscription struct {
+	closeFn func()
+}
+
+func (s *surfaceSubscription) Close() error {
+	if s == nil || s.closeFn == nil {
+		return nil
+	}
+	s.closeFn()
+	s.closeFn = nil
+	return nil
+}
+
+func (s *Surface) notifyChanged() {
+	if s == nil || len(s.listeners) == 0 {
+		return
+	}
+	for _, fn := range s.listeners {
+		fn()
+	}
 }
 
 func saturatingAdd(a, b uint8) uint8 {

@@ -3,6 +3,7 @@ package ui
 import (
 	"testing"
 
+	"github.com/go-go-golems/loupedeck/runtime/gfx"
 	"github.com/go-go-golems/loupedeck/runtime/reactive"
 )
 
@@ -169,5 +170,22 @@ func TestDisplayMainTileCompatibility(t *testing.T) {
 	tileViaDisplay := main.Tile(2, 1)
 	if tileViaPage == nil || tileViaDisplay == nil || tileViaPage != tileViaDisplay {
 		t.Fatal("expected page tile API to delegate to main display")
+	}
+}
+
+func TestDisplaySurfaceMutationMarksDisplayDirty(t *testing.T) {
+	ui := New(nil)
+	page := ui.AddPage("home")
+	left := page.AddDisplay(DisplayLeft)
+	surface := gfx.NewSurface(8, 8)
+	left.SetSurface(surface)
+	if err := ui.Show("home"); err != nil {
+		t.Fatalf("show home: %v", err)
+	}
+	ui.ClearDirty()
+	surface.FillRect(0, 0, 4, 4, 100)
+	dirty := ui.DirtyDisplays()
+	if len(dirty) != 1 || dirty[0] != left {
+		t.Fatalf("expected surface mutation to mark left display dirty, got %#v", dirty)
 	}
 }

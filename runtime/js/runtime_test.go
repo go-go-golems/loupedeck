@@ -269,6 +269,36 @@ func TestGfxModuleCanBuildAndCompositeSurface(t *testing.T) {
 	}
 }
 
+func TestDisplayCanOwnGfxSurface(t *testing.T) {
+	rt := NewRuntime(nil)
+	defer rt.Close(nil)
+	env := rt.Env
+
+	_, err := rt.RunString(nil, `
+		const ui = require("loupedeck/ui");
+		const gfx = require("loupedeck/gfx");
+		const s = gfx.surface(60, 270);
+		s.fillRect(0, 0, 5, 5, 120);
+		ui.page("home", page => {
+		  page.display("left", display => {
+		    display.surface(s);
+		  });
+		});
+		ui.show("home");
+	`)
+	if err != nil {
+		t.Fatalf("run script: %v", err)
+	}
+
+	left := env.UI.Page("home").Display("left")
+	if left == nil || left.Surface() == nil {
+		t.Fatal("expected left display to own a gfx surface")
+	}
+	if got := left.Surface().At(0, 0); got == 0 {
+		t.Fatal("expected surface content to remain attached to display")
+	}
+}
+
 func TestCloseRemovesRuntimeBridgeBindings(t *testing.T) {
 	rt := NewRuntime(nil)
 	if _, ok := runtimebridge.Lookup(rt.VM); !ok {

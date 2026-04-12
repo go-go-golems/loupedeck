@@ -3,6 +3,7 @@ package ui
 import (
 	"fmt"
 
+	"github.com/go-go-golems/loupedeck/runtime/gfx"
 	"github.com/go-go-golems/loupedeck/runtime/reactive"
 )
 
@@ -31,6 +32,8 @@ type Display struct {
 	visible    bool
 	dirty      bool
 	configured bool
+	surface    *gfx.Surface
+	surfaceSub gfx.Subscription
 
 	textSub    reactive.Subscription
 	iconSub    reactive.Subscription
@@ -57,6 +60,10 @@ func (d *Display) Dirty() bool {
 
 func (d *Display) Configured() bool {
 	return d.configured
+}
+
+func (d *Display) Surface() *gfx.Surface {
+	return d.surface
 }
 
 func (d *Display) SetText(value string) {
@@ -114,6 +121,21 @@ func (d *Display) BindVisible(fn func() bool) {
 	d.visibleSub = d.page.ui.Reactive.Watch(func() {
 		d.SetVisible(fn())
 	})
+}
+
+func (d *Display) SetSurface(surface *gfx.Surface) {
+	d.configured = true
+	if d.surfaceSub != nil {
+		_ = d.surfaceSub.Close()
+		d.surfaceSub = nil
+	}
+	d.surface = surface
+	if surface != nil {
+		d.surfaceSub = surface.OnChange(func() {
+			d.markDirty()
+		})
+	}
+	d.markDirty()
 }
 
 func (d *Display) AddTile(col, row int) *Tile {
