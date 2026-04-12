@@ -83,10 +83,21 @@ func (u *UI) DirtyTiles() []*Tile {
 }
 
 func (u *UI) ClearDirty() {
+	tiles := make([]*Tile, 0, len(u.dirtyTiles))
 	for tile := range u.dirtyTiles {
-		tile.dirty = false
+		tiles = append(tiles, tile)
 	}
-	u.dirtyTiles = map[*Tile]struct{}{}
+	u.ClearDirtyTiles(tiles)
+}
+
+func (u *UI) ClearDirtyTiles(tiles []*Tile) {
+	for _, tile := range tiles {
+		if tile == nil {
+			continue
+		}
+		tile.dirty = false
+		delete(u.dirtyTiles, tile)
+	}
 }
 
 func (u *UI) markDirty(tile *Tile) {
