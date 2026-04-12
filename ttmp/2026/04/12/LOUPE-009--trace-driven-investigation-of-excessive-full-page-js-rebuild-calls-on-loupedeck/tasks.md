@@ -32,8 +32,8 @@
 
 ### Phase D: Go-side flush correlation
 
-- [ ] Add minimal Go-side trace events around flush tick/begin/end in `cmd/loupe-js-live/main.go`
-- [ ] Add optional trace output flags and a bounded dump path in the live runner
+- [x] Add minimal Go-side trace events around flush tick/begin/end in `cmd/loupe-js-live/main.go`
+- [x] Add optional trace output flags and a bounded dump path in the live runner
 - [ ] If needed after the first trace run, add deeper trace points inside the renderer or writer
 
 ### Phase E: hardware evidence and interpretation

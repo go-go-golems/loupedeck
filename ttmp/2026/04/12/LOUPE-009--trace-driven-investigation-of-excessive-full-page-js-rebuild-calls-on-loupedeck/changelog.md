@@ -51,3 +51,12 @@ Implemented Phase C of `LOUPE-009`: scene-level breadcrumb instrumentation in th
 - /home/manuel/code/wesen/2026-04-11--loupedeck-test/runtime/js/examples_test.go — Indirectly validates the updated script by booting repo example scripts under test
 - /home/manuel/code/wesen/2026-04-11--loupedeck-test/ttmp/2026/04/12/LOUPE-009--trace-driven-investigation-of-excessive-full-page-js-rebuild-calls-on-loupedeck/tasks.md — Marked Phase C complete
 
+## 2026-04-12
+
+Implemented the first half of Phase D of `LOUPE-009`: Go-side flush correlation and live-runner trace dump controls. `cmd/loupe-js-live` now supports trace-specific flags (`--log-js-trace`, `--log-go-trace`, `--trace-limit`, `--trace-dump-on-exit`) and can emit ordered trace events for `go.flush.tick`, `go.flush.begin`, and `go.flush.end` using the same generic metrics collector as the JS trace events. The live runner now also uses a configurable trace-capacity collector so the trace buffer can be tuned per run, and it dumps trace events through the existing stats window/reset path rather than inventing a parallel output channel. The full repository test suite passed after this change.
+
+### Related Files
+
+- /home/manuel/code/wesen/2026-04-11--loupedeck-test/cmd/loupe-js-live/main.go — Added trace flags, trace-limit wiring, Go-side flush trace events, and trace dump formatting/output
+- /home/manuel/code/wesen/2026-04-11--loupedeck-test/ttmp/2026/04/12/LOUPE-009--trace-driven-investigation-of-excessive-full-page-js-rebuild-calls-on-loupedeck/tasks.md — Marked the first two Phase D tasks complete
+

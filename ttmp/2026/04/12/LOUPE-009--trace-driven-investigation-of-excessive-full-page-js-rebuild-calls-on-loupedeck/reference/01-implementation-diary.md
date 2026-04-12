@@ -294,3 +294,62 @@ go test ./runtime/js ./...
 ### What should be done in the future
 - Implement Phase D next: add Go-side flush trace points and live-runner trace dump flags.
 - Then capture the first no-input hardware trace and compute rebuilds-per-flush directly from the ordered events.
+
+## Step 5: Add Go-side flush trace points and live-runner trace dump controls
+
+After the scene-level breadcrumbs were in place, the next step was to correlate them with the Go-side flush path. Without that, the trace would still only tell us who asked for rebuilds, not how those rebuilds line up against actual flush attempts. The natural home for the first correlation slice was `cmd/loupe-js-live/main.go`, because it already owns the periodic flush loop and the current stats logging workflow.
+
+### What I did
+- Updated:
+  - `cmd/loupe-js-live/main.go`
+- Added new flags:
+  - `--log-js-trace`
+  - `--log-go-trace`
+  - `--trace-limit`
+  - `--trace-dump-on-exit`
+- Changed the live runner to construct the JS environment with a collector configured via:
+  - `metrics.NewWithTraceLimit(*traceLimit)`
+- Added Go-side trace events around the flush loop:
+  - `go.flush.tick`
+  - `go.flush.begin`
+  - `go.flush.end`
+- Used the same generic collector for both JS and Go trace events so later dumps can be correlated by one shared sequence stream.
+- Added trace dump formatting and filtering helpers so `js trace` and `go trace` can be logged separately while still being collected in the same underlying buffer.
+- Preserved the existing render/writer/JS stats logging path; trace dumping is layered on top of it rather than replacing it.
+- Validated by running:
+
+```bash
+gofmt -w cmd/loupe-js-live/main.go
+go test ./cmd/loupe-js-live ./...
+```
+
+### Why
+- We need Go-side breadcrumbs to answer the event-sequence question completely.
+- The flush loop in `cmd/loupe-js-live` is the first place where JS rebuild intent becomes Go-side renderer work.
+- Using the same collector for both JS and Go trace events keeps the design small and aligned with the reusable metrics substrate instead of creating yet another parallel debug channel.
+
+### What worked
+- The live runner now has the necessary switches to produce a real ordered trace log on the next hardware run.
+- Go-side flush activity can now be correlated against JS-side `loop.tick` / `renderAll.begin/end` breadcrumbs.
+- The full test suite remained green after the live-runner changes.
+
+### What didn't work
+- This slice still does not add deeper renderer or writer trace points; only the live-runner flush boundary is instrumented so far.
+- We have not yet captured the first real hardware trace log after this change, so the deeper Phase D task is still intentionally open.
+
+### What I learned
+- The existing stats window path was already a good place to dump trace data, as long as the collector snapshot includes trace events as well as counters/timings.
+- Using one collector for JS and Go trace breadcrumbs should make the later evidence much easier to read than two unrelated logs.
+
+### What was tricky to build
+- The main subtlety was avoiding a parallel trace-only output system. Reusing the existing snapshot/reset window keeps the design simpler, but it also means we need to be careful about how trace dumping and stats dumping interact.
+- Another subtle point was deciding how to separate JS and Go trace events in output while still preserving one shared collector. Prefix-based filtering is a reasonable first compromise.
+
+### What warrants a second pair of eyes
+- Once the first real trace capture exists, someone should review whether prefix-based JS/Go filtering is sufficient or whether we want a first-class event source field later.
+- The current dump path may still be somewhat affected by the same stats-window timing caveat discussed in `LOUPE-007`, so the first hardware trace should be reviewed with that in mind.
+
+### What should be done in the future
+- Capture the first no-input hardware trace next.
+- Use that trace to compute rebuilds-per-non-empty-flush and loop-ticks-per-non-empty-flush directly from ordered events.
+- Only then decide whether deeper renderer/writer trace points are necessary.

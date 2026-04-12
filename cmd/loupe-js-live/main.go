@@ -9,12 +9,15 @@ import (
 	"log/slog"
 	"os"
 	"os/signal"
+	"sort"
+	"strings"
 	"syscall"
 	"time"
 
 	loupedeck "github.com/go-go-golems/loupedeck"
 	jsruntime "github.com/go-go-golems/loupedeck/runtime/js"
 	envpkg "github.com/go-go-golems/loupedeck/runtime/js/env"
+	"github.com/go-go-golems/loupedeck/runtime/metrics"
 	"github.com/go-go-golems/loupedeck/runtime/render"
 )
 
@@ -26,6 +29,14 @@ func main() {
 	queueSize := flag.Int("queue-size", 256, "Writer queue size")
 	sendInterval := flag.Duration("send-interval", 35*time.Millisecond, "Writer pacing interval")
 	logEvents := flag.Bool("log-events", false, "Log high-level button/touch/knob events")
+	logRenderStats := flag.Bool("log-render-stats", false, "Log retained renderer flush statistics")
+	logWriterStats := flag.Bool("log-writer-stats", false, "Log writer queue/send statistics")
+	logJSStats := flag.Bool("log-js-stats", false, "Log JS-side metrics recorded through loupedeck/metrics")
+	logJSTrace := flag.Bool("log-js-trace", false, "Log JS-side ordered trace events recorded through loupedeck/metrics")
+	logGoTrace := flag.Bool("log-go-trace", false, "Log Go-side ordered trace events around flush activity")
+	traceLimit := flag.Int("trace-limit", metrics.DefaultTraceLimit, "Maximum number of ordered trace events to retain between dumps")
+	traceDumpOnExit := flag.Bool("trace-dump-on-exit", true, "Dump any remaining trace events and JS stats once more before exit")
+	statsInterval := flag.Duration("stats-interval", time.Second, "Interval for periodic stats logging")
 	exitOnCircle := flag.Bool("exit-on-circle", true, "Exit when the Circle button is pressed")
 	flag.Parse()
 
@@ -71,7 +82,7 @@ func main() {
 		listenErrCh <- deckConn.Listen()
 	}()
 
-	env := envpkg.Ensure(nil)
+	env := envpkg.Ensure(&envpkg.Environment{Metrics: metrics.NewWithTraceLimit(*traceLimit)})
 	env.Host.Attach(deckConn)
 	if *logEvents {
 		registerEventLogging(env)
@@ -111,6 +122,13 @@ func main() {
 
 	ticker := time.NewTicker(*flushInterval)
 	defer ticker.Stop()
+	var statsTicker *time.Ticker
+	var statsTick <-chan time.Time
+	if *statsInterval > 0 && (*logRenderStats || *logWriterStats || *logJSStats || *logJSTrace || *logGoTrace) {
+		statsTicker = time.NewTicker(*statsInterval)
+		defer statsTicker.Stop()
+		statsTick = statsTicker.C
+	}
 	var timeout <-chan time.Time
 	if *duration > 0 {
 		timer := time.NewTimer(*duration)
@@ -118,24 +136,85 @@ func main() {
 		timeout = timer.C
 	}
 
-	slog.Info("Loupedeck JS live runner started", "script", *scriptPath, "duration", *duration, "flush_interval", *flushInterval)
+	renderWindow := renderStatsWindow{}
+	lastWriterStats := deckConn.WriterStats()
+	dumpMetricsWindow := func(label string) {
+		if !*logJSStats && !*logJSTrace && !*logGoTrace {
+			return
+		}
+		snap := rt.Env.Metrics.SnapshotAndReset()
+		if *logJSStats {
+			slog.Info("js stats", "script", *scriptPath, "label", label, "counters", formatJSCounters(snap), "timings", formatJSTimings(snap))
+		}
+		if *logJSTrace {
+			for _, event := range filterTraceEvents(snap.Trace, false) {
+				slog.Info("js trace", "script", *scriptPath, "label", label, "seq", event.Seq, "event", event.Name, "fields", formatTraceFields(event.Fields))
+			}
+		}
+		if *logGoTrace {
+			for _, event := range filterTraceEvents(snap.Trace, true) {
+				slog.Info("go trace", "script", *scriptPath, "label", label, "seq", event.Seq, "event", event.Name, "fields", formatTraceFields(event.Fields))
+			}
+		}
+	}
+	slog.Info("Loupedeck JS live runner started", "script", *scriptPath, "duration", *duration, "flush_interval", *flushInterval, "send_interval", *sendInterval, "log_render_stats", *logRenderStats, "log_writer_stats", *logWriterStats, "log_js_stats", *logJSStats, "log_js_trace", *logJSTrace, "log_go_trace", *logGoTrace, "trace_limit", *traceLimit)
 	for {
 		select {
 		case <-ticker.C:
-			renderer.Flush()
+			dirtyDisplays := len(rt.Env.UI.DirtyDisplays())
+			dirtyTiles := len(rt.Env.UI.DirtyTiles())
+			if *logGoTrace {
+				rt.Env.Metrics.Trace("go.flush.tick", map[string]string{"dirtyDisplays": fmt.Sprintf("%d", dirtyDisplays), "dirtyTiles": fmt.Sprintf("%d", dirtyTiles)})
+			}
+			start := time.Now()
+			if *logGoTrace {
+				rt.Env.Metrics.Trace("go.flush.begin", map[string]string{"dirtyDisplays": fmt.Sprintf("%d", dirtyDisplays), "dirtyTiles": fmt.Sprintf("%d", dirtyTiles)})
+			}
+			flushed := renderer.Flush()
+			elapsed := time.Since(start)
+			if *logGoTrace {
+				rt.Env.Metrics.Trace("go.flush.end", map[string]string{"ops": fmt.Sprintf("%d", flushed), "elapsedMs": fmt.Sprintf("%.2f", float64(elapsed)/float64(time.Millisecond))})
+			}
+			if *logRenderStats {
+				renderWindow.Record(dirtyDisplays, dirtyTiles, flushed, elapsed)
+			}
+		case <-statsTick:
+			if *logRenderStats {
+				slog.Info("render stats", "script", *scriptPath, "stats", renderWindow.String())
+				renderWindow = renderStatsWindow{}
+			}
+			if *logWriterStats {
+				current := deckConn.WriterStats()
+				delta := diffWriterStats(lastWriterStats, current)
+				slog.Info("writer stats", "script", *scriptPath, "delta", delta, "current", current)
+				lastWriterStats = current
+			}
+			dumpMetricsWindow("interval")
 		case err := <-listenErrCh:
 			if err != nil {
 				fmt.Fprintf(os.Stderr, "listen: %v\n", err)
 			}
+			if *traceDumpOnExit {
+				dumpMetricsWindow("final")
+			}
 			clearDisplays(displays)
 			return
 		case <-sigCh:
+			if *traceDumpOnExit {
+				dumpMetricsWindow("final")
+			}
 			clearDisplays(displays)
 			return
 		case <-exitCh:
+			if *traceDumpOnExit {
+				dumpMetricsWindow("final")
+			}
 			clearDisplays(displays)
 			return
 		case <-timeout:
+			if *traceDumpOnExit {
+				dumpMetricsWindow("final")
+			}
 			clearDisplays(displays)
 			return
 		}
@@ -269,4 +348,123 @@ func buttonStatusName(s loupedeck.ButtonStatus) string {
 	default:
 		return fmt.Sprintf("status(%d)", s)
 	}
+}
+
+type renderStatsWindow struct {
+	FlushTicks      int
+	NonEmptyFlushes int
+	FlushedDisplays int
+	FlushedTiles    int
+	FlushedOps      int
+	TotalRender     time.Duration
+	MaxRender       time.Duration
+}
+
+func (w *renderStatsWindow) Record(dirtyDisplays, dirtyTiles, flushedOps int, elapsed time.Duration) {
+	if w == nil {
+		return
+	}
+	w.FlushTicks++
+	if dirtyDisplays == 0 && dirtyTiles == 0 && flushedOps == 0 {
+		return
+	}
+	w.NonEmptyFlushes++
+	w.FlushedDisplays += dirtyDisplays
+	w.FlushedTiles += dirtyTiles
+	w.FlushedOps += flushedOps
+	w.TotalRender += elapsed
+	if elapsed > w.MaxRender {
+		w.MaxRender = elapsed
+	}
+}
+
+func (w renderStatsWindow) String() string {
+	avgMs := 0.0
+	if w.NonEmptyFlushes > 0 {
+		avgMs = float64(w.TotalRender) / float64(time.Millisecond) / float64(w.NonEmptyFlushes)
+	}
+	return fmt.Sprintf("flush_ticks=%d non_empty_flushes=%d displays=%d tiles=%d ops=%d avg_render_ms=%.2f max_render_ms=%.2f",
+		w.FlushTicks,
+		w.NonEmptyFlushes,
+		w.FlushedDisplays,
+		w.FlushedTiles,
+		w.FlushedOps,
+		avgMs,
+		float64(w.MaxRender)/float64(time.Millisecond),
+	)
+}
+
+func diffWriterStats(a, b loupedeck.WriterStats) loupedeck.WriterStats {
+	return loupedeck.WriterStats{
+		QueuedCommands:    b.QueuedCommands - a.QueuedCommands,
+		SentCommands:      b.SentCommands - a.SentCommands,
+		SentMessages:      b.SentMessages - a.SentMessages,
+		FailedCommands:    b.FailedCommands - a.FailedCommands,
+		MaxQueueDepth:     maxInt(a.MaxQueueDepth, b.MaxQueueDepth),
+		CurrentQueueDepth: b.CurrentQueueDepth,
+	}
+}
+
+func maxInt(a, b int) int {
+	if a > b {
+		return a
+	}
+	return b
+}
+
+func formatJSCounters(s metrics.Snapshot) string {
+	keys := metrics.CounterKeys(s)
+	if len(keys) == 0 {
+		return "none"
+	}
+	parts := make([]string, 0, len(keys))
+	for _, key := range keys {
+		parts = append(parts, fmt.Sprintf("%s=%d", key, s.Counters[key]))
+	}
+	return strings.Join(parts, ", ")
+}
+
+func formatJSTimings(s metrics.Snapshot) string {
+	keys := metrics.TimingKeys(s)
+	if len(keys) == 0 {
+		return "none"
+	}
+	parts := make([]string, 0, len(keys))
+	for _, key := range keys {
+		stat := s.Timings[key]
+		avgMs := 0.0
+		if stat.Count > 0 {
+			avgMs = float64(stat.TotalNanos) / float64(time.Millisecond) / float64(stat.Count)
+		}
+		parts = append(parts, fmt.Sprintf("%s[count=%d avg_ms=%.2f max_ms=%.2f]", key, stat.Count, avgMs, float64(stat.MaxNanos)/float64(time.Millisecond)))
+	}
+	sort.Strings(parts)
+	return strings.Join(parts, "; ")
+}
+
+func filterTraceEvents(events []metrics.TraceEvent, goOnly bool) []metrics.TraceEvent {
+	filtered := make([]metrics.TraceEvent, 0, len(events))
+	for _, event := range events {
+		isGo := strings.HasPrefix(event.Name, "go.")
+		if goOnly == isGo {
+			filtered = append(filtered, event)
+		}
+	}
+	return filtered
+}
+
+func formatTraceFields(fields map[string]string) string {
+	if len(fields) == 0 {
+		return "none"
+	}
+	keys := make([]string, 0, len(fields))
+	for key := range fields {
+		keys = append(keys, key)
+	}
+	sort.Strings(keys)
+	parts := make([]string, 0, len(keys))
+	for _, key := range keys {
+		parts = append(parts, fmt.Sprintf("%s=%s", key, fields[key]))
+	}
+	return strings.Join(parts, ", ")
 }
