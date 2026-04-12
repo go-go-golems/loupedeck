@@ -12,6 +12,9 @@ const VISIBLE_TOP_INSET = 3;
 const SHOW_SCAN_LAYER = false;
 const SHOW_RIPPLE_LAYER = false;
 const SHOW_HUD_LAYER = false;
+const CJK_FONT_PATH = "/usr/share/fonts/opentype/noto/NotoSansCJK-Regular.ttc";
+const CJK_FONT = gfx.font(CJK_FONT_PATH, { size: 16, dpi: 72, index: 0 });
+const CJK_FONT_SMALL = gfx.font(CJK_FONT_PATH, { size: 12, dpi: 72, index: 0 });
 
 const main = gfx.surface(MAIN_W, MAIN_H);
 const mainScan = gfx.surface(MAIN_W, MAIN_H);
@@ -29,21 +32,21 @@ const flash = state.signal(0);
 let rippleHandle = null;
 let flashHandle = null;
 
-const sideText = ["EYE", "SPIN", "TEETH", "MELT", "HOLE", "FACE", "WORM", "NOISE", "WARP", "CRACK", "PULSE", "VOID", "TOUCH", "B1", "B2", "LIVE"];
+const horrorKanji = "呪螺旋恐怖闇影穴裂溶歪狂蝕腐朽這寄生喰渦巻沈黙叫骸".split("");
 
 const tiles = [
-  { key: "EYE", short: "EYE", draw: drawEyeTile },
-  { key: "SPIRAL", short: "SPIR", draw: drawSpiralTile },
-  { key: "TEETH", short: "TEETH", draw: drawTeethTile },
-  { key: "MELT", short: "MELT", draw: drawGenericTile },
-  { key: "HOLE", short: "HOLE", draw: drawGenericTile },
-  { key: "FACE", short: "FACE", draw: drawGenericTile },
-  { key: "WORM", short: "WORM", draw: drawGenericTile },
-  { key: "NOISE", short: "NOISE", draw: drawGenericTile },
-  { key: "WARP", short: "WARP", draw: drawGenericTile },
-  { key: "CRACK", short: "CRACK", draw: drawGenericTile },
-  { key: "PULSE", short: "PULSE", draw: drawGenericTile },
-  { key: "VOID", short: "VOID", draw: drawGenericTile },
+  { key: "EYE", short: "EYE", kanji: "眼", draw: drawEyeTile },
+  { key: "SPIRAL", short: "SPIR", kanji: "渦", draw: drawSpiralTile },
+  { key: "TEETH", short: "TEETH", kanji: "歯", draw: drawTeethTile },
+  { key: "MELT", short: "MELT", kanji: "溶", draw: drawGenericTile },
+  { key: "HOLE", short: "HOLE", kanji: "穴", draw: drawGenericTile },
+  { key: "FACE", short: "FACE", kanji: "狂", draw: drawGenericTile },
+  { key: "WORM", short: "WORM", kanji: "蟲", draw: drawGenericTile },
+  { key: "NOISE", short: "NOISE", kanji: "砂", draw: drawGenericTile },
+  { key: "WARP", short: "WARP", kanji: "歪", draw: drawGenericTile },
+  { key: "CRACK", short: "CRACK", kanji: "裂", draw: drawGenericTile },
+  { key: "PULSE", short: "PULSE", kanji: "脈", draw: drawGenericTile },
+  { key: "VOID", short: "VOID", kanji: "闇", draw: drawGenericTile },
 ];
 
 function clamp(v, min, max) {
@@ -72,8 +75,10 @@ function lineV(surface, x, y1, y2, v) {
   for (let y = y1; y <= y2; y++) addP(surface, x, y, v);
 }
 
-function drawText(surface, text, x, y, brightness, width, height) {
-  surface.text(text, { x, y, width, height, brightness, center: true });
+function drawText(surface, text, x, y, brightness, width, height, font) {
+  const opts = { x, y, width, height, brightness, center: true };
+  if (font) opts.font = font;
+  surface.text(text, opts);
 }
 
 function drawSpiral(surface, cx, cy, turns, size, brt, speed, t, thick) {
@@ -110,10 +115,10 @@ function drawTileFrame(x, y, isActive) {
 }
 
 function drawTileChrome(idx, x, y, isActive) {
-  const titleY = y + VISIBLE_TOP_INSET + 2;
-  const dividerY = y + VISIBLE_TOP_INSET + 13;
-  drawText(main, String(idx + 1).padStart(2, "0"), x + 15, titleY, isActive ? 180 : 70, 22, 10);
-  drawText(main, tiles[idx].short, x + 58, titleY, isActive ? 110 : 30, 48, 10);
+  const titleY = y + VISIBLE_TOP_INSET + 1;
+  const dividerY = y + VISIBLE_TOP_INSET + 18;
+  drawText(main, tiles[idx].kanji, x + 17, titleY, isActive ? 220 : 90, 20, 16, CJK_FONT);
+  drawText(main, tiles[idx].short, x + 58, titleY + 2, isActive ? 110 : 30, 48, 10);
   lineH(main, x + 2, x + TILE - 3, dividerY, isActive ? 30 : 6);
 }
 
@@ -342,8 +347,8 @@ function renderRight() {
   for (let i = 0; i < 16; i++) {
     const y = ((i * 20 - (off % 20) + SIDE_H) % SIDE_H) - 20;
     if (y < -18 || y > SIDE_H) continue;
-    const ci = (i + Math.floor(off / 20)) % sideText.length;
-    right.text(sideText[ci], { x: 6, y, width: 48, height: 12, brightness: 50 + (i % 3) * 20, center: true });
+    const ci = (i + Math.floor(off / 20)) % horrorKanji.length;
+    drawText(right, horrorKanji[ci], 30, y, 60 + (i % 3) * 24, 28, 18, CJK_FONT);
   }
 }
 
