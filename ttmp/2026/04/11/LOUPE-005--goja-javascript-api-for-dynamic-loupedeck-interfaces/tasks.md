@@ -75,14 +75,14 @@
 - [x] Record milestone C in diary/changelog
 
 ### Implementation milestone D: host runtime shell
-- [ ] Add `runtime/host` package scaffold
-- [ ] Implement event routing from `OnButton`/`OnTouch`/`OnKnob`
-- [ ] Implement timer services for host-owned scheduling
-- [ ] Implement page-show lifecycle hooks
-- [ ] Add unit tests for callback registration and event delivery
-- [ ] Run `go test ./...`
-- [ ] Commit milestone D
-- [ ] Record milestone D in diary/changelog
+- [x] Add `runtime/host` package scaffold
+- [x] Implement event routing from `OnButton`/`OnTouch`/`OnKnob`
+- [x] Implement timer services for host-owned scheduling
+- [x] Implement page-show lifecycle hooks
+- [x] Add unit tests for callback registration and event delivery
+- [x] Run `go test ./...`
+- [x] Commit milestone D
+- [x] Record milestone D in diary/changelog
 
 ### Implementation milestone E: first goja adapters
 - [ ] Add `goja` dependency and any module/runtime support packages needed

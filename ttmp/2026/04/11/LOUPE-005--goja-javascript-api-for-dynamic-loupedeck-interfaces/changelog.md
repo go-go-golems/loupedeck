@@ -66,3 +66,15 @@ Implemented milestone C as a retained-tile visual bridge in `runtime/render`, in
 - /home/manuel/code/wesen/2026-04-11--loupedeck-test/runtime/render/render_test.go — Tests for tile-coordinate mapping, flush behavior, and preservation of hidden-page dirty tiles
 - /home/manuel/code/wesen/2026-04-11--loupedeck-test/runtime/ui/ui.go — Added `ClearDirtyTiles(...)` so active-page flushes do not erase hidden-page dirty state
 - /home/manuel/code/wesen/2026-04-11--loupedeck-test/display.go — Existing `Display.Draw(image, x, y)` path that the new render layer is designed to plug into without bypassing transport ownership
+
+## 2026-04-11
+
+Implemented milestone D as a host runtime shell in `runtime/host`, covering attachable routing for the current `OnButton` / `OnTouch` / `OnKnob` listener APIs, page-show lifecycle hooks, and host-owned timeout/interval timers. This creates the runtime services that future goja modules can call without embedding lifecycle policy directly in the JS layer.
+
+### Related Files
+
+- /home/manuel/code/wesen/2026-04-11--loupedeck-test/runtime/host/runtime.go — Host runtime state, event-source attachment, timer bookkeeping, and shutdown behavior
+- /home/manuel/code/wesen/2026-04-11--loupedeck-test/runtime/host/events.go — Event registration, subscription cleanup, and bridging to the current Loupedeck listener APIs
+- /home/manuel/code/wesen/2026-04-11--loupedeck-test/runtime/host/pages.go — Page-show hooks and `Show(...)` lifecycle routing
+- /home/manuel/code/wesen/2026-04-11--loupedeck-test/runtime/host/timers.go — Host-owned timeout and interval timers
+- /home/manuel/code/wesen/2026-04-11--loupedeck-test/runtime/host/runtime_test.go — Unit tests for callback delivery, page-show hooks, and timer behavior

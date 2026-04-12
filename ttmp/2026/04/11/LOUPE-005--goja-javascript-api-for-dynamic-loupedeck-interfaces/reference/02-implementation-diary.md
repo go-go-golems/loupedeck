@@ -736,3 +736,106 @@ func (d *Display) Draw(im image.Image, xoff, yoff int)
 ```
 
 the runtime can later plug the retained renderer into the existing display/renderer/writer stack without bypassing transport policy.
+
+## Step 7: Implement milestone D as the host runtime shell
+
+With retained state and a renderer bridge in place, the next required layer was host services: event routing, page lifecycle hooks, and host-owned timers. This layer is the one that future goja modules should talk to instead of wiring directly into the raw device or creating unmanaged goroutines from the script side.
+
+This milestone was important because it starts shaping the “JS runtime boundary” in executable Go code. The JavaScript-facing API does not exist yet, but the services it should call now do. That means the next goja milestone can stay thin and mostly adapt between JS values and these host/runtime services.
+
+### Prompt Context
+
+**User prompt (verbatim):** (same as Step 4)
+
+**Assistant interpretation:** Continue implementing the next planned layer with the same discipline of tests, focused commits, and diary continuity.
+
+**Inferred user intent:** Build the runtime stack in the recommended order so that the later JS adapters sit on top of real host/runtime services instead of inventing semantics inside module-loader code.
+
+**Commit (code):** `53bfaa5` — `Add reactive host runtime shell`
+
+### What I did
+- Added the new package:
+
+```text
+runtime/host/
+```
+
+- Implemented:
+  - `runtime/host/runtime.go`
+  - `runtime/host/events.go`
+  - `runtime/host/pages.go`
+  - `runtime/host/timers.go`
+  - `runtime/host/runtime_test.go`
+- Added a host runtime that supports:
+  - attaching an event source that exposes the current listener APIs
+  - `OnButton`, `OnTouch`, and `OnKnob` registration
+  - page-show lifecycle hooks via `OnShow`
+  - host-owned `SetTimeout` and `SetInterval`
+  - runtime `Close()` cleanup of timers and event subscriptions
+- Chose an interface boundary where the host runtime depends only on an event-source interface with the same current listener shapes, so it can sit on top of the existing Loupedeck package without embedding extra policy into scripts.
+- Added tests using a fake event source to validate callback delivery and timer behavior.
+- Ran:
+
+```bash
+gofmt -w runtime/host/*.go
+go test ./...
+```
+
+### Why
+- The execution plan called for the host shell before goja bindings.
+- This is the layer that should own lifecycle semantics such as timers and event subscriptions. If those semantics were deferred until the JS adapter layer, the adapter code would become too stateful and too hard to test.
+
+### What worked
+- The attachable event-source interface made the tests easy to write with fakes.
+- The timer API is small but already useful enough for future JS-facing `setTimeout` / `setInterval` style bindings.
+- The full repository test suite passed with the new runtime shell in place.
+
+### What didn't work
+- No build or test failures occurred in this milestone.
+- The timer implementation is intentionally simple and not yet synchronized to a central fixed-timestep animation clock. That is acceptable for this stage because animation/timeline semantics belong to a later milestone.
+
+### What I learned
+- The host runtime is a good place to centralize page lifecycle callbacks because page activation already exists in `runtime/ui`; the shell simply turns that into a service other layers can subscribe to.
+- A small interface over the current listener API is sufficient for testing and avoids coupling the host runtime too tightly to concrete device setup code.
+
+### What was tricky to build
+- The main subtlety was making attachment and cleanup symmetrical. If handlers are registered before or after a source is attached, they should still get the same subscription behavior. The implementation solves that by storing binding objects and attaching or closing source subscriptions when the runtime attaches or removes handlers.
+- Another subtle point is timer ownership. Even though the current timer implementation is small, it is already important that timers are tracked by the runtime and stopped on `Close()`, rather than being unmanaged goroutines spread around the application layer.
+
+### What warrants a second pair of eyes
+- The timer semantics are pragmatic rather than highly engineered. A reviewer should check whether this layer should stay small until the animation milestone, or whether a more centralized scheduler is needed sooner.
+- The current event-shell interfaces cover button/touch/knob events only. That is enough for the first JS slice, but future work may want page-enter/page-exit hooks or reconnect hooks at the same level.
+
+### What should be done in the future
+- Build milestone E: add the first goja dependency and thin JS adapters over `runtime/reactive`, `runtime/ui`, and `runtime/host`.
+- Later decide whether `SetInterval` should eventually be subsumed by a host animation clock or stay as a convenience primitive alongside it.
+
+### Code review instructions
+- Start with:
+  - `runtime/host/runtime.go`
+  - `runtime/host/events.go`
+  - `runtime/host/timers.go`
+  - `runtime/host/runtime_test.go`
+- Validate with:
+
+```bash
+gofmt -w runtime/host/*.go
+go test ./...
+```
+
+### Technical details
+- The event-source boundary is intentionally small and mirrors the current listener APIs:
+
+```go
+type EventSource interface {
+    OnButton(deck.Button, deck.ButtonFunc) deck.Subscription
+    OnTouch(deck.TouchButton, deck.TouchFunc) deck.Subscription
+    OnKnob(deck.Knob, deck.KnobFunc) deck.Subscription
+}
+```
+
+- This makes the future goja layer conceptually straightforward:
+
+```text
+JS callback registration -> host.Runtime registration -> existing Loupedeck listener subscription
+```
