@@ -353,3 +353,115 @@ go test ./cmd/loupe-js-live ./...
 - Capture the first no-input hardware trace next.
 - Use that trace to compute rebuilds-per-non-empty-flush and loop-ticks-per-non-empty-flush directly from ordered events.
 - Only then decide whether deeper renderer/writer trace points are necessary.
+
+## Step 6: Archive the concrete scripts used so far into the ticket
+
+At this point the user asked for something that should probably become a standard habit for this style of work: store the actual scripts used during the investigation directly inside the ticket under `scripts/`, retroactively as well, with numeric prefixes. That request makes sense. We had already been using a number of concrete commands and small analysis snippets, but they were still living as transient terminal history. Turning them into ticket-local scripts makes the work reproducible and makes the ticket a better handoff artifact.
+
+### What I did
+- Added ticket-local reproducibility scripts under:
+  - `ttmp/2026/04/12/LOUPE-009--trace-driven-investigation-of-excessive-full-page-js-rebuild-calls-on-loupedeck/scripts/`
+- Added at least these tracked scripts:
+  - `01-create-ticket.sh`
+  - `02-docmgr-doctor.sh`
+  - `03-upload-remarkable-bundle.sh`
+  - `04-go-test-phase-a-trace-collector.sh`
+  - `05-go-test-phase-b-js-trace-bindings.sh`
+  - `06-go-test-phase-c-scene-breadcrumbs.sh`
+  - `07-go-test-phase-d-live-trace.sh`
+  - `08-capture-no-input-trace.sh`
+  - `09-analyze-trace-log.py`
+- Made the shell and Python scripts executable.
+
+### Why
+- The ticket should preserve not just conclusions but also the exact commands used to reproduce them.
+- The trace-analysis work now has enough moving parts that ticket-local scripts are worth the small overhead.
+- Retroactive script capture reduces future archaeology when someone wants to rerun one slice exactly.
+
+### What worked
+- The ticket now contains the creation, validation, upload, testing, capture, and analysis commands in a reproducible form.
+- The analysis step is now reproducible without having to reconstruct the Python logic from shell history.
+
+### What didn't work
+- The scripts were captured after some of the commands had already been run, so their archival is retroactive rather than contemporaneous.
+
+### What should be done in the future
+- Continue this pattern for future ticket work so the scripts folder stays a true runbook rather than a partial reconstruction.
+
+## Step 7: Capture the first real no-input hardware trace and compute rebuilds-per-flush directly
+
+Once the trace collector, JS bindings, scene breadcrumbs, Go-side flush trace points, and live-runner dump flags all existed, the main question became executable. We could now stop inferring event sequence from counters and ask the runtime directly: how many rebuilds occur between non-empty flushes, and do those rebuilds continue while a long full-page flush is already in progress?
+
+### What I ran
+
+The capture command is now preserved in:
+
+- `scripts/08-capture-no-input-trace.sh`
+
+The concrete run produced:
+
+- `/tmp/loupe-cyb-ito-full10-trace-1776025944.log`
+
+I then analyzed it with:
+
+- `scripts/09-analyze-trace-log.py /tmp/loupe-cyb-ito-full10-trace-1776025944.log`
+
+### What I found
+- Total traced scene events of interest:
+  - `scene.renderAll.begin = 672`
+  - `scene.renderAll.end = 671`
+  - `scene.loop.tick = 671`
+- Total non-empty full-page flushes:
+  - `20`
+- Derived rebuilds-per-non-empty-flush:
+  - average: `33.6`
+  - median: `27`
+  - min: `2`
+  - max: `119`
+- Derived loop-ticks-per-non-empty-flush:
+  - average: `33.55`
+  - median: `27`
+  - min: `2`
+  - max: `119`
+
+Representative flush windows from the analysis:
+- one flush with `elapsedMs=515.74` contained `36` rebuilds and `35` loop ticks since the prior non-empty flush boundary
+- one flush with `elapsedMs=845.31` contained `49` rebuilds and `49` loop ticks
+- one flush with `elapsedMs=2091.36` contained `119` rebuilds and `119` loop ticks
+- one flush with `elapsedMs=1549.13` contained `86` rebuilds and `86` loop ticks
+- one flush with `elapsedMs=1749.54` contained `90` rebuilds and `90` loop ticks
+
+Most importantly, the ordered trace shows that JS rebuilds continue *during* long flush intervals. For example, a `go.flush.begin` followed by a non-empty `go.flush.end` more than two seconds later still had a large number of `scene.loop.tick` and `scene.renderAll.begin/end` events between those two Go-side boundaries.
+
+### Why this matters
+This is the strongest evidence so far because it moves beyond category counts. We can now say not only that the loop is the source of most rebuilds, but that the scene keeps generating rebuild work while the full-page flush path is still occupied. That directly supports the “over-eager producer” model.
+
+In other words, the problem is not just:
+- many rebuilds exist
+
+It is:
+- the scene keeps rebuilding while long flushes are already underway,
+- so one full-page visible update can have tens or even more than one hundred rebuilds behind it.
+
+### What worked
+- The trace instrumentation was sufficient to answer the main event-sequence question without adding deeper renderer/writer probes yet.
+- The ticket-local analysis script made it easy to compute the per-flush ratios cleanly.
+- The results line up with the earlier suspicion but now in a much stronger, ordered form.
+
+### What didn't work
+- The trace dump is very verbose, which is expected for a true trace but still means we will want to use it intentionally rather than always-on.
+- There is one small asymmetry in the run (`672` begins vs `671` ends), which likely indicates one in-flight rebuild near exit. That does not affect the main conclusion, but it is worth noting.
+
+### What I learned
+- We no longer need to guess whether many rebuilds happen between hardware-visible flushes. They do, and we can now quantify that directly.
+- The current scene is clearly outproducing the flush path.
+- This is enough evidence to say that cadence limiting should be the immediate next optimization before deeper renderer/writer tracing.
+
+### What warrants a second pair of eyes
+- If cadence limiting fails to reduce the rebuilds-per-flush ratio materially, then deeper trace points in the renderer or writer may still be worth adding.
+- It would also be useful for someone to sanity-check whether the one missing `renderAll.end` at exit is just shutdown timing or hints at a more subtle edge case.
+
+### What should be done in the future
+- Move to the next optimization ticket/workstream and implement cadence limiting for the full-page scene.
+- Use the current trace scripts and analysis script again after that change to compare the rebuilds-per-flush ratio before and after.
+- Keep the deeper Phase D trace task open, but do not prioritize it before the cadence-limiting experiment.

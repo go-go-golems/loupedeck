@@ -57,6 +57,13 @@ Current completion state:
 - Operational trace-capture runbook written
 - Diary created
 - Task breakdown drafted
+- Ticket-local reproducibility scripts archived under `scripts/` with numeric `XX-...` prefixes
+- Generic trace collector substrate implemented
+- Reusable JS trace bindings implemented
+- Scene-level breadcrumb instrumentation implemented in the full-page all-12 workload
+- Live-runner JS/Go trace dump controls implemented
+- First no-input hardware trace captured and analyzed
+- Current evidence says the full-page scene averages about `33.6` rebuilds per non-empty flush, with a median of `27` and a worst observed flush bucket of `119`
 - Ticket validated with `docmgr doctor`
 - ReMarkable bundle uploaded and verified
 

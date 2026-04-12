@@ -6,6 +6,7 @@
 - [x] Write a detailed intern-facing design guide for rebuild-call trace analysis
 - [x] Write an operational runbook for the future trace capture workflow
 - [x] Write an implementation diary entry for continuity
+- [x] Archive reproduction scripts in `scripts/` with numeric `XX-...` prefixes for the ticket workflow
 - [x] Validate the ticket with `docmgr doctor`
 - [x] Upload the design bundle to reMarkable
 - [x] Verify the uploaded reMarkable files
@@ -38,8 +39,8 @@
 
 ### Phase E: hardware evidence and interpretation
 
-- [ ] Capture a first no-input hardware trace log for the full-page all-12 scene
-- [ ] Compute derived ratios such as rebuilds-per-non-empty-flush and loop-ticks-per-non-empty-flush
-- [ ] Summarize the trace findings in the ticket
-- [ ] Decide whether cadence limiting should be the immediate next optimization
+- [x] Capture a first no-input hardware trace log for the full-page all-12 scene
+- [x] Compute derived ratios such as rebuilds-per-non-empty-flush and loop-ticks-per-non-empty-flush
+- [x] Summarize the trace findings in the ticket
+- [x] Decide whether cadence limiting should be the immediate next optimization
 

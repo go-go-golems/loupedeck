@@ -60,3 +60,26 @@ Implemented the first half of Phase D of `LOUPE-009`: Go-side flush correlation 
 - /home/manuel/code/wesen/2026-04-11--loupedeck-test/cmd/loupe-js-live/main.go — Added trace flags, trace-limit wiring, Go-side flush trace events, and trace dump formatting/output
 - /home/manuel/code/wesen/2026-04-11--loupedeck-test/ttmp/2026/04/12/LOUPE-009--trace-driven-investigation-of-excessive-full-page-js-rebuild-calls-on-loupedeck/tasks.md — Marked the first two Phase D tasks complete
 
+## 2026-04-12
+
+Archived the concrete reproduction scripts used during `LOUPE-009` into the ticket’s `scripts/` directory using numeric `XX-...` prefixes, as requested. This now captures the ticket creation command, validation/upload commands, phase-specific test commands, the no-input trace capture command, and the trace analysis script used to compute rebuilds-per-flush directly from the saved log. This makes the ticket materially more reproducible and turns previously ad hoc terminal commands into tracked artifacts.
+
+### Related Files
+
+- /home/manuel/code/wesen/2026-04-11--loupedeck-test/ttmp/2026/04/12/LOUPE-009--trace-driven-investigation-of-excessive-full-page-js-rebuild-calls-on-loupedeck/scripts/01-create-ticket.sh — Reproduces the ticket creation step
+- /home/manuel/code/wesen/2026-04-11--loupedeck-test/ttmp/2026/04/12/LOUPE-009--trace-driven-investigation-of-excessive-full-page-js-rebuild-calls-on-loupedeck/scripts/08-capture-no-input-trace.sh — Reproduces the no-input hardware trace capture
+- /home/manuel/code/wesen/2026-04-11--loupedeck-test/ttmp/2026/04/12/LOUPE-009--trace-driven-investigation-of-excessive-full-page-js-rebuild-calls-on-loupedeck/scripts/09-analyze-trace-log.py — Recomputes rebuild/loop counts per non-empty flush from a saved trace log
+
+## 2026-04-12
+
+Captured the first real no-input hardware trace log for `LOUPE-009` and analyzed it with a ticket-local analysis script. The resulting evidence is much stronger than the earlier counter-only picture because it shows the event sequence directly. The scene produced `672` `scene.renderAll.begin` events and `671` `scene.loop.tick` events against `20` non-empty full-page flushes during the traced run. The derived ratio is about `33.6` rebuilds per non-empty flush on average, with a median of `27`, a minimum of `2`, and a maximum of `119`. The trace also shows that rebuilds continue to happen *while* long flushes are in progress: for example, one `go.flush.begin`/`go.flush.end ops=1` interval with `elapsedMs=2091.36` contained `118` loop ticks and `118` `renderAll.begin/end` pairs between those two Go-side events.
+
+This is the clearest evidence so far that the problem is not just that loop rebuilds happen often in aggregate. The problem is that the full-page scene continues to generate rebuild work during long-running full-page flushes, so the scene is effectively outproducing the flush path. Based on this trace, cadence limiting should be the immediate next optimization, and deeper renderer/writer trace points are not the first thing to do next unless cadence limiting fails to move the rebuilds-per-flush ratio materially.
+
+### Related Files
+
+- /tmp/loupe-cyb-ito-full10-trace-1776025944.log — First no-input hardware trace log for the full-page all-12 scene
+- /home/manuel/code/wesen/2026-04-11--loupedeck-test/ttmp/2026/04/12/LOUPE-009--trace-driven-investigation-of-excessive-full-page-js-rebuild-calls-on-loupedeck/scripts/08-capture-no-input-trace.sh — Capture command used for the trace run
+- /home/manuel/code/wesen/2026-04-11--loupedeck-test/ttmp/2026/04/12/LOUPE-009--trace-driven-investigation-of-excessive-full-page-js-rebuild-calls-on-loupedeck/scripts/09-analyze-trace-log.py — Analysis script used to compute per-flush rebuild ratios
+- /home/manuel/code/wesen/2026-04-11--loupedeck-test/ttmp/2026/04/12/LOUPE-009--trace-driven-investigation-of-excessive-full-page-js-rebuild-calls-on-loupedeck/tasks.md — Marked Phase E complete and recorded that cadence limiting is now the recommended next optimization
+
