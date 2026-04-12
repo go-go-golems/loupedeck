@@ -7,6 +7,7 @@ import (
 	"github.com/dop251/goja"
 	"github.com/dop251/goja_nodejs/eventloop"
 	"github.com/dop251/goja_nodejs/require"
+	"github.com/go-go-golems/loupedeck/pkg/runtimebridge"
 	"github.com/go-go-golems/loupedeck/pkg/runtimeowner"
 	envpkg "github.com/go-go-golems/loupedeck/runtime/js/env"
 	"github.com/go-go-golems/loupedeck/runtime/js/module_anim"
@@ -21,7 +22,9 @@ type Runtime struct {
 	Owner runtimeowner.Runner
 	Env   *envpkg.Environment
 
-	closeOnce sync.Once
+	runtimeCtx       context.Context
+	runtimeCtxCancel context.CancelFunc
+	closeOnce        sync.Once
 }
 
 func NewRuntime(env *envpkg.Environment) *Runtime {
@@ -41,13 +44,31 @@ func NewRuntime(env *envpkg.Environment) *Runtime {
 		Name:          "loupedeck-js-runtime",
 		RecoverPanics: true,
 	})
+	ctx, cancel := context.WithCancel(context.Background())
+	runtimebridge.Store(vm, runtimebridge.Bindings{
+		Context: ctx,
+		Loop:    loop,
+		Owner:   owner,
+		Values: map[string]any{
+			"environment": env,
+		},
+	})
 
 	return &Runtime{
-		VM:    vm,
-		Loop:  loop,
-		Owner: owner,
-		Env:   env,
+		VM:               vm,
+		Loop:             loop,
+		Owner:            owner,
+		Env:              env,
+		runtimeCtx:       ctx,
+		runtimeCtxCancel: cancel,
 	}
+}
+
+func (r *Runtime) Context() context.Context {
+	if r == nil || r.runtimeCtx == nil {
+		return context.Background()
+	}
+	return r.runtimeCtx
 }
 
 func (r *Runtime) RunString(ctx context.Context, src string) (goja.Value, error) {
@@ -75,6 +96,12 @@ func (r *Runtime) Close(ctx context.Context) error {
 	}
 	var err error
 	r.closeOnce.Do(func() {
+		if r.runtimeCtxCancel != nil {
+			r.runtimeCtxCancel()
+		}
+		if r.VM != nil {
+			runtimebridge.Delete(r.VM)
+		}
 		if r.Owner != nil {
 			err = r.Owner.Shutdown(ctx)
 		}

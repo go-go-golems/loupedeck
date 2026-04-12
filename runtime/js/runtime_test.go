@@ -7,6 +7,7 @@ import (
 
 	"github.com/dop251/goja"
 	deck "github.com/go-go-golems/loupedeck"
+	"github.com/go-go-golems/loupedeck/pkg/runtimebridge"
 	envpkg "github.com/go-go-golems/loupedeck/runtime/js/env"
 )
 
@@ -64,6 +65,17 @@ func TestRequireStateAndUIBuildReactivePage(t *testing.T) {
 	rt := NewRuntime(nil)
 	defer rt.Close(nil)
 	env := rt.Env
+
+	bindings, ok := runtimebridge.Lookup(rt.VM)
+	if !ok {
+		t.Fatal("expected runtime bridge bindings to be registered")
+	}
+	if bindings.Owner == nil || bindings.Context == nil || bindings.Loop == nil {
+		t.Fatal("expected owner/context/loop bindings to be populated")
+	}
+	if bindings.Values["environment"] != env {
+		t.Fatal("expected environment to be available through runtime bindings")
+	}
 
 	_, err := rt.RunString(nil, `
 		const state = require("loupedeck/state");
@@ -204,5 +216,18 @@ func TestAnimModuleLoopCanDriveReactiveUpdates(t *testing.T) {
 	}
 	if got := env.UI.Page("home").Tile(0, 0).Text(); got == "0" || got == "" {
 		t.Fatalf("expected loop to update visible text, got %q", got)
+	}
+}
+
+func TestCloseRemovesRuntimeBridgeBindings(t *testing.T) {
+	rt := NewRuntime(nil)
+	if _, ok := runtimebridge.Lookup(rt.VM); !ok {
+		t.Fatal("expected bindings before close")
+	}
+	if err := rt.Close(nil); err != nil {
+		t.Fatalf("close runtime: %v", err)
+	}
+	if _, ok := runtimebridge.Lookup(rt.VM); ok {
+		t.Fatal("expected bindings to be removed on close")
 	}
 }
