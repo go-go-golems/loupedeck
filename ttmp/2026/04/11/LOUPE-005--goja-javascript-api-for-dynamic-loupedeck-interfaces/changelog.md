@@ -93,3 +93,17 @@ Implemented milestone E as the first goja adapter slice, adding native `require(
 - /home/manuel/code/wesen/2026-04-11--loupedeck-test/runtime/js/module_ui/module.go — `loupedeck/ui` native module exposing pages, tiles, show, and input callback registration
 - /home/manuel/code/wesen/2026-04-11--loupedeck-test/runtime/js/runtime_test.go — Integration tests proving `require(...)` module loading and JS-driven reactive page updates
 - /home/manuel/code/wesen/2026-04-11--loupedeck-test/cmd/loupe-js-demo/main.go — First end-to-end example command that runs a JS page script and renders dirty tiles to PNG files
+
+## 2026-04-11
+
+Implemented milestone F as the first animation/easing slice, adding pure-Go easing functions, a host-backed numeric tween/loop/timeline runtime, and `require("loupedeck/anim")` / `require("loupedeck/easing")` native modules. This extends the first JS slice from “static reactive pages” to “reactive pages with host-managed animation primitives”.
+
+### Related Files
+
+- /home/manuel/code/wesen/2026-04-11--loupedeck-test/runtime/easing/easing.go — Core easing curves and `steps(n)` factory used by the new animation layer
+- /home/manuel/code/wesen/2026-04-11--loupedeck-test/runtime/easing/easing_test.go — Unit tests for easing endpoints and stepped easing behavior
+- /home/manuel/code/wesen/2026-04-11--loupedeck-test/runtime/anim/runtime.go — Host-backed tweens, loops, and sequential timelines for numeric targets
+- /home/manuel/code/wesen/2026-04-11--loupedeck-test/runtime/anim/runtime_test.go — Unit tests for tween completion, loop progress, and sequential timeline execution
+- /home/manuel/code/wesen/2026-04-11--loupedeck-test/runtime/js/module_anim/module.go — `loupedeck/anim` native module exposing `to(...)`, `loop(...)`, and `timeline()`
+- /home/manuel/code/wesen/2026-04-11--loupedeck-test/runtime/js/module_easing/module.go — `loupedeck/easing` native module exposing easing functions to JS
+- /home/manuel/code/wesen/2026-04-11--loupedeck-test/runtime/js/runtime_test.go — JS integration tests covering button-triggered tweens and loop-driven reactive updates

@@ -978,3 +978,135 @@ if Host exists, reuse its UI
 else if UI exists, reuse its Reactive runtime
 else create Reactive -> UI -> Host in that order
 ```
+
+## Step 9: Implement milestone F as the animation/easing layer
+
+Once the first JS-facing state/UI slice was working, the next step was to add host-managed motion rather than leaving animation as “future work”. I kept this milestone deliberately narrow and numeric: easing curves, numeric tweens, loops, sequential timelines, and JS modules that can drive any target exposing `get()` and `set()` — which conveniently includes the current signal objects from `loupedeck/state`.
+
+This milestone was useful because it let the existing reactive model prove one more important claim from the design docs: animations do not need direct transport APIs. They can mutate retained state over time, and the retained UI bindings react normally.
+
+### Prompt Context
+
+**User prompt (verbatim):** (same as Step 4)
+
+**Assistant interpretation:** Continue into the next runtime layer after the first goja slice so that the planned animation/easing model becomes concrete and testable.
+
+**Inferred user intent:** Reach a point where the new JavaScript runtime can express motion and easing in the intended host-owned way rather than falling back to ad hoc timers.
+
+**Commit (code):** `6e7e6c3` — `Add goja animation and easing runtime`
+
+### What I did
+- Added the pure-Go packages:
+
+```text
+runtime/easing/
+runtime/anim/
+```
+
+- Implemented:
+  - `runtime/easing/easing.go`
+  - `runtime/easing/easing_test.go`
+  - `runtime/anim/runtime.go`
+  - `runtime/anim/runtime_test.go`
+- Extended the JS environment bootstrap so it now also provisions `env.Anim`.
+- Added the new JS module packages:
+
+```text
+runtime/js/module_easing/module.go
+runtime/js/module_anim/module.go
+```
+
+- Registered the new native modules in `runtime/js/runtime.go`.
+- Added JS integration coverage in `runtime/js/runtime_test.go` for:
+  - button-triggered numeric tweening via `anim.to(...)`
+  - loop-driven reactive updates via `anim.loop(...)`
+- Supported JS module APIs now include:
+  - `require("loupedeck/easing")`
+    - `linear`
+    - `inOutQuad`
+    - `inOutCubic`
+    - `outBack`
+    - `steps(n)`
+  - `require("loupedeck/anim")`
+    - `to(target, to, durationMs, easing)`
+    - `loop(durationMs, fn)`
+    - `timeline().to(...).to(...).play()`
+- Ran:
+
+```bash
+gofmt -w runtime/easing/*.go runtime/anim/*.go runtime/js/**/*.go runtime/js/*.go
+go test ./...
+```
+
+### Why
+- The implementation plan explicitly placed animation/easing after the first JS adapters, because targets and host services needed to exist first.
+- Numeric signal animation is the smallest useful way to validate the design without prematurely expanding the retained tile model with many transform properties.
+
+### What worked
+- Designing `anim.to(...)` around targets with `get()` and `set()` turned out to be a strong fit because the existing signal objects already satisfy that contract naturally.
+- The JS integration tests proved the desired behavior: a button event can trigger a tween that updates signal-backed tile text, and a loop can drive reactive updates without direct display access.
+- The pure-Go animation and easing tests also passed, keeping the semantic core verifiable outside goja.
+
+### What didn't work
+- The first test run exposed two small issues:
+  1. the JS `steps(n)` easing factory returned a Go function instead of a JS function value
+  2. `OutBack(0)` was mathematically near zero but not guaranteed to be exactly zero for a strict test
+- The first failing output included:
+
+```text
+cannot use easingFunc(runtime, easing.Steps(int(call.Argument(0).ToInteger()))) (value of type func(goja.FunctionCall) goja.Value) as goja.Value value in return statement
+```
+
+and a failing endpoint assertion in `runtime/easing/easing_test.go`.
+
+- Fixes:
+  - wrap the generated easing function with `runtime.ToValue(...)` in the JS module
+  - clamp exact `OutBack(0)` and `OutBack(1)` endpoints explicitly in the pure-Go easing function
+- After those fixes, the full repository test suite passed.
+
+### What I learned
+- A generic “numeric target with `get`/`set`” contract is enough to unlock useful animation without tightly coupling the animation system to one specific Go type.
+- The current host shell timers are sufficient for the first animation slice, even though a more centralized animation clock may still be desirable later.
+
+### What was tricky to build
+- The key design choice was where the animation target contract should live. Targeting raw signals directly would have been easy but overly specific. Targeting any JS object with `get()` and `set()` is more flexible and still simple enough to implement.
+- Another subtle point was keeping the milestone narrow. It would have been tempting to add rich transform properties to tiles immediately, but the cleaner first step was proving that host-managed animation can drive retained reactive state at all.
+
+### What warrants a second pair of eyes
+- The current JS callback execution model for animation still relies on the broader VM-threading assumptions noted in milestone E. Reviewers should keep that in mind as animation/timer usage grows.
+- The current timeline implementation is intentionally sequential and minimal. A reviewer may later want to decide whether parallel groups or richer orchestration belong in this package or in a higher-level JS abstraction.
+
+### What should be done in the future
+- Build milestone G: reconnect-safe retained replay semantics.
+- Later consider whether tile properties should grow numeric transform hooks so animations can target retained node properties directly instead of only signals.
+
+### Code review instructions
+- Start with:
+  - `runtime/easing/easing.go`
+  - `runtime/anim/runtime.go`
+  - `runtime/js/module_anim/module.go`
+  - `runtime/js/module_easing/module.go`
+  - `runtime/js/runtime_test.go`
+- Validate with:
+
+```bash
+gofmt -w runtime/easing/*.go runtime/anim/*.go runtime/js/**/*.go runtime/js/*.go
+go test ./...
+```
+
+### Technical details
+- The current animation target contract is:
+
+```text
+any JS object exposing get() -> number and set(number)
+```
+
+- That means a JS signal can already be animated directly:
+
+```javascript
+const state = require("loupedeck/state")
+const anim = require("loupedeck/anim")
+const easing = require("loupedeck/easing")
+const value = state.signal(0)
+anim.to(value, 10, 250, easing.inOutCubic)
+```

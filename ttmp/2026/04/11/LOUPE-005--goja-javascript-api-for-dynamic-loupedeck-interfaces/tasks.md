@@ -95,14 +95,14 @@
 - [x] Record milestone E in diary/changelog
 
 ### Implementation milestone F: animation and easing
-- [ ] Add `runtime/anim` package scaffold
-- [ ] Add `runtime/easing` package scaffold
-- [ ] Implement basic tweens/timelines and easing curves
-- [ ] Expose `loupedeck/anim` and `loupedeck/easing` modules
-- [ ] Add integration tests for touch feedback / looping animation
-- [ ] Run `go test ./...`
-- [ ] Commit milestone F
-- [ ] Record milestone F in diary/changelog
+- [x] Add `runtime/anim` package scaffold
+- [x] Add `runtime/easing` package scaffold
+- [x] Implement basic tweens/timelines and easing curves
+- [x] Expose `loupedeck/anim` and `loupedeck/easing` modules
+- [x] Add integration tests for touch feedback / looping animation
+- [x] Run `go test ./...`
+- [x] Commit milestone F
+- [x] Record milestone F in diary/changelog
 
 ### Implementation milestone G: reconnect-safe retained replay
 - [ ] Decide retained-runtime reconnect semantics
