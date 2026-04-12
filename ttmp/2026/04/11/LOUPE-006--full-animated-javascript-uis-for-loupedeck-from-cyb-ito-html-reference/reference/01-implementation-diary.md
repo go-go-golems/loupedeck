@@ -774,3 +774,179 @@ so the prototype now:
 - Update the ticket docs and mark the honest hardware-validation tasks complete.
 - Continue to true multi-layer composition so the scene can gain ripple overlays instead of only active-tile highlighting and status text.
 - After overlays exist, re-run hardware validation and then measure whether the denser scene needs renderer/writer pacing adjustments.
+
+## Step 10: Add true retained display layers and move the first ripple effect into an overlay surface
+
+After the first hardware-validation slice, the next architectural gap was obvious again: the prototype was still drawing everything into a single retained surface per display. That was good enough to prove the `gfx` bridge, but it was not yet the right structure for cyb-ito-style overlays. The ticket had explicitly called for layered composition, so the next real implementation step was to give displays true retained overlay layers rather than continuing to overload one surface.
+
+### Commit
+
+**Commit (code):** `e4d43a5` — `Add retained display layer composition`
+
+### What I did
+- Extended:
+
+```text
+runtime/ui/display.go
+```
+
+so a display can now own:
+  - one base surface via `display.SetSurface(...)`
+  - multiple named layers via `display.SetLayer(name, surface)`
+- Added a retained ordering model:
+  - layers are named
+  - insertion order is preserved
+  - replacing an existing layer keeps its position
+  - removing a layer deletes it from the stable order list
+- Kept the dirty model correct by subscribing each layer surface to display invalidation, just like the base surface.
+- Extended:
+
+```text
+runtime/render/visual_runtime.go
+```
+
+so the renderer now composites:
+  1. background
+  2. base display surface
+  3. each named layer in stable order
+- Extended:
+
+```text
+runtime/js/module_ui/module.go
+```
+
+with:
+
+```javascript
+display.layer(name, surface)
+display.layer(name, null)
+```
+
+so JS can attach or remove named layers directly.
+- Added tests in:
+
+```text
+runtime/ui/ui_test.go
+runtime/render/render_test.go
+runtime/js/runtime_test.go
+```
+
+covering:
+  - layer mutation dirty propagation
+  - stable layer ordering
+  - base-plus-layer renderer composition
+  - JS integration for named layers
+- Updated:
+
+```text
+examples/js/07-cyb-ito-prototype.js
+```
+
+so the prototype now has a dedicated overlay surface:
+
+```javascript
+const mainFX = gfx.surface(MAIN_W, MAIN_H);
+display.layer("fx", mainFX);
+```
+
+- Moved the first ripple-like interaction effect into that overlay surface instead of forcing it into the main/base surface.
+- Re-ran:
+
+```bash
+go test ./...
+```
+
+and the full suite passed.
+
+### Why
+- The imported HTML reference is fundamentally layered: base tile content, overlays, scan-like effects, side elements, and transient highlights all want distinct visual strata.
+- A one-surface-per-display model is enough for a prototype, but it is the wrong abstraction boundary for the next wave of effects.
+- Adding true layers now creates the correct path for ripple overlays, scan passes, and other transient effects without entangling them with the base scene raster.
+
+### What worked
+- The retained UI model can now express a base scene plus overlays instead of a single merged display surface.
+- The renderer owns composition order, which keeps the transport boundary in Go exactly as intended.
+- The prototype now actually exercises the new layer path instead of leaving it unused.
+
+### What didn't work
+- This is still an intentionally small first layer system. It does not yet include blend-mode variety, per-layer visibility flags, or layer-local transforms.
+- The ripple effect is still only a first overlay sketch, not yet a faithful cyb-ito ripple implementation.
+- I briefly made a trivial tooling mistake by trying to run `gofmt` on the JS prototype file, which of course failed with:
+
+```text
+examples/js/07-cyb-ito-prototype.js:1:1: expected 'package', found 'const'
+```
+
+That was immediately corrected by re-running `gofmt` only on the Go files.
+
+### What I learned
+- The next runtime frontier after base surfaces really is layered composition, not more one-surface helpers.
+- The combination of named layers plus stable insertion order is enough to begin exercising overlay semantics without overdesigning a full scene graph too early.
+- The prototype is now a better forcing function again because it can use an overlay surface for transient interaction feedback.
+
+### What should be done in the future
+- Validate the new overlay/ripple path on real hardware.
+- Consider whether the prototype should split scanlines, ripple, and status overlays into separate layers rather than one shared `fx` layer.
+- Continue toward denser cyb-ito-inspired composition and then reassess pacing under the heavier layered workload.
+
+## Step 11: Re-run the prototype on hardware after the new layer model landed
+
+Once the real retained layer model existed and the prototype had been updated to put its first ripple-like effect into a dedicated `fx` overlay surface, the very next honest step was another hardware run. This was important because it is easy for a layered-render path to be correct in unit tests while still being visually wrong, too subtle, or too expensive on the actual device.
+
+### What I did
+- Restarted the live runner in tmux with the layered prototype script:
+
+```bash
+go run ./cmd/loupe-js-live --script ./examples/js/07-cyb-ito-prototype.js --duration 120s --log-events
+```
+
+- Confirmed from the log that the session was alive and drawing all three displays again.
+- Asked the user to verify two things on-device:
+  1. that the clearer selection/status behavior from the previous UX pass still worked
+  2. that the new overlay/ripple effect was actually visible
+- The user responded: **"yes"**.
+- Stopped the run cleanly and captured the hardware evidence log:
+
+```text
+/tmp/loupe-cyb-ito-layers-1775990488.log
+```
+
+### Why
+- The layer system is only meaningful if it survives contact with actual hardware.
+- This rerun closes the loop between architecture, implementation, and visible device behavior.
+- It also reduces risk before moving on to denser scene layering, because we now know the first overlay path is not purely theoretical.
+
+### What worked
+- The layered prototype rendered on hardware.
+- Touch activity continued to arrive during the layered run.
+- The user confirmed both the preserved interaction feedback and the visible overlay/ripple effect.
+
+### What didn't work
+- The now-familiar reconnect fragility still showed up as an initial malformed-response warning before the run proceeded successfully.
+- This run validated visibility and interaction, but it did not yet measure whether the layered workload changes pacing/throughput characteristics.
+
+### Concrete evidence
+- Hardware log:
+
+```text
+/tmp/loupe-cyb-ito-layers-1775990488.log
+```
+
+- Example lines:
+
+```text
+2026/04/12 06:41:32 INFO touch event touch=Touch8 status=down x=374 y=140
+2026/04/12 06:41:34 INFO touch event touch=Touch4 status=down x=385 y=24
+2026/04/12 06:41:48 INFO button event button=Circle status=down
+2026/04/12 06:41:49 WARN Read error, exiting error="Port has been closed"
+```
+
+### What I learned
+- The layer model is now real enough to be treated as part of the active runtime rather than a speculative abstraction.
+- The prototype can now use overlays on hardware, not just in tests or screenshots.
+- The next real question is no longer "can layers work?" but rather "how should the scene be split across several layers, and does that change pacing requirements?"
+
+### What should be done in the future
+- Split the current shared `fx` overlay into more semantically focused layers if needed, such as ripple vs scan/status.
+- Continue making the prototype more like the imported cyb-ito scene while preserving Go-owned rendering/composition.
+- Add a focused measurement pass for layered animation workload once the scene becomes denser.

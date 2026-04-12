@@ -51,8 +51,8 @@
 - [x] Add retained display-owned surface attachment and dirty propagation
 - [x] Extend the retained renderer so attached display surfaces flow through the existing Go-owned invalidation/writer stack
 - [x] Add tests for retained display-surface rendering and dirty propagation
-- [ ] Add retained multi-layer composition support for overlays and multi-pass visuals
-- [ ] Define a stable ordering model for base surfaces, overlays, and transient effects
+- [x] Add retained multi-layer composition support for overlays and multi-pass visuals
+- [x] Define a stable ordering model for base surfaces, overlays, and transient effects
 - [x] Run `go test ./...` after the first retained-surface composition slice
 - [x] Commit the first retained-surface composition slice
 - [x] Record the retained-surface composition slice in the diary/changelog/tasks
@@ -61,7 +61,7 @@
 
 - [x] Add a first JS demo script for the main animated scene
 - [x] Port the 12-tile scene structure to the retained scene/surface model in prototype form
-- [ ] Add touch-driven ripple and tile activation behavior on the main display
+- [x] Add touch-driven ripple and tile activation behavior on the main display
 - [x] Validate the main-scene demo locally via the live runner
 - [x] Commit the main-scene demo slice
 - [x] Record the main-scene demo slice in the diary/changelog/tasks
@@ -78,7 +78,7 @@
 ### Phase H: hardware validation and tuning
 
 - [x] Validate the current cyb-ito-inspired prototype scene on actual Loupedeck Live hardware
-- [ ] Validate the fuller animated scene again after overlay/layer composition exists
+- [x] Validate the fuller animated scene again after overlay/layer composition exists
 - [ ] Measure whether the denser animation workload stresses the current renderer/writer pacing model
 - [ ] Decide whether renderer scheduling or pacing needs adjustment under dense animated workloads
 - [x] Commit hardware-driven prototype UX fixes separately from pure feature work

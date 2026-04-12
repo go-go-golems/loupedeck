@@ -66,6 +66,8 @@ Current completion state:
 - Phase E first slice complete: retained displays can now own `gfx` surfaces, surface mutations dirty those displays automatically, and the renderer can flush attached display surfaces through the existing Go-owned pipeline
 - Phase F/G prototype slice complete: a first cyb-ito-inspired multi-display JS scene now exists in `examples/js/07-cyb-ito-prototype.js`, booting cleanly through the owned runtime and exercising retained surfaces across left, main, and right displays
 - First hardware validation slice complete: the prototype scene was rerun on actual Loupedeck Live hardware, interactive touch/button selection was confirmed by a human, and the prototype was tightened to use much clearer active-tile/status feedback plus ASCII side-strip fallback text for current demo readability
+- Phase E core layer-composition slice complete: displays can now own a base surface plus ordered named overlay layers, the renderer composites them in stable order, the JS UI API can attach/remove named layers, and the prototype scene now uses a dedicated overlay layer for touch-driven ripple effects
+- Second hardware validation slice complete: the layered prototype was rerun on actual hardware after overlay support landed, and the user confirmed that the clearer selection behavior still worked and that the new overlay/ripple effect was visibly present on-device
 
 ## Topics
 

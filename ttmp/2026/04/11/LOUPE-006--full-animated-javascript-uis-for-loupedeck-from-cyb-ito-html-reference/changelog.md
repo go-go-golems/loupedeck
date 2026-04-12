@@ -89,3 +89,26 @@ Performed the first real hardware validation pass for the cyb-ito-inspired proto
 - /tmp/loupe-cyb-ito-prototype-1775989933.log — Hardware validation log showing the successful interactive run, including touch and button events during the live prototype session
 - /home/manuel/code/wesen/2026-04-11--loupedeck-test/cmd/loupe-js-live/main.go — Live hardware validation entrypoint used for the tmux-based prototype run
 
+## 2026-04-12
+
+Implemented the core retained layer-composition slice for displays. A display can now own both a base `gfx` surface and an ordered set of named overlay layers, each with its own mutation subscription and stable draw order. The retained renderer composites the base surface first and then each named layer above it, the JS UI module now exposes `display.layer(name, surface)` for attaching or removing named layers, and the cyb-ito prototype was updated to use a dedicated `fx` overlay layer for the first touch-driven ripple effect rather than forcing all visuals into one surface.
+
+### Related Files
+
+- /home/manuel/code/wesen/2026-04-11--loupedeck-test/runtime/ui/display.go — Added named retained display layers with stable order, dirty propagation, and attach/remove behavior
+- /home/manuel/code/wesen/2026-04-11--loupedeck-test/runtime/render/visual_runtime.go — Added base-plus-layers display compositing in stable order
+- /home/manuel/code/wesen/2026-04-11--loupedeck-test/runtime/js/module_ui/module.go — Added JS-facing `display.layer(name, surface)` attach/remove API
+- /home/manuel/code/wesen/2026-04-11--loupedeck-test/runtime/ui/ui_test.go — Added retained layer dirty-propagation and stable-order coverage
+- /home/manuel/code/wesen/2026-04-11--loupedeck-test/runtime/render/render_test.go — Added retained display layer compositing coverage
+- /home/manuel/code/wesen/2026-04-11--loupedeck-test/runtime/js/runtime_test.go — Added JS integration coverage for named display layers
+- /home/manuel/code/wesen/2026-04-11--loupedeck-test/examples/js/07-cyb-ito-prototype.js — Added a dedicated `fx` overlay layer and the first touch-driven ripple overlay path
+
+## 2026-04-12
+
+Validated the new layered prototype on actual Loupedeck Live hardware after the overlay-composition slice landed. The rerun confirmed that the previously improved selection/status UX still worked under the new layer model and, importantly, that the first overlay-driven ripple/flash effect was visible on-device rather than only in tests. The live runner log captured matching touch events during the session, and the user explicitly confirmed the hardware result.
+
+### Related Files
+
+- /home/manuel/code/wesen/2026-04-11--loupedeck-test/examples/js/07-cyb-ito-prototype.js — Hardware-validated layered prototype using the new `fx` overlay surface
+- /tmp/loupe-cyb-ito-layers-1775990488.log — Hardware validation log for the layered prototype run after overlay support landed
+
