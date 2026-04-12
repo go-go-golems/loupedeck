@@ -50,7 +50,11 @@ Current completion state:
 - The presenter-driven full-page scene in `examples/js/10-cyb-ito-full-page-all12.js` now also uses CJK kanji labels
 - The full-page scene now includes source-derived left/right side strips mapped onto the real `60×270` hardware displays
 - A non-interactive hardware smoke run confirmed `left`, `main`, and `right` display draws for the updated full-page scene
-- `go test ./...` passes after the first strip-fidelity slice
+- The right-strip kanji have been tuned for better visibility: larger, brighter, and moved left inside the `60px` strip
+- The main-grid and HUD kanji have been shifted lower/left based on hardware feedback
+- A ticket-local offscreen preview exporter now renders the JS scene to a stitched `480x270` PNG for visual inspection without hardware
+- Preview artifacts now exist at `/tmp/loupe-cyb-ito-preview.png` and `/tmp/loupe-cyb-ito-preview-v2.png`
+- `go test ./...` passes after the preview-driven tuning slice
 
 ## Topics
 

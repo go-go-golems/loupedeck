@@ -25,12 +25,17 @@ RelatedFiles:
       Note: JS runtime tests for font handles and kanji collection rendering
     - Path: ttmp/2026/04/11/LOUPE-006--full-animated-javascript-uis-for-loupedeck-from-cyb-ito-html-reference/sources/local/cyb-ito.html
       Note: Imported source inspected for exact strip behavior in Step 5
+    - Path: ttmp/2026/04/12/LOUPE-012--opentype-font-api-for-cyb-ito-kanji-and-sidebar-text-rendering/scripts/06-render-scene-preview.go
+      Note: |-
+        Step 7 offscreen framebuffer preview exporter for visual tuning
+        Step 7 offscreen stitched PNG preview export workflow
 ExternalSources: []
 Summary: Chronological diary for OpenType font loading and kanji rendering support in the Loupedeck JS runtime.
 LastUpdated: 2026-04-12T18:15:00-04:00
 WhatFor: Use this diary to understand the implementation steps, failures, and validation path for LOUPE-012.
 WhenToUse: Use when continuing or reviewing the OpenType/CJK font support work.
 ---
+
 
 
 
@@ -379,3 +384,167 @@ This step therefore focused on `examples/js/10-cyb-ito-full-page-all12.js`. I ke
   - pip logic around lines 688–694
 - Evidence log:
   - `/tmp/loupe-cyb-ito-font-strips-1776033165.log`
+
+## Step 6: Tune kanji alignment and sidebar readability from hardware feedback
+
+Once the source-derived strips were live, the next refinement came directly from user feedback on the real device. The user reported two concrete visual issues: the kanji characters should sit lower and further left, and the right scrolling sidebar felt too faint. That gave me a precise tuning target instead of vague “make it better” iteration.
+
+This step stayed intentionally narrow. I did not change the underlying scene architecture again; I only adjusted the kanji font sizing and text-box placement inside the already-working full-page scene.
+
+### Prompt Context
+
+**User prompt (verbatim):** "oh actually i see it it's very faint on the right and the characters need to be larger"
+
+**Assistant interpretation:** Keep the strip architecture intact, but make the right-side scrolling kanji visibly stronger and adjust kanji placement to align better on hardware.
+
+**Inferred user intent:** The user wants the new CJK/strip work to be not just present but clearly legible on the physical device.
+
+**Commit (code):** `58966ed` — `Tune full-page kanji alignment and sidebar visibility`
+
+### What I did
+- Updated `/home/manuel/code/wesen/2026-04-11--loupedeck-test/examples/js/10-cyb-ito-full-page-all12.js`.
+- Added explicit placement constants for kanji alignment:
+  - `KANJI_TILE_DX`
+  - `KANJI_TILE_DY`
+  - `KANJI_HUD_DX`
+  - `KANJI_HUD_DY`
+- Added explicit right-strip layout constants:
+  - `SIDEBAR_KANJI_X`
+  - `SIDEBAR_KANJI_Y`
+  - `SIDEBAR_KANJI_W`
+  - `SIDEBAR_KANJI_H`
+- Increased font sizes:
+  - main kanji font from `16` to `18`
+  - small kanji font from `12` to `14`
+  - new sidebar kanji font at `20`
+- Moved the right-strip kanji box left inside the `60px` strip and increased strip brightness substantially.
+- Ran:
+  - `go test ./...`
+
+### Why
+- The most direct evidence about visual quality here is user hardware feedback, not just my assumptions from code.
+- The right strip was already structurally present; the problem was visibility and placement, so a layout/brightness/font-size pass was the right fix.
+
+### What worked
+- The tuning was localized to one scene file.
+- The main-grid, HUD, and right-strip kanji can all be tuned through text-box placement and font-size changes without touching the font API or renderer internals.
+
+### What didn't work
+- N/A
+
+### What I learned
+- The initial right-strip placement was too far to the right for the actual `60px` hardware strip. Even when the glyphs existed, they were not occupying the most visible part of the strip.
+- Hardware feedback is especially valuable for CJK layout because small box-position mistakes are very noticeable on a narrow, bezel-constrained display.
+
+### What was tricky to build
+- The tricky part was remembering that the strip text box in the current `drawText(...)` helper uses `x`/`y` as the top-left corner of a centered text box, not as a glyph anchor. That means “move the characters left” really means moving the entire text box left, not just changing a center point.
+
+### What warrants a second pair of eyes
+- The right-strip brightness curve is now much stronger than the source HTML. That was intentional for readability, but it may deserve one more visual pass for style balance.
+
+### What should be done in the future
+- Add an offscreen preview/export workflow so framebuffer layout can be inspected without always relying on live hardware.
+
+### Code review instructions
+- Review `/home/manuel/code/wesen/2026-04-11--loupedeck-test/examples/js/10-cyb-ito-full-page-all12.js`.
+- Focus on:
+  - top-level kanji placement constants
+  - font size changes
+  - `drawTileChrome(...)`
+  - `renderRightStrip(...)`
+  - `renderHUDLayer(...)`
+- Validate with `go test ./...`.
+
+### Technical details
+- Right-strip visibility problem came from the glyph box being too far right and too dim for the hardware strip width.
+
+## Step 7: Add offscreen framebuffer PNG export and use it for preview-driven tuning
+
+After the hardware-feedback tuning pass, the user suggested something very practical: export the framebuffer to PNG and inspect it with image tools. That was a good idea, because it turns scene-layout debugging into something repeatable and reviewable without requiring a live hardware session for every tiny text-position change.
+
+I implemented that workflow as a ticket-local helper script rather than as ad hoc shell history. The helper boots the JS runtime offscreen, runs the scene, captures the `left`, `main`, and `right` display images through the normal renderer, stitches them into one `480x270` image, and writes a PNG.
+
+### Prompt Context
+
+**User prompt (verbatim):** "you can btw maybe export the framebuffer as png and then look at it to see if things are looking good, using your image analysis / toolss"
+
+**Assistant interpretation:** Add a reproducible offscreen preview/export path for the JS scene and use it to inspect layout quality without hardware.
+
+**Inferred user intent:** The user wants a faster debug loop for visual tuning, and wants the agent to use its image-analysis capabilities where possible.
+
+**Commit (code):** `cfd341f` — `Add offscreen preview export for font tuning`
+
+### What I did
+- Added `/home/manuel/code/wesen/2026-04-11--loupedeck-test/ttmp/2026/04/12/LOUPE-012--opentype-font-api-for-cyb-ito-kanji-and-sidebar-text-rendering/scripts/06-render-scene-preview.go`.
+- The helper:
+  - creates a JS runtime/environment
+  - installs a normal retained renderer with offscreen capture targets for `left`, `main`, and `right`
+  - starts the presenter runtime
+  - runs a JS scene file
+  - waits briefly for initial render/animation state
+  - stitches the captured displays into one `480x270` PNG
+- Ran:
+  - `go run ./ttmp/2026/04/12/LOUPE-012--opentype-font-api-for-cyb-ito-kanji-and-sidebar-text-rendering/scripts/06-render-scene-preview.go --script ./examples/js/10-cyb-ito-full-page-all12.js --out /tmp/loupe-cyb-ito-preview.png --wait 400ms`
+- Exported:
+  - `/tmp/loupe-cyb-ito-preview.png`
+- Attempted image analysis on the preview twice, but both attempts failed with the same transient backend error:
+  - `API error (1033)`
+  - `system error`
+- Used the preview workflow anyway and applied one additional small kanji Y-offset adjustment in the scene.
+- Ran:
+  - `go test ./...`
+  - the first run failed with the known flaky unrelated timing test:
+    - `--- FAIL: TestAnimModuleLoopCanDriveReactiveUpdates (0.04s)`
+    - `expected loop to update visible text, got "0"`
+  - reran `go test ./...` successfully
+- Regenerated the preview:
+  - `/tmp/loupe-cyb-ito-preview-v2.png`
+
+### Why
+- A preview PNG is a durable artifact. It can be inspected later, attached to docs, and reviewed without needing the device.
+- The helper uses the actual retained JS/runtime/render pipeline instead of inventing a fake alternate path, so the preview is meaningful.
+
+### What worked
+- The exporter script worked on the first real render after a small import fix.
+- The stitched preview workflow gives one image containing the actual left/main/right composition.
+- The second full test run passed after the known flaky timing test was rerun.
+
+### What didn't work
+- The image-analysis backend failed twice with the same transient error:
+  - `API error (1033)`
+  - `system error`
+- The first `go test ./...` rerun after the preview-driven tweak hit the known flaky test:
+  - `TestAnimModuleLoopCanDriveReactiveUpdates`
+
+### What I learned
+- The preview export path is absolutely worth keeping, even if image analysis is temporarily unavailable, because it shortens the visual-debugging loop dramatically.
+- The current repo already has enough runtime separation to render the scene offscreen cleanly without any hardware-specific hacks.
+
+### What was tricky to build
+- The main tricky point was making the helper drive the normal presenter path correctly: it needed a real JS runtime environment, a started presenter, and a flush callback wired into the renderer. Without that, the scene would boot but not actually produce retained-frame output.
+- Another subtle point was copying the drawn images inside the capture target. The renderer hands out images over time, so the capture target clones each frame instead of holding references that might later change.
+
+### What warrants a second pair of eyes
+- If this preview workflow becomes more central, it may deserve promotion from a ticket-local helper into a more discoverable repo tool or command.
+- The preview script currently waits a fixed amount of time; a future version could wait for a minimum draw count or explicit scene readiness signal instead.
+
+### What should be done in the future
+- Optionally promote the preview exporter into a reusable repo-local helper.
+- Retry image-analysis review later when the backend is healthy.
+
+### Code review instructions
+- Review `/home/manuel/code/wesen/2026-04-11--loupedeck-test/ttmp/2026/04/12/LOUPE-012--opentype-font-api-for-cyb-ito-kanji-and-sidebar-text-rendering/scripts/06-render-scene-preview.go` first.
+- Then review the tiny kanji Y-offset tweak in `/home/manuel/code/wesen/2026-04-11--loupedeck-test/examples/js/10-cyb-ito-full-page-all12.js`.
+- Validate with:
+  - `go test ./...`
+  - `go run ./ttmp/2026/04/12/LOUPE-012--opentype-font-api-for-cyb-ito-kanji-and-sidebar-text-rendering/scripts/06-render-scene-preview.go --script ./examples/js/10-cyb-ito-full-page-all12.js --out /tmp/loupe-cyb-ito-preview-v2.png --wait 400ms`
+
+### Technical details
+- Preview output size: `480x270`
+  - `left 60 + main 360 + right 60`
+- Preview artifacts:
+  - `/tmp/loupe-cyb-ito-preview.png`
+  - `/tmp/loupe-cyb-ito-preview-v2.png`
+- Transient image-analysis failures observed:
+  - `Trace-Id: 062b522e7b896a43b44612a9ac938fb4`
+  - `Trace-Id: 062b524763cac70a5474bc1b4a8d7764`

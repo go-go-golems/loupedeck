@@ -21,3 +21,19 @@
 - Ran a non-interactive hardware smoke command:
   - `timeout 30s go run ./cmd/loupe-js-live --script ./examples/js/10-cyb-ito-full-page-all12.js --duration 5s --send-interval 0ms --stats-interval 2s --log-render-stats`
 - Recorded successful three-display evidence in `/tmp/loupe-cyb-ito-font-strips-1776033165.log`, including `Draw called Display=left`, `Draw called Display=main`, and `Draw called Display=right` with the expected `60x270`, `360x270`, and `60x270` dimensions.
+- Tuned kanji placement and sidebar visibility in `/home/manuel/code/wesen/2026-04-11--loupedeck-test/examples/js/10-cyb-ito-full-page-all12.js` based on hardware feedback:
+  - shifted main-grid kanji lower and left,
+  - shifted HUD kanji lower and left,
+  - enlarged and brightened the right-strip scrolling kanji,
+  - moved the right-strip glyph box left inside the hardware strip (`58966ed` — `Tune full-page kanji alignment and sidebar visibility`).
+- Added a ticket-local offscreen preview renderer at `/home/manuel/code/wesen/2026-04-11--loupedeck-test/ttmp/2026/04/12/LOUPE-012--opentype-font-api-for-cyb-ito-kanji-and-sidebar-text-rendering/scripts/06-render-scene-preview.go` so the JS scene can be exported as a stitched framebuffer PNG for analysis without hardware (`cfd341f` — `Add offscreen preview export for font tuning`).
+- Exported preview artifacts:
+  - `/tmp/loupe-cyb-ito-preview.png`
+  - `/tmp/loupe-cyb-ito-preview-v2.png`
+- Attempted image-analysis review twice on the updated preview, but the tool returned transient backend failures both times:
+  - `API error (1033) system error`
+- While regenerating the second preview, the first `go test ./...` run hit the known flaky unrelated timing failure:
+  - `--- FAIL: TestAnimModuleLoopCanDriveReactiveUpdates (0.04s)`
+  - `expected loop to update visible text, got "0"`
+  - rerunning `go test ./...` passed.
+- Applied one additional small preview-driven kanji Y-offset adjustment and reran the full suite successfully.
