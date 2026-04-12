@@ -230,10 +230,105 @@ design-doc/03-implementation-plan-reactive-goja-ui-runtime-for-dynamic-loupedeck
 - The proposed package layout is sensible, but the team may prefer a flatter or more nested arrangement depending on repository conventions.
 
 ### What should be done in the future
-- Run `docmgr doctor` again after the new docs are in place.
-- Commit the expanded ticket docs.
-- Upload the expanded bundle to the reMarkable.
 - Later, turn `design-doc/03-...` into a narrower implementation RFC for the very first coding slice.
+
+## Step 3: Validate, commit, and upload the expanded intern bundle
+
+After the new textbook and implementation-plan docs were written and the ticket index/tasks/changelog were updated, the next job was continuity and delivery: validate the ticket, commit the docs, upload the expanded bundle to the reMarkable, and verify the remote folder contents.
+
+### Prompt Context
+
+**User prompt (verbatim):** "ok, create a detailed implementat plan now to build it and stor ein ticket and upload to remarkable, same again for our intern."
+
+**Assistant interpretation:** Finish the documentation package operationally, not just editorially: validate it with `docmgr`, commit the new ticket docs, upload the expanded LOUPE-005 bundle to the reMarkable, and record the result.
+
+**Inferred user intent:** Make the plan durable and reviewable in all of the usual places used for this project: ticket docs, git history, and reMarkable delivery.
+
+**Commit (code):** `a3761dc` — `Expand LOUPE-005 with reactive textbook and implementation plan`
+
+### What I did
+- Ran:
+
+```bash
+docmgr doctor --ticket LOUPE-005 --stale-after 30
+```
+
+- Result: all checks passed.
+- Committed the expanded LOUPE-005 docs, including:
+  - `design-doc/02-textbook-reactive-goja-ui-runtime-for-dynamic-loupedeck-interfaces.md`
+  - `design-doc/03-implementation-plan-reactive-goja-ui-runtime-for-dynamic-loupedeck-interfaces.md`
+  - updated `index.md`, `tasks.md`, `changelog.md`, and this diary
+- Performed a dry-run reMarkable bundle upload including:
+  - brainstorm design doc
+  - reactive textbook
+  - implementation plan
+  - example scripts
+  - diary
+- Uploaded the real bundle with the document name:
+
+```text
+LOUPE-005 Reactive Goja UI Runtime textbook and implementation plan
+```
+
+- Target reMarkable folder:
+
+```text
+/ai/2026/04/11/LOUPE-005
+```
+
+- Verified remote contents with:
+
+```bash
+remarquee cloud ls "/ai/2026/04/11/LOUPE-005/" --long --non-interactive
+```
+
+- Verified that the folder now contains:
+  - `LOUPE-005 Goja JavaScript API brainstorm`
+  - `LOUPE-005 Reactive Goja UI Runtime textbook and implementation plan`
+
+### Why
+- The request explicitly asked for ticket storage and reMarkable delivery, so stopping after local markdown authoring would have left the task incomplete.
+- Validation and commit history matter because this ticket is evolving into the design record for a future implementation effort.
+
+### What worked
+- `docmgr doctor` passed cleanly after the updates.
+- The bundle upload worked on the first real attempt after a successful dry-run.
+- The remote listing confirmed the document landed in the intended LOUPE-005 folder next to the earlier brainstorm bundle.
+
+### What didn't work
+- No tooling failure occurred in this step.
+- The only remaining bookkeeping item was to mark the tasks complete and extend the changelog/diary with the delivery evidence, which is what this step is doing.
+
+### What I learned
+- The new LOUPE-005 package is now strong enough to function as a genuine onboarding bundle: concept, examples, phased plan, and diary are all in one place and mirrored to reMarkable.
+- It is useful to keep the brainstorm bundle and the reactive-textbook bundle as separate reMarkable artifacts because they serve slightly different reading goals.
+
+### What warrants a second pair of eyes
+- A reviewer may want to confirm whether the uploaded bundle should also include `index.md` and `tasks.md` in future deliveries, or whether the current design-doc/reference-only bundle is the better reader experience.
+
+### Code review instructions
+- Review the committed docs at commit `a3761dc`.
+- Confirm the remote reMarkable folder contains both LOUPE-005 PDFs.
+- If desired, derive the first actual implementation RFC directly from `design-doc/03-implementation-plan-reactive-goja-ui-runtime-for-dynamic-loupedeck-interfaces.md`.
+
+### Technical details
+- Validation command used:
+
+```bash
+docmgr doctor --ticket LOUPE-005 --stale-after 30
+```
+
+- Upload command family used:
+
+```bash
+remarquee upload bundle ... --name "LOUPE-005 Reactive Goja UI Runtime textbook and implementation plan" --remote-dir "/ai/2026/04/11/LOUPE-005" --toc-depth 2
+```
+
+- Verification command used:
+
+```bash
+remarquee cloud ls "/ai/2026/04/11/LOUPE-005/" --long --non-interactive
+```
 
 ### Code review instructions
 - Read in this order:
@@ -258,4 +353,160 @@ pure Go reactive core -> retained UI model -> retained visuals -> renderer bridg
 
 ```text
 mutating a signal means changing a state cell and propagating invalidation through a dependency graph, not drawing directly to the device
+```
+
+## Step 4: Implement milestone A as a pure-Go reactive core
+
+The first real coding step for LOUPE-005 was intentionally below goja. The point was to implement the semantic heart of the runtime first: signals, computed values, dirty propagation, batching, and eager watchers/effects. This was the right starting point because it let me validate the reactive model in isolation, without mixing in any JS-module or runtime-loader complexity yet.
+
+This step also tested whether the implementation order from the new textbook and plan was actually practical. It was: building the reactive core first forced the API to stay small and clear, and it immediately surfaced one concrete Go constraint that would have been more annoying to discover after building adapters.
+
+### Prompt Context
+
+**User prompt (verbatim):** "Add detailed tasks for the impllementation to the ticket, and then implement them one by one, committing at appropriat eintervals, and keeping a detailed diary"
+
+**Assistant interpretation:** Expand the ticket into execution-grade implementation tasks, then start performing those milestones in order with real code, tests, commits, and diary continuity.
+
+**Inferred user intent:** Move LOUPE-005 out of design-only mode and into disciplined implementation mode, with visible task progress and durable documentation after each meaningful coding slice.
+
+**Commit (code):** `afcc313` — `Add pure Go reactive runtime core`
+
+### What I did
+- Expanded `tasks.md` with concrete milestone sections for:
+  - pure-Go reactive core
+  - retained UI
+  - renderer bridge
+  - host shell
+  - goja adapters
+  - animation/easing
+  - reconnect replay
+- Added the new package:
+
+```text
+runtime/reactive/
+```
+
+- Implemented:
+  - `runtime/reactive/runtime.go`
+  - `runtime/reactive/graph.go`
+  - `runtime/reactive/signal.go`
+  - `runtime/reactive/computed.go`
+  - `runtime/reactive/effect.go`
+- Added tests in:
+
+```text
+runtime/reactive/runtime_test.go
+```
+
+- Supported behaviors include:
+  - `Runtime` batching and flush scheduling
+  - generic `Signal[T]` with `Get`, `Set`, `Update`
+  - generic `Computed[T]` with lazy reevaluation and dependency tracking
+  - eager `Watch`/effect support with unsubscribe via `Stop()`
+  - dirty propagation through dependency graphs
+  - cycle/reentrancy panic guards for computed/effect evaluation
+- Ran:
+
+```bash
+gofmt -w runtime/reactive/*.go
+go test ./...
+```
+
+### Why
+- This is the smallest slice that validates the core reactive semantics promised by the textbook and implementation plan.
+- By keeping the package pure Go and goja-free, the tests answer the important question first: “does the reactive graph behave the way we want?”
+
+### What worked
+- The package structure stayed small and readable.
+- The tests cover the most important semantic scenarios from the design docs:
+  - equal-value no-op updates
+  - invalidation chains
+  - diamond dependency graphs
+  - batching
+  - stop/detach behavior
+  - cycle/reentrancy guards
+- The full repository test suite passed once the API was adjusted for the current Go version.
+
+### What didn't work
+- My first API draft used generic methods on `Runtime`:
+
+```go
+func (r *Runtime) Signal[T any](initial T) *Signal[T]
+func (r *Runtime) Computed[T any](fn func() T) *Computed[T]
+```
+
+- That failed under the repository’s Go toolchain with:
+
+```text
+runtime/reactive/runtime.go:17:25: method must have no type parameters
+runtime/reactive/runtime.go:21:34: method must have no type parameters
+runtime/reactive/runtime.go:32:27: method must have no type parameters
+```
+
+- Command that failed:
+
+```bash
+go test ./...
+```
+
+- Fix: switch to package-level generic constructors instead:
+
+```go
+func NewSignal[T any](r *Runtime, initial T) *Signal[T]
+func NewSignalWithEqual[T any](r *Runtime, initial T, equal func(a, b T) bool) *Signal[T]
+func NewComputed[T any](r *Runtime, fn func() T) *Computed[T]
+```
+
+### What I learned
+- The implementation-order rule from the plan is already proving itself. By starting in pure Go, I found and resolved the API-shape issue before any JS adapter code existed.
+- Eager `Watch` support is worth having in the core package even before the JS layer, because it makes batching and propagation behavior much easier to test and reason about.
+
+### What was tricky to build
+- The dependency graph needs two kinds of participants: dependency **sources** (signals/computeds) and dirty **dependents** (computeds/effects). Getting that split explicit early made the implementation much cleaner.
+- Another tricky point was making computed dependencies dynamic rather than one-time-bound. The solution was to clear old dependencies before each reevaluation and rebuild them while evaluating the computed in a collector context.
+- The panic guards are intentionally simple for now: they detect obvious cyclic computed evaluation and reentrant effect execution rather than attempting a sophisticated cycle-resolution system.
+
+### What warrants a second pair of eyes
+- The current computed semantics are lazy and may over-invalidate downstream dependents when a source changes but a computed value ends up equal after reevaluation. That is acceptable for the first slice, but a reviewer should keep an eye on whether later milestones need equality-aware downstream suppression.
+- The runtime is currently intentionally single-threaded. If future host code tries to mutate it from multiple goroutines, additional synchronization or scheduling discipline will be needed.
+
+### What should be done in the future
+- Build milestone B on top of this package: retained pages/tiles with reactive property bindings.
+- Decide whether future computed values need configurable equality semantics or whether the current always-dirty downstream policy is sufficient.
+
+### Code review instructions
+- Start with:
+  - `runtime/reactive/runtime.go`
+  - `runtime/reactive/signal.go`
+  - `runtime/reactive/computed.go`
+  - `runtime/reactive/effect.go`
+  - `runtime/reactive/runtime_test.go`
+- Validate with:
+
+```bash
+gofmt -w runtime/reactive/*.go
+go test ./...
+```
+
+### Technical details
+- The implementation uses a collector-scoping pattern:
+
+```text
+signal/computed Get() -> register dependency with current collector
+signal Set() -> mark dependents dirty
+computed/effect reevaluation -> clear old deps, rebuild deps while collecting Get() calls
+```
+
+- The milestone-A public constructor shape is now:
+
+```go
+rt := reactive.NewRuntime()
+count := reactive.NewSignal(rt, 0)
+label := reactive.NewComputed(rt, func() string {
+    return fmt.Sprintf("%d", count.Get())
+})
+sub := rt.Watch(func() {
+    _ = label.Get()
+})
+sub.Stop()
 ```
