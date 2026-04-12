@@ -224,6 +224,51 @@ func TestAnimModuleLoopCanDriveReactiveUpdates(t *testing.T) {
 	}
 }
 
+func TestGfxModuleCanBuildAndCompositeSurface(t *testing.T) {
+	rt := NewRuntime(nil)
+	defer rt.Close(nil)
+
+	_, err := rt.RunString(nil, `
+		const gfx = require("loupedeck/gfx");
+		const base = gfx.surface(16, 16);
+		base.clear(0);
+		base.line(0, 0, 15, 0, 50);
+		base.crosshatch(0, 0, 8, 8, 2, 20);
+		base.text("EYE", { x: 0, y: 0, width: 16, height: 16, brightness: 120, center: true });
+		const overlay = gfx.surface(4, 4);
+		overlay.fillRect(0, 0, 4, 4, 100);
+		base.compositeAdd(overlay, 2, 2);
+		globalThis.__gfxBase = base;
+	`)
+	if err != nil {
+		t.Fatalf("run script: %v", err)
+	}
+
+	base := rt.VM.Get("__gfxBase").ToObject(rt.VM)
+	at, ok := goja.AssertFunction(base.Get("at"))
+	if !ok {
+		t.Fatal("expected gfx surface to expose at()")
+	}
+	v, err := at(base, rt.VM.ToValue(2), rt.VM.ToValue(2))
+	if err != nil {
+		t.Fatalf("call at(): %v", err)
+	}
+	if got := int(v.ToInteger()); got == 0 {
+		t.Fatal("expected composited/textured surface to have non-zero brightness at sampled point")
+	}
+	widthFn, ok := goja.AssertFunction(base.Get("width"))
+	if !ok {
+		t.Fatal("expected gfx surface to expose width()")
+	}
+	width, err := widthFn(base)
+	if err != nil {
+		t.Fatalf("call width(): %v", err)
+	}
+	if width.ToInteger() != 16 {
+		t.Fatalf("expected width 16, got %d", width.ToInteger())
+	}
+}
+
 func TestCloseRemovesRuntimeBridgeBindings(t *testing.T) {
 	rt := NewRuntime(nil)
 	if _, ok := runtimebridge.Lookup(rt.VM); !ok {

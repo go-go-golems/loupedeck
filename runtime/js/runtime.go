@@ -12,6 +12,7 @@ import (
 	envpkg "github.com/go-go-golems/loupedeck/runtime/js/env"
 	"github.com/go-go-golems/loupedeck/runtime/js/module_anim"
 	"github.com/go-go-golems/loupedeck/runtime/js/module_easing"
+	"github.com/go-go-golems/loupedeck/runtime/js/module_gfx"
 	"github.com/go-go-golems/loupedeck/runtime/js/module_state"
 	"github.com/go-go-golems/loupedeck/runtime/js/module_ui"
 )
@@ -38,6 +39,7 @@ func NewRuntime(env *envpkg.Environment) *Runtime {
 	module_ui.Register(registry)
 	module_easing.Register(registry)
 	module_anim.Register(registry)
+	module_gfx.Register(registry)
 	registry.Enable(vm)
 
 	owner := runtimeowner.NewRunner(vm, loop, runtimeowner.Options{
