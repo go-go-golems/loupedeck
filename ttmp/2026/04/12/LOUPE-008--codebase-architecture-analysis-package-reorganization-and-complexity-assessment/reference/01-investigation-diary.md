@@ -14,25 +14,34 @@ RelatedFiles:
     - Path: cmd/loupe-fps-bench/main.go
       Note: Benchmark runner no longer performs manual display setup (commit 2dac4b1)
     - Path: cmd/loupe-js-live/main.go
-      Note: Removed manual SetDisplays call after connect-time profile setup (commit 2dac4b1)
+      Note: |-
+        Removed manual SetDisplays call after connect-time profile setup (commit 2dac4b1)
+        Event logging now uses device String methods rather than local helper maps (commit 41d4f67)
     - Path: cmd/loupe-svg-buttons/main.go
       Note: SVG demo now relies on connect-time profile setup (commit 2dac4b1)
     - Path: pkg/device/connect.go
       Note: Connect path now resolves device profiles during initialization (commit 2dac4b1)
     - Path: pkg/device/display.go
       Note: Display mechanics retained after removing SetDisplays product switch (commit 2dac4b1)
+    - Path: pkg/device/inputs.go
+      Note: Canonical input String and Parse APIs plus ButtonStatus typing fix (commit 41d4f67)
+    - Path: pkg/device/inputs_test.go
+      Note: Round-trip and alias coverage for device input naming (commit 41d4f67)
     - Path: pkg/device/listeners.go
       Note: Listener model simplified to On* subscriptions only (commit 8018a20)
     - Path: pkg/device/loupedeck.go
       Note: Driver package simplified after widget/font removal (commit 8018a20)
     - Path: pkg/device/profile.go
       Note: Table-driven device profiles and display specs (commit 2dac4b1)
+    - Path: runtime/js/module_ui/module.go
+      Note: JS UI module now parses canonical device input names instead of local maps (commit 41d4f67)
 ExternalSources: []
 Summary: Chronological diary of codebase analysis investigating package structure, file complexity, and reorganization opportunities for the go-go-golems/loupedeck project
 LastUpdated: 2026-04-12T15:35:00-04:00
 WhatFor: Document the investigation process, findings, and analysis methodology for codebase reorganization recommendations
 WhenToUse: When reviewing analysis conclusions or extending the investigation
 ---
+
 
 
 # Investigation Diary
@@ -820,4 +829,133 @@ go test ./...
 
 ```text
 [main 2dac4b1] Initialize device profiles during connect
+```
+
+---
+
+## Step 9: Add canonical input naming and parsing APIs
+
+With the driver moved and connect-time profiling fixed, the next most obvious cleanup was duplicated naming logic for buttons, knobs, and touch buttons. The project still had two parallel hand-maintained mapping systems: one in `runtime/js/module_ui` for JS-facing event registration and one in `cmd/loupe-js-live` for event logging. That duplication was small but exactly the kind of repeated maintenance burden that grows sharp edges over time.
+
+This step made the device enums themselves authoritative. Instead of every consumer maintaining its own lookup tables, `pkg/device/inputs.go` now owns the canonical string forms and parse logic. That gives us one place to define names, one place to define aliases, and one place to define how unknown values are reported.
+
+### Prompt Context
+
+**User prompt (verbatim):** "continue"
+
+**Assistant interpretation:** Continue with the next planned cleanup slice after connect/profile setup, preserving the focused-commit and diary workflow.
+
+**Inferred user intent:** Keep executing the cleanup plan incrementally, turning the architecture doc into real code while maintaining reviewable checkpoints.
+
+**Commit (code):** `41d4f67` — "Add canonical input naming and parsing APIs"
+
+### What I did
+- Extended `pkg/device/inputs.go` with:
+  - `func (Button) String() string`
+  - `func ParseButton(string) (Button, error)`
+  - `func (ButtonStatus) String() string`
+  - `func (Knob) String() string`
+  - `func ParseKnob(string) (Knob, error)`
+  - `func (TouchButton) String() string`
+  - `func ParseTouchButton(string) (TouchButton, error)`
+- Added alias support for CT button names:
+  - `A` → `Up`
+  - `B` → `Down`
+  - `C` → `Left`
+  - `D` → `Right`
+- Added `pkg/device/inputs_test.go` covering:
+  - button / knob / touch round-trip parsing
+  - alias parsing
+  - `ButtonStatus.String()`
+  - unknown-name rejection
+- Replaced hand-maintained maps in `runtime/js/module_ui/module.go` with `ParseButton`, `ParseKnob`, and `ParseTouchButton`.
+- Removed local naming helpers from `cmd/loupe-js-live/main.go` and switched event logging to `String()` methods.
+- Ran `gofmt -w`, targeted tests, and then the full suite.
+
+### Why
+- The naming maps were duplicated and easy to drift.
+- Input types should define their own public names.
+- JS event registration and CLI logging should both depend on the same canonical source of truth.
+
+### What worked
+- The new APIs dropped neatly into both consumers.
+- `runtime/js/module_ui` became simpler because it now validates names through the device package rather than local maps.
+- `cmd/loupe-js-live` lost a block of boilerplate helper code.
+- Validation passed cleanly:
+
+```bash
+go test ./pkg/device ./runtime/js ./cmd/loupe-js-live
+go test ./...
+```
+
+### What didn't work
+- The first test run surfaced a type bug in `inputs.go`:
+
+```text
+# github.com/go-go-golems/loupedeck/pkg/device [github.com/go-go-golems/loupedeck/pkg/device.test]
+pkg/device/inputs_test.go:69:14: ButtonUp.String undefined (type untyped int has no field or method String)
+pkg/device/inputs_test.go:70:47: ButtonUp.String undefined (type untyped int has no field or method String)
+FAIL	github.com/go-go-golems/loupedeck/pkg/device [build failed]
+```
+
+- Cause: `ButtonUp` was still declared as an untyped constant (`ButtonUp = 1`) instead of `ButtonUp ButtonStatus = 1`.
+- Fix: explicitly typed `ButtonUp` as `ButtonStatus` and reran formatting/tests.
+
+- The commit also hit the recurring stale git lock issue again:
+
+```text
+fatal: Unable to create '/home/manuel/code/wesen/2026-04-11--loupedeck-test/.git/index.lock': File exists.
+```
+
+- I used the same safe recovery approach as before: check for live git processes, then retry after removing the stale lock.
+
+### What I learned
+- `ButtonStatus` had an implicit typing bug that only became visible once we added methods and tests around it.
+- The duplicated naming logic was low-effort to remove and had a good cleanup-to-risk ratio.
+- Alias handling belongs in parsing, not in duplicated ad hoc maps in callers.
+
+### What was tricky to build
+- The tricky part was deciding what canonical names to emit for button values that have aliases (`Up`/`A`, `Left`/`C`, etc.). I chose the directional names (`Up`, `Left`, `Down`, `Right`) as the canonical string forms while still accepting the letter aliases in parsing.
+- That choice matters because `String()` becomes the single visible name in logs and any future serialization. Using the directional names is more descriptive and less layout-specific.
+
+### What warrants a second pair of eyes
+- Review the canonical naming choices for aliased CT buttons (`Up` vs `A`, etc.).
+- Review whether `TouchLeft` / `TouchRight` should remain accepted JS-facing names even though the current JS code mostly uses `Touch1`–`Touch12`.
+
+### What should be done in the future
+- Consider using the new `String()` APIs in any remaining debug logging or tests elsewhere in the codebase.
+- If external serialization of inputs is ever added, document these canonical names as the stable wire representation.
+
+### Code review instructions
+- Start with:
+  - `pkg/device/inputs.go`
+  - `pkg/device/inputs_test.go`
+- Then review the two consumers:
+  - `runtime/js/module_ui/module.go`
+  - `cmd/loupe-js-live/main.go`
+- Review commit:
+
+```bash
+git show --stat 41d4f67
+git show 41d4f67 -- pkg/device/inputs.go pkg/device/inputs_test.go runtime/js/module_ui/module.go cmd/loupe-js-live/main.go
+```
+
+- Validate with:
+
+```bash
+go test ./pkg/device ./runtime/js ./cmd/loupe-js-live
+go test ./...
+```
+
+### Technical details
+- Formatting command:
+
+```bash
+gofmt -w pkg/device/inputs.go pkg/device/inputs_test.go runtime/js/module_ui/module.go cmd/loupe-js-live/main.go
+```
+
+- Commit produced:
+
+```text
+[main 41d4f67] Add canonical input naming and parsing APIs
 ```
