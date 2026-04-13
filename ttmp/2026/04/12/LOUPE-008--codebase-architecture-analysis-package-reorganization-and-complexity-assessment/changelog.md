@@ -93,3 +93,14 @@ Added dedicated design, implementation plan, and task breakdown for the cmd/loup
 - /home/manuel/code/wesen/2026-04-11--loupedeck-test/ttmp/2026/04/12/LOUPE-008--codebase-architecture-analysis-package-reorganization-and-complexity-assessment/design-doc/06-implementation-plan-cmd-loupe-js-live-decomposition.md — Separate phased implementation plan
 - /home/manuel/code/wesen/2026-04-11--loupedeck-test/ttmp/2026/04/12/LOUPE-008--codebase-architecture-analysis-package-reorganization-and-complexity-assessment/tasks.md — New task section for the live-runner decomposition
 
+
+## 2026-04-13
+
+Completed the cmd/loupe-js-live decomposition through Phase E and updated README protocol-reference credit (commit 5e51ab2)
+
+### Related Files
+
+- /home/manuel/code/wesen/2026-04-11--loupedeck-test/README.md — Added pkg/device layout note and loupedeck-repo shout-out
+- /home/manuel/code/wesen/2026-04-11--loupedeck-test/cmd/loupe-js-live/options.go — Flag parsing moved to dedicated options struct
+- /home/manuel/code/wesen/2026-04-11--loupedeck-test/cmd/loupe-js-live/run.go — Orchestration extracted from monolithic main.go
+

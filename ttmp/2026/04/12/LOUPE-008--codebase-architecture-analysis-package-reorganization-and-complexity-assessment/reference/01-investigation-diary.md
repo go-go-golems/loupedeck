@@ -11,13 +11,26 @@ DocType: reference
 Intent: long-term
 Owners: []
 RelatedFiles:
+    - Path: README.md
+      Note: Updated repo layout and protocol-reference shout-out for sources/loupedeck-repo
     - Path: cmd/loupe-fps-bench/main.go
       Note: Benchmark runner no longer performs manual display setup (commit 2dac4b1)
+    - Path: cmd/loupe-js-live/cleanup.go
+      Note: Display cleanup helper extracted from main.go (commit 5e51ab2)
+    - Path: cmd/loupe-js-live/logging.go
+      Note: Optional event logging hookup extracted from main.go (commit 5e51ab2)
     - Path: cmd/loupe-js-live/main.go
       Note: |-
         Removed manual SetDisplays call after connect-time profile setup (commit 2dac4b1)
         Event logging now uses device String methods rather than local helper maps (commit 41d4f67)
         Current monolithic command that motivated the new decomposition docs
+        Tiny entrypoint after full command-local decomposition (commit 5e51ab2)
+    - Path: cmd/loupe-js-live/options.go
+      Note: Centralized flag parsing and validation for the live runner (commit 5e51ab2)
+    - Path: cmd/loupe-js-live/run.go
+      Note: Main application orchestration extracted from main.go (commit 5e51ab2)
+    - Path: cmd/loupe-js-live/stats.go
+      Note: Stats and trace formatting helpers extracted from main.go (commit 5e51ab2)
     - Path: cmd/loupe-svg-buttons/main.go
       Note: SVG demo now relies on connect-time profile setup (commit 2dac4b1)
     - Path: pkg/device/connect.go
@@ -48,6 +61,7 @@ LastUpdated: 2026-04-12T15:35:00-04:00
 WhatFor: Document the investigation process, findings, and analysis methodology for codebase reorganization recommendations
 WhenToUse: When reviewing analysis conclusions or extending the investigation
 ---
+
 
 
 
@@ -1040,3 +1054,130 @@ This step did not change runtime behavior. It established the documentation and 
 - New docs created under the ticket’s `design-doc/` directory.
 - Task file updated in-place at:
   - `ttmp/2026/04/12/LOUPE-008--codebase-architecture-analysis-package-reorganization-and-complexity-assessment/tasks.md`
+
+---
+
+## Step 11: Complete the `cmd/loupe-js-live` decomposition through Phase E
+
+This step executed the full live-runner decomposition that had just been planned in the ticket docs. The goal was to keep behavior the same while turning `cmd/loupe-js-live/main.go` from a large all-in-one file into a small entrypoint plus focused command-local helper files.
+
+This was a structural cleanup slice, not a feature slice. The device connection path, JS runtime behavior, rendering flow, tracing, and exit logic were all kept intact; the main change was that each concern now lives in a better-named file with a clearer boundary.
+
+### Prompt Context
+
+**User prompt (verbatim):** "Ok, all the way to phase E"
+
+**Assistant interpretation:** Implement the entire planned `cmd/loupe-js-live` decomposition, not just the initial split, and finish the validation/bookkeeping work too.
+
+**Inferred user intent:** Fully complete the live-runner refactor slice in one go, including the cleanup docs/tasks work, so the task section can be closed rather than partially advanced.
+
+**Commit (code):** `5e51ab2` — "Decompose cmd/loupe-js-live into focused files"
+
+### What I did
+- Added `cmd/loupe-js-live/options.go`
+  - introduced the `options` struct
+  - moved flag parsing and validation into `parseOptions()`
+- Added `cmd/loupe-js-live/run.go`
+  - moved script loading, device connection, display validation, JS runtime setup, renderer setup, and the main `select` loop into `run(opts)`
+- Added `cmd/loupe-js-live/stats.go`
+  - moved `renderStatsWindow`
+  - moved writer diff helpers
+  - moved JS counter/timing formatting helpers
+  - moved trace filtering/formatting helpers
+- Added `cmd/loupe-js-live/logging.go`
+  - moved `registerEventLogging`
+- Added `cmd/loupe-js-live/cleanup.go`
+  - moved `clearDisplays`
+- Rewrote `cmd/loupe-js-live/main.go` to a tiny entrypoint that:
+  - calls `parseOptions()`
+  - calls `run(opts)`
+  - maps parse failures to exit code 2 and runtime failures to exit code 1
+- Updated `README.md` to:
+  - reflect the `pkg/device` / `runtime` / `cmd` layout
+  - explicitly credit `sources/loupedeck-repo/` as the main protocol reference used while implementing the device layer here
+- Ran:
+
+```bash
+gofmt -w cmd/loupe-js-live/*.go
+go test ./cmd/loupe-js-live ./...
+```
+
+### Why
+- `cmd/loupe-js-live/main.go` had become one of the last local complexity hotspots after the broader architecture cleanup.
+- The live runner needed to be easier to review and extend without prematurely inventing a shared runner package.
+- The README was also out of date after the `pkg/device` move and was missing the explicit shout-out the user requested for the upstream protocol reference implementation.
+
+### What worked
+- The split was clean and behavior-preserving.
+- `main.go` is now tiny and obvious.
+- The control flow now lives in `run.go`, which makes the application lifecycle much easier to follow.
+- The helpers that used to obscure the main flow are now grouped logically.
+- Full validation passed after the split:
+
+```bash
+go test ./...
+```
+
+### What didn't work
+- The recurring stale git lock problem happened again on the code commit:
+
+```text
+fatal: Unable to create '/home/manuel/code/wesen/2026-04-11--loupedeck-test/.git/index.lock': File exists.
+```
+
+- As before, I verified there was no active git process holding the lock and retried safely after removing the stale file.
+
+### What I learned
+- The command-local split was enough; there was no need to introduce a `pkg/runner` abstraction.
+- Once the helper code moved out, the actual runtime orchestration was smaller than the old `main.go` made it seem.
+- The README had lagged behind the repo structure more than expected; the `pkg/device` move made that especially visible.
+
+### What was tricky to build
+- The main subtlety was preserving user-facing CLI behavior. `parseOptions()` now returns errors, but `main()` still needs to preserve the old exit-code split between usage/flag issues and runtime failures.
+- Another subtlety was keeping the output and control-flow semantics unchanged while moving code around aggressively. The split only worked because earlier cleanup had already stabilized device setup and input naming.
+
+### What warrants a second pair of eyes
+- Review `run.go` to confirm the orchestration flow still reads naturally after the split.
+- Review whether `cleanup.go` is worth keeping as a standalone file if the command remains small.
+- Review the README wording for the `loupedeck-repo` protocol-reference credit to ensure it says exactly what you want publicly.
+
+### What should be done in the future
+- Consider a similar internal decomposition for `cmd/loupe-fps-bench` if it continues to grow.
+- Revisit a shared runner abstraction only if a second command clearly wants the same orchestration model.
+
+### Code review instructions
+- Start with:
+  - `cmd/loupe-js-live/main.go`
+  - `cmd/loupe-js-live/options.go`
+  - `cmd/loupe-js-live/run.go`
+- Then inspect the helper files:
+  - `cmd/loupe-js-live/stats.go`
+  - `cmd/loupe-js-live/logging.go`
+  - `cmd/loupe-js-live/cleanup.go`
+- Also review the README update:
+  - `README.md`
+- Review commit:
+
+```bash
+git show --stat 5e51ab2
+git show 5e51ab2 -- cmd/loupe-js-live README.md
+```
+
+- Validate with:
+
+```bash
+go test ./...
+```
+
+### Technical details
+- New command-local files created:
+  - `cmd/loupe-js-live/options.go`
+  - `cmd/loupe-js-live/run.go`
+  - `cmd/loupe-js-live/stats.go`
+  - `cmd/loupe-js-live/logging.go`
+  - `cmd/loupe-js-live/cleanup.go`
+- Code commit produced:
+
+```text
+[main 5e51ab2] Decompose cmd/loupe-js-live into focused files
+```

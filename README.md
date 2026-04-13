@@ -12,10 +12,10 @@ module github.com/go-go-golems/loupedeck
 
 The current focus is:
 
-1. establish a root package instead of ticket-local scripts,
-2. preserve the working baseline implementation,
-3. improve lifecycle safety and event composition,
-4. add package-owned backpressure handling (B-lite first, then full B).
+1. preserve the working baseline implementation,
+2. improve lifecycle safety and event composition,
+3. add package-owned backpressure handling (B-lite first, then full B),
+4. keep the hardware driver in `pkg/device` and the higher-level runtime in `runtime/`.
 
 ## Supported hardware focus
 
@@ -27,9 +27,21 @@ Other devices may partially work through the existing protocol abstractions, but
 
 ## Repository layout
 
-- root package files (`*.go`) — active package implementation
-- `sources/loupedeck-repo/` — upstream reference clone kept for comparison
+- `pkg/device/` — active low-level device/protocol implementation
+- `runtime/` — higher-level retained UI, rendering, host/runtime, and JS integration
+- `cmd/` — runnable binaries and demos
+- `sources/loupedeck-repo/` — upstream reference clone kept for comparison and protocol implementation guidance
 - `ttmp/` — ticket documentation and implementation diary
+
+## Protocol reference and shout-out
+
+A major reference for the device-level implementation in this repository was the original
+`loupedeck-repo` code preserved under `sources/loupedeck-repo/`.
+
+That repository was heavily used as the main source of protocol implementation details while
+writing and validating the low-level `pkg/device` layer here. Credit where due: it was an
+important practical reference for understanding the serial/WebSocket framing, message flow,
+and basic device behavior.
 
 ## Near-term roadmap
 

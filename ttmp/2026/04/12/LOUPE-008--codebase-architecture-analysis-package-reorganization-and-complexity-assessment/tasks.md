@@ -17,43 +17,43 @@
 
 ### Phase A: options parsing split
 
-- [ ] Add `cmd/loupe-js-live/options.go`
-- [ ] Introduce an `options` struct covering all current flags
-- [ ] Move flag parsing and validation into `parseOptions()`
-- [ ] Keep the current CLI behavior and error messages intact
+- [x] Add `cmd/loupe-js-live/options.go`
+- [x] Introduce an `options` struct covering all current flags
+- [x] Move flag parsing and validation into `parseOptions()`
+- [x] Keep the current CLI behavior and error messages intact
 
 ### Phase B: main flow extraction
 
-- [ ] Add `cmd/loupe-js-live/run.go`
-- [ ] Move script loading into the runner path
-- [ ] Move device connection and display validation into the runner path
-- [ ] Move runtime/env/renderer setup into the runner path
-- [ ] Move the main `select` loop into the runner path
-- [ ] Shrink `main.go` to parse + call + exit
+- [x] Add `cmd/loupe-js-live/run.go`
+- [x] Move script loading into the runner path
+- [x] Move device connection and display validation into the runner path
+- [x] Move runtime/env/renderer setup into the runner path
+- [x] Move the main `select` loop into the runner path
+- [x] Shrink `main.go` to parse + call + exit
 
 ### Phase C: stats helper extraction
 
-- [ ] Add `cmd/loupe-js-live/stats.go`
-- [ ] Move `renderStatsWindow` into `stats.go`
-- [ ] Move writer diff helpers into `stats.go`
-- [ ] Move JS counter/timing formatting helpers into `stats.go`
-- [ ] Move trace filtering/formatting helpers into `stats.go`
+- [x] Add `cmd/loupe-js-live/stats.go`
+- [x] Move `renderStatsWindow` into `stats.go`
+- [x] Move writer diff helpers into `stats.go`
+- [x] Move JS counter/timing formatting helpers into `stats.go`
+- [x] Move trace filtering/formatting helpers into `stats.go`
 
 ### Phase D: logging and cleanup extraction
 
-- [ ] Add `cmd/loupe-js-live/logging.go`
-- [ ] Move `registerEventLogging` into `logging.go`
-- [ ] Add `cmd/loupe-js-live/cleanup.go`
-- [ ] Move `clearDisplays` into `cleanup.go`
+- [x] Add `cmd/loupe-js-live/logging.go`
+- [x] Move `registerEventLogging` into `logging.go`
+- [x] Add `cmd/loupe-js-live/cleanup.go`
+- [x] Move `clearDisplays` into `cleanup.go`
 
 ### Phase E: validation and bookkeeping
 
-- [ ] Run `gofmt -w cmd/loupe-js-live/*.go`
-- [ ] Run `go test ./...`
-- [ ] Update the LOUPE-008 diary for the decomposition slice
-- [ ] Update the LOUPE-008 changelog for the decomposition slice
-- [ ] Commit the code slice
-- [ ] Commit the bookkeeping slice
+- [x] Run `gofmt -w cmd/loupe-js-live/*.go`
+- [x] Run `go test ./...`
+- [x] Update the LOUPE-008 diary for the decomposition slice
+- [x] Update the LOUPE-008 changelog for the decomposition slice
+- [x] Commit the code slice
+- [x] Commit the bookkeeping slice
 
 ## Future follow-up candidates
 
