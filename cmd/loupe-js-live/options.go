@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"time"
 
+	"github.com/go-go-golems/loupedeck/pkg/device"
 	"github.com/go-go-golems/loupedeck/runtime/metrics"
 )
 
@@ -15,6 +16,7 @@ type options struct {
 	Duration        time.Duration
 	QueueSize       int
 	SendInterval    time.Duration
+	FlushInterval   time.Duration
 	LogEvents       bool
 	LogRenderStats  bool
 	LogWriterStats  bool
@@ -33,6 +35,7 @@ func parseOptions() (options, error) {
 	duration := flag.Duration("duration", 15*time.Second, "How long to run before exiting; 0 means run until interrupted")
 	queueSize := flag.Int("queue-size", 256, "Writer queue size")
 	sendInterval := flag.Duration("send-interval", 35*time.Millisecond, "Writer pacing interval")
+	flushInterval := flag.Duration("flush-interval", device.DefaultRenderOptions.FlushInterval, "Retained render scheduler flush interval")
 	logEvents := flag.Bool("log-events", false, "Log high-level button/touch/knob events")
 	logRenderStats := flag.Bool("log-render-stats", false, "Log retained renderer flush statistics")
 	logWriterStats := flag.Bool("log-writer-stats", false, "Log writer queue/send statistics")
@@ -51,6 +54,9 @@ func parseOptions() (options, error) {
 	if extras := flag.Args(); len(extras) > 0 {
 		return options{}, fmt.Errorf("unexpected positional arguments after flags: %q\nhint: did you mean to pass a flag like --send-interval instead of a bare argument?", extras)
 	}
+	if *flushInterval <= 0 {
+		return options{}, fmt.Errorf("--flush-interval must be > 0, got %s", *flushInterval)
+	}
 
 	return options{
 		ScriptPath:      *scriptPath,
@@ -58,6 +64,7 @@ func parseOptions() (options, error) {
 		Duration:        *duration,
 		QueueSize:       *queueSize,
 		SendInterval:    *sendInterval,
+		FlushInterval:   *flushInterval,
 		LogEvents:       *logEvents,
 		LogRenderStats:  *logRenderStats,
 		LogWriterStats:  *logWriterStats,

@@ -24,11 +24,13 @@ func run(opts options) error {
 	}
 
 	writerOptions := device.WriterOptions{QueueSize: opts.QueueSize, SendInterval: opts.SendInterval}
+	renderOptions := device.DefaultRenderOptions
+	renderOptions.FlushInterval = opts.FlushInterval
 	var deckConn *device.Loupedeck
 	if opts.DevicePath == "" {
-		deckConn, err = device.ConnectAutoWithOptions(writerOptions)
+		deckConn, err = device.ConnectAutoWithWriterAndRenderOptions(writerOptions, &renderOptions)
 	} else {
-		deckConn, err = device.ConnectPathWithOptions(opts.DevicePath, writerOptions)
+		deckConn, err = device.ConnectPathWithWriterAndRenderOptions(opts.DevicePath, writerOptions, &renderOptions)
 	}
 	if err != nil {
 		return fmt.Errorf("connect: %w", err)
@@ -151,7 +153,7 @@ func run(opts options) error {
 	rt.Env.Present.Start(rt.Context())
 	defer rt.Env.Present.Close()
 
-	slog.Info("Loupedeck JS live runner started", "script", opts.ScriptPath, "duration", opts.Duration, "send_interval", opts.SendInterval, "log_render_stats", opts.LogRenderStats, "log_writer_stats", opts.LogWriterStats, "log_js_stats", opts.LogJSStats, "log_js_trace", opts.LogJSTrace, "log_go_trace", opts.LogGoTrace, "trace_limit", opts.TraceLimit)
+	slog.Info("Loupedeck JS live runner started", "script", opts.ScriptPath, "duration", opts.Duration, "send_interval", opts.SendInterval, "flush_interval", opts.FlushInterval, "log_render_stats", opts.LogRenderStats, "log_writer_stats", opts.LogWriterStats, "log_js_stats", opts.LogJSStats, "log_js_trace", opts.LogJSTrace, "log_go_trace", opts.LogGoTrace, "trace_limit", opts.TraceLimit)
 	exitRunner := func(reason string, attrs ...any) error {
 		logAttrs := []any{"reason", reason, "script", opts.ScriptPath}
 		logAttrs = append(logAttrs, attrs...)
