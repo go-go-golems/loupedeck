@@ -47,3 +47,8 @@
   - the English labels now fit cleanly with visible padding,
   - the right-side kanji strip remains clearly visible,
   - the tile kanji alignment looks reasonably consistent.
+- Imported `/home/manuel/Downloads/cyb-os-tiles.html` into this ticket with:
+  - `docmgr import file --file /home/manuel/Downloads/cyb-os-tiles.html --ticket LOUPE-012`
+- Added the imported artifact at:
+  - `/home/manuel/code/wesen/2026-04-11--loupedeck-test/ttmp/2026/04/12/LOUPE-012--opentype-font-api-for-cyb-ito-kanji-and-sidebar-text-rendering/sources/local/cyb-os-tiles.html`
+- Read and analyzed the full source file to prepare a first framework port without the current metrics-heavy instrumentation.

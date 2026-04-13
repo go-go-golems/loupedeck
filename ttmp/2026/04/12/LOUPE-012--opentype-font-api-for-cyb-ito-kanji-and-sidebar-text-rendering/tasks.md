@@ -64,3 +64,15 @@
 - [x] Apply one small preview-driven kanji position adjustment and rerun `go test ./...`
 - [x] Fix the main-grid English label clipping found in the preview by shortening/moving the tile chrome labels
 - [x] Export a new preview and confirm via image analysis that the English labels now fit cleanly
+
+## Phase I: `cyb-os-tiles` source import and framework port
+
+- [x] Import `/home/manuel/Downloads/cyb-os-tiles.html` into `LOUPE-012` with `docmgr import file`
+- [x] Read and analyze the imported source file end-to-end
+- [ ] Add a new framework example for the `cyb-os-tiles` scene without the current metrics-heavy instrumentation
+- [ ] Port the 12 tile mini-widgets from the imported HTML into the JS retained-surface runtime
+- [ ] Port the left and right side strips from the imported HTML into hardware `left` and `right` displays
+- [ ] Port touch activation, scanning, flash, and ripple behavior into the framework scene
+- [ ] Validate with `go test ./...`
+- [ ] Export an offscreen preview PNG for the new scene
+- [ ] Update the ticket diary/changelog/index after the first port slice

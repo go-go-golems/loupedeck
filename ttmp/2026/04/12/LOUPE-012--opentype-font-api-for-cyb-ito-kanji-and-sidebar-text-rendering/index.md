@@ -11,12 +11,14 @@ DocType: index
 Intent: long-term
 Owners: []
 RelatedFiles: []
-ExternalSources: []
-Summary: "Track the addition of a JS-facing OpenType font API for proper kanji and sidebar text rendering in cyb-ito scenes."
-LastUpdated: 2026-04-12T18:15:00-04:00
-WhatFor: "Use this ticket when implementing real font loading and CJK-capable text rendering in the Loupedeck JS runtime."
-WhenToUse: "Use when working on `gfx.font(...)`, kanji labels, or sidebar text support for cyb-ito scenes."
+ExternalSources:
+    - local:cyb-os-tiles.html
+Summary: Track the addition of a JS-facing OpenType font API for proper kanji and sidebar text rendering in cyb-ito scenes.
+LastUpdated: 2026-04-12T19:58:17.43710341-04:00
+WhatFor: Use this ticket when implementing real font loading and CJK-capable text rendering in the Loupedeck JS runtime.
+WhenToUse: Use when working on `gfx.font(...)`, kanji labels, or sidebar text support for cyb-ito scenes.
 ---
+
 
 # OpenType font API for cyb-ito kanji and sidebar text rendering
 
@@ -56,6 +58,9 @@ Current completion state:
 - Preview artifacts now exist at `/tmp/loupe-cyb-ito-preview.png`, `/tmp/loupe-cyb-ito-preview-v2.png`, and `/tmp/loupe-cyb-ito-preview-v3.png`
 - Preview-driven tuning also fixed the main-grid English label clipping by shortening and moving the tile chrome labels left
 - Image analysis on `preview-v3` confirmed that the English labels now fit cleanly, the right strip remains visible, and the tile kanji alignment looks reasonable
+- Imported a second reference artifact into this ticket:
+  - `sources/local/cyb-os-tiles.html`
+- Completed first-pass source analysis of `cyb-os-tiles.html`; next work is a metrics-light framework port as a new example scene
 - `go test ./...` passes after the preview-driven tuning slice
 
 ## Topics
