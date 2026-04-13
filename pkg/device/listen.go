@@ -1,4 +1,4 @@
-package loupedeck
+package device
 
 import (
 	"encoding/binary"
@@ -77,24 +77,12 @@ func (l *Loupedeck) Listen() error {
 			x := binary.BigEndian.Uint16(message[4:])
 			y := binary.BigEndian.Uint16(message[6:])
 			id := message[8]
-			slog.Debug("Received CT touch message", "x", x, "y", y, "id", id, "message", message)
-			l.listenerMutex.RLock()
-			fn := l.touchDKBindings
-			l.listenerMutex.RUnlock()
-			if fn != nil {
-				fn(ButtonDown, x, y)
-			}
+			slog.Debug("Received CT touch message (unhandled)", "x", x, "y", y, "id", id, "message", message)
 		case TouchEndCT:
 			x := binary.BigEndian.Uint16(message[4:])
 			y := binary.BigEndian.Uint16(message[6:])
 			id := message[8]
-			slog.Debug("Received CT touch message", "x", x, "y", y, "id", id, "message", message)
-			l.listenerMutex.RLock()
-			fn := l.touchDKBindings
-			l.listenerMutex.RUnlock()
-			if fn != nil {
-				fn(ButtonUp, x, y)
-			}
+			slog.Debug("Received CT touch end message (unhandled)", "x", x, "y", y, "id", id, "message", message)
 		default:
 			slog.Info("Received unknown message", "message", m.String())
 		}

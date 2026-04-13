@@ -1,10 +1,11 @@
-package loupedeck
+package device
 
 import (
 	"encoding/binary"
 	"fmt"
 	"image"
 	"log/slog"
+
 	"maze.io/x/pixel/pixelcolor"
 	// "time"
 )

@@ -12,7 +12,7 @@ import (
 	"sync"
 	"time"
 
-	loupedeck "github.com/go-go-golems/loupedeck"
+	"github.com/go-go-golems/loupedeck/pkg/device"
 )
 
 type sweepResult struct {
@@ -21,8 +21,8 @@ type sweepResult struct {
 	Duration      time.Duration
 	Completed     int
 	AchievedFPS   float64
-	WriterDelta   loupedeck.WriterStats
-	RenderDelta   loupedeck.RenderStats
+	WriterDelta   device.WriterStats
+	RenderDelta   device.RenderStats
 	ListenErr     error
 	Stable        bool
 	StabilityNote string
@@ -31,8 +31,8 @@ type sweepResult struct {
 type buttonScenarioResult struct {
 	Name           string
 	Duration       time.Duration
-	WriterDelta    loupedeck.WriterStats
-	RenderDelta    loupedeck.RenderStats
+	WriterDelta    device.WriterStats
+	RenderDelta    device.RenderStats
 	ListenErr      error
 	TotalTargetFPS float64
 	TotalActualFPS float64
@@ -41,37 +41,37 @@ type buttonScenarioResult struct {
 }
 
 type perButtonResult struct {
-	Button    loupedeck.TouchButton
+	Button    device.TouchButton
 	TargetFPS float64
 	Completed int
 	ActualFPS float64
 }
 
 type buttonSpec struct {
-	Button loupedeck.TouchButton
+	Button device.TouchButton
 	X      int
 	Y      int
 }
 
 var touchButtons = []buttonSpec{
-	{Button: loupedeck.Touch1, X: 0, Y: 0},
-	{Button: loupedeck.Touch2, X: 90, Y: 0},
-	{Button: loupedeck.Touch3, X: 180, Y: 0},
-	{Button: loupedeck.Touch4, X: 270, Y: 0},
-	{Button: loupedeck.Touch5, X: 0, Y: 90},
-	{Button: loupedeck.Touch6, X: 90, Y: 90},
-	{Button: loupedeck.Touch7, X: 180, Y: 90},
-	{Button: loupedeck.Touch8, X: 270, Y: 90},
-	{Button: loupedeck.Touch9, X: 0, Y: 180},
-	{Button: loupedeck.Touch10, X: 90, Y: 180},
-	{Button: loupedeck.Touch11, X: 180, Y: 180},
-	{Button: loupedeck.Touch12, X: 270, Y: 180},
+	{Button: device.Touch1, X: 0, Y: 0},
+	{Button: device.Touch2, X: 90, Y: 0},
+	{Button: device.Touch3, X: 180, Y: 0},
+	{Button: device.Touch4, X: 270, Y: 0},
+	{Button: device.Touch5, X: 0, Y: 90},
+	{Button: device.Touch6, X: 90, Y: 90},
+	{Button: device.Touch7, X: 180, Y: 90},
+	{Button: device.Touch8, X: 270, Y: 90},
+	{Button: device.Touch9, X: 0, Y: 180},
+	{Button: device.Touch10, X: 90, Y: 180},
+	{Button: device.Touch11, X: 180, Y: 180},
+	{Button: device.Touch12, X: 270, Y: 180},
 }
 
 func main() {
 	slog.SetDefault(slog.New(slog.NewTextHandler(os.Stderr, &slog.HandlerOptions{Level: slog.LevelWarn})))
 
-	writerOptions := loupedeck.WriterOptions{
+	writerOptions := device.WriterOptions{
 		QueueSize:    4096,
 		SendInterval: 0,
 	}
@@ -89,10 +89,10 @@ func main() {
 	singleFrames := precomputeFrames(32, 90, 90, 7)
 
 	fmt.Println("== Full-screen main display sweep ==")
-	fullResults, err := runSingleRegionSweep(writerOptions, nil, fullTargets, duration, func(l *loupedeck.Loupedeck) *loupedeck.Display {
+	fullResults, err := runSingleRegionSweep(writerOptions, nil, fullTargets, duration, func(l *device.Loupedeck) *device.Display {
 		l.SetDisplays()
 		return l.GetDisplay("main")
-	}, func(d *loupedeck.Display, frame int) {
+	}, func(d *device.Display, frame int) {
 		d.Draw(fullFrames[frame%len(fullFrames)], 0, 0)
 	})
 	if err != nil {
@@ -103,10 +103,10 @@ func main() {
 	fmt.Println()
 
 	fmt.Println("== Single touch-button area sweep (90x90) ==")
-	singleResults, err := runSingleRegionSweep(writerOptions, nil, singleTargets, duration, func(l *loupedeck.Loupedeck) *loupedeck.Display {
+	singleResults, err := runSingleRegionSweep(writerOptions, nil, singleTargets, duration, func(l *device.Loupedeck) *device.Display {
 		l.SetDisplays()
 		return l.GetDisplay("main")
-	}, func(d *loupedeck.Display, frame int) {
+	}, func(d *device.Display, frame int) {
 		d.Draw(singleFrames[frame%len(singleFrames)], 0, 0)
 	})
 	if err != nil {
@@ -129,14 +129,14 @@ func main() {
 }
 
 func runSingleRegionSweep(
-	writerOptions loupedeck.WriterOptions,
-	renderOptions *loupedeck.RenderOptions,
+	writerOptions device.WriterOptions,
+	renderOptions *device.RenderOptions,
 	targets []float64,
 	duration time.Duration,
-	displayFn func(*loupedeck.Loupedeck) *loupedeck.Display,
-	drawFn func(*loupedeck.Display, int),
+	displayFn func(*device.Loupedeck) *device.Display,
+	drawFn func(*device.Display, int),
 ) ([]sweepResult, error) {
-	l, err := loupedeck.ConnectAutoWithWriterAndRenderOptions(writerOptions, renderOptions)
+	l, err := device.ConnectAutoWithWriterAndRenderOptions(writerOptions, renderOptions)
 	if err != nil {
 		return nil, err
 	}
@@ -176,12 +176,12 @@ func runSingleRegionSweep(
 }
 
 func runSingleRegionTarget(
-	l *loupedeck.Loupedeck,
-	display *loupedeck.Display,
+	l *device.Loupedeck,
+	display *device.Display,
 	duration time.Duration,
 	targetFPS float64,
 	listenErrCh <-chan error,
-	drawFn func(*loupedeck.Display, int),
+	drawFn func(*device.Display, int),
 ) sweepResult {
 	startWriter := l.WriterStats()
 	startRender := l.RenderStats()
@@ -231,8 +231,8 @@ done:
 }
 
 func runButtonSweep(
-	writerOptions loupedeck.WriterOptions,
-	renderOptions *loupedeck.RenderOptions,
+	writerOptions device.WriterOptions,
+	renderOptions *device.RenderOptions,
 	baseRates []float64,
 	scales []float64,
 	duration time.Duration,
@@ -240,7 +240,7 @@ func runButtonSweep(
 ) ([]buttonScenarioResult, error) {
 	results := make([]buttonScenarioResult, 0, len(scales))
 	for _, scale := range scales {
-		l, err := loupedeck.ConnectAutoWithWriterAndRenderOptions(writerOptions, renderOptions)
+		l, err := device.ConnectAutoWithWriterAndRenderOptions(writerOptions, renderOptions)
 		if err != nil {
 			return results, err
 		}
@@ -276,8 +276,8 @@ func runButtonSweep(
 }
 
 func runButtonScenario(
-	l *loupedeck.Loupedeck,
-	display *loupedeck.Display,
+	l *device.Loupedeck,
+	display *device.Display,
 	targetRates []float64,
 	duration time.Duration,
 	frames []image.Image,
@@ -370,7 +370,7 @@ func runButtonScenario(
 	}
 }
 
-func evaluateStability(target, achieved float64, writer loupedeck.WriterStats, listenErr error) (bool, string) {
+func evaluateStability(target, achieved float64, writer device.WriterStats, listenErr error) (bool, string) {
 	switch {
 	case listenErr != nil:
 		return false, fmt.Sprintf("listen err: %v", listenErr)
@@ -383,8 +383,8 @@ func evaluateStability(target, achieved float64, writer loupedeck.WriterStats, l
 	}
 }
 
-func diffWriterStats(a, b loupedeck.WriterStats) loupedeck.WriterStats {
-	return loupedeck.WriterStats{
+func diffWriterStats(a, b device.WriterStats) device.WriterStats {
+	return device.WriterStats{
 		QueuedCommands: b.QueuedCommands - a.QueuedCommands,
 		SentCommands:   b.SentCommands - a.SentCommands,
 		SentMessages:   b.SentMessages - a.SentMessages,
@@ -393,8 +393,8 @@ func diffWriterStats(a, b loupedeck.WriterStats) loupedeck.WriterStats {
 	}
 }
 
-func diffRenderStats(a, b loupedeck.RenderStats) loupedeck.RenderStats {
-	return loupedeck.RenderStats{
+func diffRenderStats(a, b device.RenderStats) device.RenderStats {
+	return device.RenderStats{
 		Invalidations:         b.Invalidations - a.Invalidations,
 		CoalescedReplacements: b.CoalescedReplacements - a.CoalescedReplacements,
 		FlushedCommands:       b.FlushedCommands - a.FlushedCommands,
@@ -464,7 +464,7 @@ func printButtonSweepResults(results []buttonScenarioResult) {
 	fmt.Printf("summary: best stable mixed-framerate total target fps=%0.2f total actual fps=%0.2f\n", best.TotalTargetFPS, best.TotalActualFPS)
 }
 
-func clearDisplay(display *loupedeck.Display) {
+func clearDisplay(display *device.Display) {
 	im := image.NewRGBA(image.Rect(0, 0, display.Width(), display.Height()))
 	draw.Draw(im, im.Bounds(), &image.Uniform{color.Black}, image.Point{}, draw.Src)
 	display.Draw(im, 0, 0)

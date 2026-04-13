@@ -10,7 +10,7 @@ import (
 	"time"
 
 	"github.com/dop251/goja"
-	deck "github.com/go-go-golems/loupedeck"
+	"github.com/go-go-golems/loupedeck/pkg/device"
 	"github.com/go-go-golems/loupedeck/pkg/runtimebridge"
 	"github.com/go-go-golems/loupedeck/runtime/gfx"
 	envpkg "github.com/go-go-golems/loupedeck/runtime/js/env"
@@ -19,11 +19,11 @@ import (
 
 type fakeSource struct {
 	mu      sync.Mutex
-	buttons map[deck.Button][]deck.ButtonFunc
+	buttons map[device.Button][]device.ButtonFunc
 }
 
 func newFakeSource() *fakeSource {
-	return &fakeSource{buttons: map[deck.Button][]deck.ButtonFunc{}}
+	return &fakeSource{buttons: map[device.Button][]device.ButtonFunc{}}
 }
 
 type fakeSub struct{ closeFn func() }
@@ -36,7 +36,7 @@ func (s *fakeSub) Close() error {
 	return nil
 }
 
-func (f *fakeSource) OnButton(button deck.Button, fn deck.ButtonFunc) deck.Subscription {
+func (f *fakeSource) OnButton(button device.Button, fn device.ButtonFunc) device.Subscription {
 	f.mu.Lock()
 	defer f.mu.Unlock()
 	f.buttons[button] = append(f.buttons[button], fn)
@@ -50,17 +50,17 @@ func (f *fakeSource) OnButton(button deck.Button, fn deck.ButtonFunc) deck.Subsc
 	}}
 }
 
-func (f *fakeSource) OnTouch(deck.TouchButton, deck.TouchFunc) deck.Subscription {
+func (f *fakeSource) OnTouch(device.TouchButton, device.TouchFunc) device.Subscription {
 	return &fakeSub{}
 }
 
-func (f *fakeSource) OnKnob(deck.Knob, deck.KnobFunc) deck.Subscription {
+func (f *fakeSource) OnKnob(device.Knob, device.KnobFunc) device.Subscription {
 	return &fakeSub{}
 }
 
-func (f *fakeSource) emitButton(button deck.Button, status deck.ButtonStatus) {
+func (f *fakeSource) emitButton(button device.Button, status device.ButtonStatus) {
 	f.mu.Lock()
-	callbacks := append([]deck.ButtonFunc(nil), f.buttons[button]...)
+	callbacks := append([]device.ButtonFunc(nil), f.buttons[button]...)
 	f.mu.Unlock()
 	for _, cb := range callbacks {
 		cb(button, status)
@@ -148,7 +148,7 @@ func TestButtonCallbackCanMutateSignalFromJS(t *testing.T) {
 		t.Fatalf("run script: %v", err)
 	}
 
-	source.emitButton(deck.Circle, deck.ButtonDown)
+	source.emitButton(device.Circle, device.ButtonDown)
 	tile := env.UI.Page("home").Tile(0, 0)
 	waitForText(t, tile, "ARMED")
 }
@@ -182,7 +182,7 @@ func TestAnimModuleCanDriveSignalTweenFromButtonEvent(t *testing.T) {
 		t.Fatalf("run script: %v", err)
 	}
 
-	source.emitButton(deck.Circle, deck.ButtonDown)
+	source.emitButton(device.Circle, device.ButtonDown)
 	time.Sleep(80 * time.Millisecond)
 	if got := env.UI.Page("home").Tile(0, 0).Text(); got != "9" {
 		t.Fatalf("expected tweened value 9, got %q", got)
@@ -721,7 +721,7 @@ func TestConcurrentButtonCallbacksSerializeOntoOwnerThread(t *testing.T) {
 	}
 
 	for i := 0; i < 25; i++ {
-		go source.emitButton(deck.Circle, deck.ButtonDown)
+		go source.emitButton(device.Circle, device.ButtonDown)
 	}
 	waitForText(t, env.UI.Page("home").Tile(0, 0), "25")
 }
@@ -753,7 +753,7 @@ func TestButtonEventAfterCloseDoesNotApplyMutation(t *testing.T) {
 	if err := rt.Close(nil); err != nil {
 		t.Fatalf("close runtime: %v", err)
 	}
-	source.emitButton(deck.Circle, deck.ButtonDown)
+	source.emitButton(device.Circle, device.ButtonDown)
 	time.Sleep(30 * time.Millisecond)
 	if got := env.UI.Page("home").Tile(0, 0).Text(); got != "IDLE" {
 		t.Fatalf("expected no mutation after close, got %q", got)

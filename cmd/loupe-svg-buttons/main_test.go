@@ -3,7 +3,7 @@ package main
 import (
 	"testing"
 
-	loupedeck "github.com/go-go-golems/loupedeck"
+	loupedeck "github.com/go-go-golems/loupedeck/pkg/device"
 )
 
 func TestResolveIconIndexesUsesRequestedOrder(t *testing.T) {

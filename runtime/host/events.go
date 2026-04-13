@@ -3,7 +3,7 @@ package host
 import (
 	"sync"
 
-	deck "github.com/go-go-golems/loupedeck"
+	"github.com/go-go-golems/loupedeck/pkg/device"
 )
 
 type Subscription interface {
@@ -28,21 +28,21 @@ func (s *eventSubscription) Close() error {
 }
 
 type buttonBinding struct {
-	button deck.Button
-	fn     deck.ButtonFunc
-	sub    deck.Subscription
+	button device.Button
+	fn     device.ButtonFunc
+	sub    device.Subscription
 }
 
 type touchBinding struct {
-	touch deck.TouchButton
-	fn    deck.TouchFunc
-	sub   deck.Subscription
+	touch device.TouchButton
+	fn    device.TouchFunc
+	sub   device.Subscription
 }
 
 type knobBinding struct {
-	knob deck.Knob
-	fn   deck.KnobFunc
-	sub  deck.Subscription
+	knob device.Knob
+	fn   device.KnobFunc
+	sub  device.Subscription
 }
 
 func (b *buttonBinding) attach(source EventSource) {
@@ -87,7 +87,7 @@ func (b *knobBinding) closeSourceSub() {
 	}
 }
 
-func (r *Runtime) OnButton(button deck.Button, fn deck.ButtonFunc) Subscription {
+func (r *Runtime) OnButton(button device.Button, fn device.ButtonFunc) Subscription {
 	r.mu.Lock()
 	defer r.mu.Unlock()
 	id := r.next()
@@ -104,7 +104,7 @@ func (r *Runtime) OnButton(button deck.Button, fn deck.ButtonFunc) Subscription 
 	}}
 }
 
-func (r *Runtime) OnTouch(touch deck.TouchButton, fn deck.TouchFunc) Subscription {
+func (r *Runtime) OnTouch(touch device.TouchButton, fn device.TouchFunc) Subscription {
 	r.mu.Lock()
 	defer r.mu.Unlock()
 	id := r.next()
@@ -121,7 +121,7 @@ func (r *Runtime) OnTouch(touch deck.TouchButton, fn deck.TouchFunc) Subscriptio
 	}}
 }
 
-func (r *Runtime) OnKnob(knob deck.Knob, fn deck.KnobFunc) Subscription {
+func (r *Runtime) OnKnob(knob device.Knob, fn device.KnobFunc) Subscription {
 	r.mu.Lock()
 	defer r.mu.Unlock()
 	id := r.next()

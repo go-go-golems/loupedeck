@@ -1,12 +1,13 @@
-package loupedeck
+package device
 
 import (
 	"fmt"
-	"github.com/gorilla/websocket"
 	"log/slog"
 	"net"
 	"net/http"
 	"time"
+
+	"github.com/gorilla/websocket"
 )
 
 // ConnectAuto connects to a Loupedeck Live by automatically locating
@@ -124,11 +125,6 @@ func doConnect(c *SerialWebSockConn, writerOptions WriterOptions, renderOptions 
 		conn:                 conn,
 		serial:               c,
 		writerOptions:        writerOptions,
-		buttonBindings:       make(map[Button]ButtonFunc),
-		buttonUpBindings:     make(map[Button]ButtonFunc),
-		knobBindings:         make(map[Knob]KnobFunc),
-		touchBindings:        make(map[TouchButton]TouchFunc),
-		touchUpBindings:      make(map[TouchButton]TouchFunc),
 		buttonListeners:      make(map[Button]map[uint64]ButtonFunc),
 		buttonUpListeners:    make(map[Button]map[uint64]ButtonFunc),
 		knobListeners:        make(map[Knob]map[uint64]KnobFunc),
@@ -144,11 +140,6 @@ func doConnect(c *SerialWebSockConn, writerOptions WriterOptions, renderOptions 
 	if renderOptions != nil {
 		l.renderOptions = *renderOptions
 		l.renderer = newRenderScheduler(l.writer, l.renderOptions)
-	}
-
-	err = l.SetDefaultFont()
-	if err != nil {
-		return nil, fmt.Errorf("Unable to set default font: %v", err)
 	}
 
 	slog.Info("Found Loupedeck", "vendor", l.Vendor, "product", l.Product)

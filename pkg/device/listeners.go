@@ -1,4 +1,4 @@
-package loupedeck
+package device
 
 import "sync"
 
@@ -31,44 +31,13 @@ func (l *Loupedeck) nextListenerID() uint64 {
 	return l.listenerID
 }
 
-func (l *Loupedeck) ensureListenerMapsLocked() {
-	if l.buttonBindings == nil {
-		l.buttonBindings = make(map[Button]ButtonFunc)
-	}
-	if l.buttonUpBindings == nil {
-		l.buttonUpBindings = make(map[Button]ButtonFunc)
-	}
-	if l.knobBindings == nil {
-		l.knobBindings = make(map[Knob]KnobFunc)
-	}
-	if l.touchBindings == nil {
-		l.touchBindings = make(map[TouchButton]TouchFunc)
-	}
-	if l.touchUpBindings == nil {
-		l.touchUpBindings = make(map[TouchButton]TouchFunc)
-	}
-	if l.buttonListeners == nil {
-		l.buttonListeners = make(map[Button]map[uint64]ButtonFunc)
-	}
-	if l.buttonUpListeners == nil {
-		l.buttonUpListeners = make(map[Button]map[uint64]ButtonFunc)
-	}
-	if l.knobListeners == nil {
-		l.knobListeners = make(map[Knob]map[uint64]KnobFunc)
-	}
-	if l.touchListeners == nil {
-		l.touchListeners = make(map[TouchButton]map[uint64]TouchFunc)
-	}
-	if l.touchUpListeners == nil {
-		l.touchUpListeners = make(map[TouchButton]map[uint64]TouchFunc)
-	}
-}
-
 func (l *Loupedeck) OnButton(b Button, f ButtonFunc) Subscription {
 	id := l.nextListenerID()
 	l.listenerMutex.Lock()
 	defer l.listenerMutex.Unlock()
-	l.ensureListenerMapsLocked()
+	if l.buttonListeners == nil {
+		l.buttonListeners = make(map[Button]map[uint64]ButtonFunc)
+	}
 	if l.buttonListeners[b] == nil {
 		l.buttonListeners[b] = map[uint64]ButtonFunc{}
 	}
@@ -87,7 +56,9 @@ func (l *Loupedeck) OnButtonUp(b Button, f ButtonFunc) Subscription {
 	id := l.nextListenerID()
 	l.listenerMutex.Lock()
 	defer l.listenerMutex.Unlock()
-	l.ensureListenerMapsLocked()
+	if l.buttonUpListeners == nil {
+		l.buttonUpListeners = make(map[Button]map[uint64]ButtonFunc)
+	}
 	if l.buttonUpListeners[b] == nil {
 		l.buttonUpListeners[b] = map[uint64]ButtonFunc{}
 	}
@@ -106,7 +77,9 @@ func (l *Loupedeck) OnKnob(k Knob, f KnobFunc) Subscription {
 	id := l.nextListenerID()
 	l.listenerMutex.Lock()
 	defer l.listenerMutex.Unlock()
-	l.ensureListenerMapsLocked()
+	if l.knobListeners == nil {
+		l.knobListeners = make(map[Knob]map[uint64]KnobFunc)
+	}
 	if l.knobListeners[k] == nil {
 		l.knobListeners[k] = map[uint64]KnobFunc{}
 	}
@@ -125,7 +98,9 @@ func (l *Loupedeck) OnTouch(b TouchButton, f TouchFunc) Subscription {
 	id := l.nextListenerID()
 	l.listenerMutex.Lock()
 	defer l.listenerMutex.Unlock()
-	l.ensureListenerMapsLocked()
+	if l.touchListeners == nil {
+		l.touchListeners = make(map[TouchButton]map[uint64]TouchFunc)
+	}
 	if l.touchListeners[b] == nil {
 		l.touchListeners[b] = map[uint64]TouchFunc{}
 	}
@@ -144,7 +119,9 @@ func (l *Loupedeck) OnTouchUp(b TouchButton, f TouchFunc) Subscription {
 	id := l.nextListenerID()
 	l.listenerMutex.Lock()
 	defer l.listenerMutex.Unlock()
-	l.ensureListenerMapsLocked()
+	if l.touchUpListeners == nil {
+		l.touchUpListeners = make(map[TouchButton]map[uint64]TouchFunc)
+	}
 	if l.touchUpListeners[b] == nil {
 		l.touchUpListeners[b] = map[uint64]TouchFunc{}
 	}
@@ -160,17 +137,13 @@ func (l *Loupedeck) OnTouchUp(b TouchButton, f TouchFunc) Subscription {
 }
 
 func (l *Loupedeck) dispatchButton(button Button, status ButtonStatus) bool {
-	var primary ButtonFunc
-	listeners := make([]ButtonFunc, 0)
-
 	l.listenerMutex.RLock()
+	var listeners []ButtonFunc
 	if status == ButtonDown {
-		primary = l.buttonBindings[button]
 		for _, fn := range l.buttonListeners[button] {
 			listeners = append(listeners, fn)
 		}
 	} else {
-		primary = l.buttonUpBindings[button]
 		for _, fn := range l.buttonUpListeners[button] {
 			listeners = append(listeners, fn)
 		}
@@ -178,10 +151,6 @@ func (l *Loupedeck) dispatchButton(button Button, status ButtonStatus) bool {
 	l.listenerMutex.RUnlock()
 
 	called := false
-	if primary != nil {
-		called = true
-		primary(button, status)
-	}
 	for _, fn := range listeners {
 		called = true
 		fn(button, status)
@@ -191,7 +160,6 @@ func (l *Loupedeck) dispatchButton(button Button, status ButtonStatus) bool {
 
 func (l *Loupedeck) dispatchKnob(knob Knob, value int) bool {
 	l.listenerMutex.RLock()
-	primary := l.knobBindings[knob]
 	listeners := make([]KnobFunc, 0, len(l.knobListeners[knob]))
 	for _, fn := range l.knobListeners[knob] {
 		listeners = append(listeners, fn)
@@ -199,10 +167,6 @@ func (l *Loupedeck) dispatchKnob(knob Knob, value int) bool {
 	l.listenerMutex.RUnlock()
 
 	called := false
-	if primary != nil {
-		called = true
-		primary(knob, value)
-	}
 	for _, fn := range listeners {
 		called = true
 		fn(knob, value)
@@ -211,17 +175,13 @@ func (l *Loupedeck) dispatchKnob(knob Knob, value int) bool {
 }
 
 func (l *Loupedeck) dispatchTouch(button TouchButton, status ButtonStatus, x, y uint16) bool {
-	var primary TouchFunc
-	listeners := make([]TouchFunc, 0)
-
 	l.listenerMutex.RLock()
+	var listeners []TouchFunc
 	if status == ButtonDown {
-		primary = l.touchBindings[button]
 		for _, fn := range l.touchListeners[button] {
 			listeners = append(listeners, fn)
 		}
 	} else {
-		primary = l.touchUpBindings[button]
 		for _, fn := range l.touchUpListeners[button] {
 			listeners = append(listeners, fn)
 		}
@@ -229,10 +189,6 @@ func (l *Loupedeck) dispatchTouch(button TouchButton, status ButtonStatus, x, y 
 	l.listenerMutex.RUnlock()
 
 	called := false
-	if primary != nil {
-		called = true
-		primary(button, status, x, y)
-	}
 	for _, fn := range listeners {
 		called = true
 		fn(button, status, x, y)

@@ -3,14 +3,14 @@ package host
 import (
 	"sync"
 
-	deck "github.com/go-go-golems/loupedeck"
+	"github.com/go-go-golems/loupedeck/pkg/device"
 	"github.com/go-go-golems/loupedeck/runtime/ui"
 )
 
 type EventSource interface {
-	OnButton(deck.Button, deck.ButtonFunc) deck.Subscription
-	OnTouch(deck.TouchButton, deck.TouchFunc) deck.Subscription
-	OnKnob(deck.Knob, deck.KnobFunc) deck.Subscription
+	OnButton(device.Button, device.ButtonFunc) device.Subscription
+	OnTouch(device.TouchButton, device.TouchFunc) device.Subscription
+	OnKnob(device.Knob, device.KnobFunc) device.Subscription
 }
 
 type Runtime struct {

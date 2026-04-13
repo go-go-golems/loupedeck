@@ -12,14 +12,14 @@ import (
 	"strings"
 	"time"
 
-	loupedeck "github.com/go-go-golems/loupedeck"
+	"github.com/go-go-golems/loupedeck/pkg/device"
 	xdraw "golang.org/x/image/draw"
 )
 
 const defaultLibraryPath = "/home/manuel/code/wesen/2026-04-11--loupedeck-test/ttmp/2026/04/11/LOUPE-004--animated-svg-icon-buttons-for-loupedeck-live/sources/local/macos1-icon-library.html"
 
 type buttonSpec struct {
-	Button loupedeck.TouchButton
+	Button device.TouchButton
 	X      int
 	Y      int
 }
@@ -60,18 +60,18 @@ type animatedIcon struct {
 }
 
 var grid = []buttonSpec{
-	{Button: loupedeck.Touch1, X: 0, Y: 0},
-	{Button: loupedeck.Touch2, X: 90, Y: 0},
-	{Button: loupedeck.Touch3, X: 180, Y: 0},
-	{Button: loupedeck.Touch4, X: 270, Y: 0},
-	{Button: loupedeck.Touch5, X: 0, Y: 90},
-	{Button: loupedeck.Touch6, X: 90, Y: 90},
-	{Button: loupedeck.Touch7, X: 180, Y: 90},
-	{Button: loupedeck.Touch8, X: 270, Y: 90},
-	{Button: loupedeck.Touch9, X: 0, Y: 180},
-	{Button: loupedeck.Touch10, X: 90, Y: 180},
-	{Button: loupedeck.Touch11, X: 180, Y: 180},
-	{Button: loupedeck.Touch12, X: 270, Y: 180},
+	{Button: device.Touch1, X: 0, Y: 0},
+	{Button: device.Touch2, X: 90, Y: 0},
+	{Button: device.Touch3, X: 180, Y: 0},
+	{Button: device.Touch4, X: 270, Y: 0},
+	{Button: device.Touch5, X: 0, Y: 90},
+	{Button: device.Touch6, X: 90, Y: 90},
+	{Button: device.Touch7, X: 180, Y: 90},
+	{Button: device.Touch8, X: 270, Y: 90},
+	{Button: device.Touch9, X: 0, Y: 180},
+	{Button: device.Touch10, X: 90, Y: 180},
+	{Button: device.Touch11, X: 180, Y: 180},
+	{Button: device.Touch12, X: 270, Y: 180},
 }
 
 var borderPalette = []color.RGBA{
@@ -97,7 +97,7 @@ func main() {
 		os.Exit(1)
 	}
 
-	lib, err := loupedeck.LoadSVGIconLibrary(*libraryPath)
+	lib, err := device.LoadSVGIconLibrary(*libraryPath)
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "load library: %v\n", err)
 		os.Exit(1)
@@ -120,8 +120,8 @@ func main() {
 	}
 	banks := totalBanks(len(prepared), len(grid))
 
-	writerOptions := loupedeck.WriterOptions{QueueSize: 1024, SendInterval: 0}
-	deck, err := loupedeck.ConnectAutoWithWriterAndRenderOptions(writerOptions, nil)
+	writerOptions := device.WriterOptions{QueueSize: 1024, SendInterval: 0}
+	deck, err := device.ConnectAutoWithWriterAndRenderOptions(writerOptions, nil)
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "connect: %v\n", err)
 		os.Exit(1)
@@ -152,25 +152,25 @@ func main() {
 		}
 	}
 
-	deck.OnButton(loupedeck.Circle, func(b loupedeck.Button, s loupedeck.ButtonStatus) {
+	deck.OnButton(device.Circle, func(b device.Button, s device.ButtonStatus) {
 		sendControl(actionExit)
 	})
-	deck.OnButton(loupedeck.Button1, func(b loupedeck.Button, s loupedeck.ButtonStatus) {
+	deck.OnButton(device.Button1, func(b device.Button, s device.ButtonStatus) {
 		sendControl(actionPrevBank)
 	})
-	deck.OnButton(loupedeck.Button2, func(b loupedeck.Button, s loupedeck.ButtonStatus) {
+	deck.OnButton(device.Button2, func(b device.Button, s device.ButtonStatus) {
 		sendControl(actionNextBank)
 	})
-	deck.OnButton(loupedeck.Button3, func(b loupedeck.Button, s loupedeck.ButtonStatus) {
+	deck.OnButton(device.Button3, func(b device.Button, s device.ButtonStatus) {
 		sendControl(actionToggleCycle)
 	})
-	deck.OnTouchUp(loupedeck.Touch1, func(t loupedeck.TouchButton, s loupedeck.ButtonStatus, x, y uint16) {
+	deck.OnTouchUp(device.Touch1, func(t device.TouchButton, s device.ButtonStatus, x, y uint16) {
 		sendControl(actionPrevBank)
 	})
-	deck.OnTouchUp(loupedeck.Touch12, func(t loupedeck.TouchButton, s loupedeck.ButtonStatus, x, y uint16) {
+	deck.OnTouchUp(device.Touch12, func(t device.TouchButton, s device.ButtonStatus, x, y uint16) {
 		sendControl(actionNextBank)
 	})
-	deck.OnTouchUp(loupedeck.Touch6, func(t loupedeck.TouchButton, s loupedeck.ButtonStatus, x, y uint16) {
+	deck.OnTouchUp(device.Touch6, func(t device.TouchButton, s device.ButtonStatus, x, y uint16) {
 		sendControl(actionToggleCycle)
 	})
 
@@ -250,7 +250,7 @@ func main() {
 	}
 }
 
-func buildPreparedIcons(lib *loupedeck.SVGIconLibrary, order []int) ([]preparedIcon, error) {
+func buildPreparedIcons(lib *device.SVGIconLibrary, order []int) ([]preparedIcon, error) {
 	icons := make([]preparedIcon, 0, len(order))
 	for position, idx := range order {
 		base, err := lib.Icons[idx].Rasterize(64)
@@ -273,7 +273,7 @@ func buildPreparedIcons(lib *loupedeck.SVGIconLibrary, order []int) ([]preparedI
 	return icons, nil
 }
 
-func resolveIconIndexes(lib *loupedeck.SVGIconLibrary, iconsFlag string) ([]int, error) {
+func resolveIconIndexes(lib *device.SVGIconLibrary, iconsFlag string) ([]int, error) {
 	if strings.TrimSpace(iconsFlag) == "" {
 		indexes := make([]int, len(lib.Icons))
 		for i := range lib.Icons {
@@ -395,7 +395,7 @@ func pageTick(t *time.Ticker) <-chan time.Time {
 	return t.C
 }
 
-func renderAll(display *loupedeck.Display, icons []animatedIcon, elapsed float64) {
+func renderAll(display *device.Display, icons []animatedIcon, elapsed float64) {
 	for _, icon := range icons {
 		display.Draw(renderFrame(icon, elapsed), icon.Spec.X, icon.Spec.Y)
 	}
@@ -486,24 +486,24 @@ func drawMacFrame(dst *image.RGBA, fg, accent color.RGBA, elapsed float64, icon 
 	}
 }
 
-func drawPlaceholder(dst *image.RGBA, fg color.RGBA, button loupedeck.TouchButton) {
+func drawPlaceholder(dst *image.RGBA, fg color.RGBA, button device.TouchButton) {
 	midY := dst.Bounds().Dy() / 2
 	for x := 24; x < dst.Bounds().Dx()-24; x++ {
 		dst.Set(x, midY, fg)
 		dst.Set(x, midY+1, fg)
 	}
 	switch button {
-	case loupedeck.Touch1:
+	case device.Touch1:
 		for i := 0; i < 10; i++ {
 			dst.Set(24+i, midY-i/2, fg)
 			dst.Set(24+i, midY+i/2, fg)
 		}
-	case loupedeck.Touch12:
+	case device.Touch12:
 		for i := 0; i < 10; i++ {
 			dst.Set(dst.Bounds().Dx()-25-i, midY-i/2, fg)
 			dst.Set(dst.Bounds().Dx()-25-i, midY+i/2, fg)
 		}
-	case loupedeck.Touch6:
+	case device.Touch6:
 		for i := 0; i < 10; i++ {
 			dst.Set(dst.Bounds().Dx()/2-6+i, midY-8, fg)
 			dst.Set(dst.Bounds().Dx()/2-6+i, midY+8, fg)
@@ -594,7 +594,7 @@ func maybeInvert(src *image.RGBA, invert bool, fg, bg color.RGBA) image.Image {
 	return dst
 }
 
-func clearMainDisplay(display *loupedeck.Display) {
+func clearMainDisplay(display *device.Display) {
 	im := image.NewRGBA(image.Rect(0, 0, display.Width(), display.Height()))
 	stdraw.Draw(im, im.Bounds(), &image.Uniform{color.Black}, image.Point{}, stdraw.Src)
 	display.Draw(im, 0, 0)

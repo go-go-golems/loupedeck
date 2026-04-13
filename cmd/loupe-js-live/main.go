@@ -15,7 +15,7 @@ import (
 	"syscall"
 	"time"
 
-	loupedeck "github.com/go-go-golems/loupedeck"
+	"github.com/go-go-golems/loupedeck/pkg/device"
 	jsruntime "github.com/go-go-golems/loupedeck/runtime/js"
 	envpkg "github.com/go-go-golems/loupedeck/runtime/js/env"
 	"github.com/go-go-golems/loupedeck/runtime/metrics"
@@ -55,12 +55,12 @@ func main() {
 		os.Exit(1)
 	}
 
-	writerOptions := loupedeck.WriterOptions{QueueSize: *queueSize, SendInterval: *sendInterval}
-	var deckConn *loupedeck.Loupedeck
+	writerOptions := device.WriterOptions{QueueSize: *queueSize, SendInterval: *sendInterval}
+	var deckConn *device.Loupedeck
 	if *devicePath == "" {
-		deckConn, err = loupedeck.ConnectAutoWithOptions(writerOptions)
+		deckConn, err = device.ConnectAutoWithOptions(writerOptions)
 	} else {
-		deckConn, err = loupedeck.ConnectPathWithOptions(*devicePath, writerOptions)
+		deckConn, err = device.ConnectPathWithOptions(*devicePath, writerOptions)
 	}
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "connect: %v\n", err)
@@ -73,7 +73,7 @@ func main() {
 		}
 	}()
 	deckConn.SetDisplays()
-	displays := map[string]*loupedeck.Display{
+	displays := map[string]*device.Display{
 		"left":  deckConn.GetDisplay("left"),
 		"main":  deckConn.GetDisplay("main"),
 		"right": deckConn.GetDisplay("right"),
@@ -113,7 +113,7 @@ func main() {
 
 	exitCh := make(chan struct{}, 1)
 	if *exitOnCircle {
-		rt.Env.Host.OnButton(loupedeck.Circle, func(loupedeck.Button, loupedeck.ButtonStatus) {
+		rt.Env.Host.OnButton(device.Circle, func(device.Button, device.ButtonStatus) {
 			select {
 			case exitCh <- struct{}{}:
 			default:
@@ -230,7 +230,7 @@ func main() {
 	}
 }
 
-func clearDisplays(displays map[string]*loupedeck.Display) {
+func clearDisplays(displays map[string]*device.Display) {
 	for _, display := range displays {
 		if display == nil {
 			continue
@@ -246,65 +246,65 @@ func registerEventLogging(env *envpkg.Environment) {
 	if env == nil {
 		return
 	}
-	for _, button := range []loupedeck.Button{
-		loupedeck.Circle,
-		loupedeck.Button1,
-		loupedeck.Button2,
-		loupedeck.Button3,
-		loupedeck.Button4,
-		loupedeck.Button5,
-		loupedeck.Button6,
-		loupedeck.Button7,
+	for _, button := range []device.Button{
+		device.Circle,
+		device.Button1,
+		device.Button2,
+		device.Button3,
+		device.Button4,
+		device.Button5,
+		device.Button6,
+		device.Button7,
 	} {
 		button := button
-		env.Host.OnButton(button, func(b loupedeck.Button, s loupedeck.ButtonStatus) {
+		env.Host.OnButton(button, func(b device.Button, s device.ButtonStatus) {
 			slog.Info("button event", "button", buttonName(b), "status", buttonStatusName(s))
 		})
 	}
-	for _, touch := range []loupedeck.TouchButton{
-		loupedeck.Touch1,
-		loupedeck.Touch2,
-		loupedeck.Touch3,
-		loupedeck.Touch4,
-		loupedeck.Touch5,
-		loupedeck.Touch6,
-		loupedeck.Touch7,
-		loupedeck.Touch8,
-		loupedeck.Touch9,
-		loupedeck.Touch10,
-		loupedeck.Touch11,
-		loupedeck.Touch12,
+	for _, touch := range []device.TouchButton{
+		device.Touch1,
+		device.Touch2,
+		device.Touch3,
+		device.Touch4,
+		device.Touch5,
+		device.Touch6,
+		device.Touch7,
+		device.Touch8,
+		device.Touch9,
+		device.Touch10,
+		device.Touch11,
+		device.Touch12,
 	} {
 		touch := touch
-		env.Host.OnTouch(touch, func(t loupedeck.TouchButton, s loupedeck.ButtonStatus, x, y uint16) {
+		env.Host.OnTouch(touch, func(t device.TouchButton, s device.ButtonStatus, x, y uint16) {
 			slog.Info("touch event", "touch", touchName(t), "status", buttonStatusName(s), "x", x, "y", y)
 		})
 	}
-	for _, knob := range []loupedeck.Knob{
-		loupedeck.Knob1,
-		loupedeck.Knob2,
-		loupedeck.Knob3,
-		loupedeck.Knob4,
-		loupedeck.Knob5,
-		loupedeck.Knob6,
+	for _, knob := range []device.Knob{
+		device.Knob1,
+		device.Knob2,
+		device.Knob3,
+		device.Knob4,
+		device.Knob5,
+		device.Knob6,
 	} {
 		knob := knob
-		env.Host.OnKnob(knob, func(k loupedeck.Knob, value int) {
+		env.Host.OnKnob(knob, func(k device.Knob, value int) {
 			slog.Info("knob event", "knob", knobName(k), "value", value)
 		})
 	}
 }
 
-func buttonName(b loupedeck.Button) string {
-	names := map[loupedeck.Button]string{
-		loupedeck.Circle:  "Circle",
-		loupedeck.Button1: "Button1",
-		loupedeck.Button2: "Button2",
-		loupedeck.Button3: "Button3",
-		loupedeck.Button4: "Button4",
-		loupedeck.Button5: "Button5",
-		loupedeck.Button6: "Button6",
-		loupedeck.Button7: "Button7",
+func buttonName(b device.Button) string {
+	names := map[device.Button]string{
+		device.Circle:  "Circle",
+		device.Button1: "Button1",
+		device.Button2: "Button2",
+		device.Button3: "Button3",
+		device.Button4: "Button4",
+		device.Button5: "Button5",
+		device.Button6: "Button6",
+		device.Button7: "Button7",
 	}
 	if name, ok := names[b]; ok {
 		return name
@@ -312,20 +312,20 @@ func buttonName(b loupedeck.Button) string {
 	return fmt.Sprintf("Button%d", b)
 }
 
-func touchName(t loupedeck.TouchButton) string {
-	names := map[loupedeck.TouchButton]string{
-		loupedeck.Touch1:  "Touch1",
-		loupedeck.Touch2:  "Touch2",
-		loupedeck.Touch3:  "Touch3",
-		loupedeck.Touch4:  "Touch4",
-		loupedeck.Touch5:  "Touch5",
-		loupedeck.Touch6:  "Touch6",
-		loupedeck.Touch7:  "Touch7",
-		loupedeck.Touch8:  "Touch8",
-		loupedeck.Touch9:  "Touch9",
-		loupedeck.Touch10: "Touch10",
-		loupedeck.Touch11: "Touch11",
-		loupedeck.Touch12: "Touch12",
+func touchName(t device.TouchButton) string {
+	names := map[device.TouchButton]string{
+		device.Touch1:  "Touch1",
+		device.Touch2:  "Touch2",
+		device.Touch3:  "Touch3",
+		device.Touch4:  "Touch4",
+		device.Touch5:  "Touch5",
+		device.Touch6:  "Touch6",
+		device.Touch7:  "Touch7",
+		device.Touch8:  "Touch8",
+		device.Touch9:  "Touch9",
+		device.Touch10: "Touch10",
+		device.Touch11: "Touch11",
+		device.Touch12: "Touch12",
 	}
 	if name, ok := names[t]; ok {
 		return name
@@ -333,14 +333,14 @@ func touchName(t loupedeck.TouchButton) string {
 	return fmt.Sprintf("Touch%d", t)
 }
 
-func knobName(k loupedeck.Knob) string {
-	names := map[loupedeck.Knob]string{
-		loupedeck.Knob1: "Knob1",
-		loupedeck.Knob2: "Knob2",
-		loupedeck.Knob3: "Knob3",
-		loupedeck.Knob4: "Knob4",
-		loupedeck.Knob5: "Knob5",
-		loupedeck.Knob6: "Knob6",
+func knobName(k device.Knob) string {
+	names := map[device.Knob]string{
+		device.Knob1: "Knob1",
+		device.Knob2: "Knob2",
+		device.Knob3: "Knob3",
+		device.Knob4: "Knob4",
+		device.Knob5: "Knob5",
+		device.Knob6: "Knob6",
 	}
 	if name, ok := names[k]; ok {
 		return name
@@ -348,11 +348,11 @@ func knobName(k loupedeck.Knob) string {
 	return fmt.Sprintf("Knob%d", k)
 }
 
-func buttonStatusName(s loupedeck.ButtonStatus) string {
+func buttonStatusName(s device.ButtonStatus) string {
 	switch s {
-	case loupedeck.ButtonDown:
+	case device.ButtonDown:
 		return "down"
-	case loupedeck.ButtonUp:
+	case device.ButtonUp:
 		return "up"
 	default:
 		return fmt.Sprintf("status(%d)", s)
@@ -403,8 +403,8 @@ func (w renderStatsWindow) String() string {
 	)
 }
 
-func diffWriterStats(a, b loupedeck.WriterStats) loupedeck.WriterStats {
-	return loupedeck.WriterStats{
+func diffWriterStats(a, b device.WriterStats) device.WriterStats {
+	return device.WriterStats{
 		QueuedCommands:    b.QueuedCommands - a.QueuedCommands,
 		SentCommands:      b.SentCommands - a.SentCommands,
 		SentMessages:      b.SentMessages - a.SentMessages,

@@ -1,14 +1,9 @@
-package loupedeck
+package device
 
 import "testing"
 
 func newTestLoupedeck() *Loupedeck {
 	return &Loupedeck{
-		buttonBindings:    make(map[Button]ButtonFunc),
-		buttonUpBindings:  make(map[Button]ButtonFunc),
-		knobBindings:      make(map[Knob]KnobFunc),
-		touchBindings:     make(map[TouchButton]TouchFunc),
-		touchUpBindings:   make(map[TouchButton]TouchFunc),
 		buttonListeners:   make(map[Button]map[uint64]ButtonFunc),
 		buttonUpListeners: make(map[Button]map[uint64]ButtonFunc),
 		knobListeners:     make(map[Knob]map[uint64]KnobFunc),
@@ -55,25 +50,43 @@ func TestOnButtonSupportsMultipleListenersAndCleanup(t *testing.T) {
 	}
 }
 
-func TestBindAndOnKnobCoexist(t *testing.T) {
+func TestOnKnobSupportsMultipleListenersAndCleanup(t *testing.T) {
 	l := newTestLoupedeck()
 
 	calls := []string{}
-	l.BindKnob(Knob1, func(Knob, int) {
-		calls = append(calls, "bind")
+	sub1 := l.OnKnob(Knob1, func(Knob, int) {
+		calls = append(calls, "listener-1")
 	})
-	l.OnKnob(Knob1, func(Knob, int) {
-		calls = append(calls, "on")
+	sub2 := l.OnKnob(Knob1, func(Knob, int) {
+		calls = append(calls, "listener-2")
 	})
 
 	if !l.dispatchKnob(Knob1, 1) {
 		t.Fatalf("expected dispatchKnob to report handled event")
 	}
 	if len(calls) != 2 {
-		t.Fatalf("expected both bind and listener to fire, got %v", calls)
+		t.Fatalf("expected 2 listeners to fire, got %v", calls)
+	}
+
+	if err := sub1.Close(); err != nil {
+		t.Fatalf("close sub1: %v", err)
+	}
+	calls = nil
+
+	if !l.dispatchKnob(Knob1, 1) {
+		t.Fatalf("expected dispatchKnob to report handled event after unsubscribe")
+	}
+	if len(calls) != 1 || calls[0] != "listener-2" {
+		t.Fatalf("expected only listener-2 after unsubscribe, got %v", calls)
+	}
+
+	if err := sub2.Close(); err != nil {
+		t.Fatalf("close sub2: %v", err)
+	}
+	if l.dispatchKnob(Knob1, 1) {
+		t.Fatalf("expected dispatchKnob to report unhandled event after all unsubscribed")
 	}
 }
-
 func TestOnTouchUpCleanup(t *testing.T) {
 	l := newTestLoupedeck()
 

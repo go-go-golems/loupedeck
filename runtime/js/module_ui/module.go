@@ -7,7 +7,7 @@ import (
 
 	"github.com/dop251/goja"
 	"github.com/dop251/goja_nodejs/require"
-	deck "github.com/go-go-golems/loupedeck"
+	deck "github.com/go-go-golems/loupedeck/pkg/device"
 	"github.com/go-go-golems/loupedeck/pkg/runtimebridge"
 	"github.com/go-go-golems/loupedeck/pkg/runtimeowner"
 	envpkg "github.com/go-go-golems/loupedeck/runtime/js/env"

@@ -5,22 +5,22 @@ import (
 	"testing"
 	"time"
 
-	deck "github.com/go-go-golems/loupedeck"
+	"github.com/go-go-golems/loupedeck/pkg/device"
 	"github.com/go-go-golems/loupedeck/runtime/ui"
 )
 
 type fakeSource struct {
 	mu      sync.Mutex
-	buttons map[deck.Button][]deck.ButtonFunc
-	touches map[deck.TouchButton][]deck.TouchFunc
-	knobs   map[deck.Knob][]deck.KnobFunc
+	buttons map[device.Button][]device.ButtonFunc
+	touches map[device.TouchButton][]device.TouchFunc
+	knobs   map[device.Knob][]device.KnobFunc
 }
 
 func newFakeSource() *fakeSource {
 	return &fakeSource{
-		buttons: map[deck.Button][]deck.ButtonFunc{},
-		touches: map[deck.TouchButton][]deck.TouchFunc{},
-		knobs:   map[deck.Knob][]deck.KnobFunc{},
+		buttons: map[device.Button][]device.ButtonFunc{},
+		touches: map[device.TouchButton][]device.TouchFunc{},
+		knobs:   map[device.Knob][]device.KnobFunc{},
 	}
 }
 
@@ -36,7 +36,7 @@ func (s *fakeSub) Close() error {
 	return nil
 }
 
-func (f *fakeSource) OnButton(button deck.Button, fn deck.ButtonFunc) deck.Subscription {
+func (f *fakeSource) OnButton(button device.Button, fn device.ButtonFunc) device.Subscription {
 	f.mu.Lock()
 	defer f.mu.Unlock()
 	f.buttons[button] = append(f.buttons[button], fn)
@@ -50,7 +50,7 @@ func (f *fakeSource) OnButton(button deck.Button, fn deck.ButtonFunc) deck.Subsc
 	}}
 }
 
-func (f *fakeSource) OnTouch(touch deck.TouchButton, fn deck.TouchFunc) deck.Subscription {
+func (f *fakeSource) OnTouch(touch device.TouchButton, fn device.TouchFunc) device.Subscription {
 	f.mu.Lock()
 	defer f.mu.Unlock()
 	f.touches[touch] = append(f.touches[touch], fn)
@@ -64,7 +64,7 @@ func (f *fakeSource) OnTouch(touch deck.TouchButton, fn deck.TouchFunc) deck.Sub
 	}}
 }
 
-func (f *fakeSource) OnKnob(knob deck.Knob, fn deck.KnobFunc) deck.Subscription {
+func (f *fakeSource) OnKnob(knob device.Knob, fn device.KnobFunc) device.Subscription {
 	f.mu.Lock()
 	defer f.mu.Unlock()
 	f.knobs[knob] = append(f.knobs[knob], fn)
@@ -78,27 +78,27 @@ func (f *fakeSource) OnKnob(knob deck.Knob, fn deck.KnobFunc) deck.Subscription 
 	}}
 }
 
-func (f *fakeSource) emitButton(button deck.Button, status deck.ButtonStatus) {
+func (f *fakeSource) emitButton(button device.Button, status device.ButtonStatus) {
 	f.mu.Lock()
-	callbacks := append([]deck.ButtonFunc(nil), f.buttons[button]...)
+	callbacks := append([]device.ButtonFunc(nil), f.buttons[button]...)
 	f.mu.Unlock()
 	for _, cb := range callbacks {
 		cb(button, status)
 	}
 }
 
-func (f *fakeSource) emitTouch(touch deck.TouchButton, status deck.ButtonStatus, x, y uint16) {
+func (f *fakeSource) emitTouch(touch device.TouchButton, status device.ButtonStatus, x, y uint16) {
 	f.mu.Lock()
-	callbacks := append([]deck.TouchFunc(nil), f.touches[touch]...)
+	callbacks := append([]device.TouchFunc(nil), f.touches[touch]...)
 	f.mu.Unlock()
 	for _, cb := range callbacks {
 		cb(touch, status, x, y)
 	}
 }
 
-func (f *fakeSource) emitKnob(knob deck.Knob, value int) {
+func (f *fakeSource) emitKnob(knob device.Knob, value int) {
 	f.mu.Lock()
-	callbacks := append([]deck.KnobFunc(nil), f.knobs[knob]...)
+	callbacks := append([]device.KnobFunc(nil), f.knobs[knob]...)
 	f.mu.Unlock()
 	for _, cb := range callbacks {
 		cb(knob, value)
@@ -114,19 +114,19 @@ func TestAttachedEventSourceDeliversCallbacks(t *testing.T) {
 	touchCalls := 0
 	knobCalls := 0
 
-	r.OnButton(deck.Circle, func(deck.Button, deck.ButtonStatus) {
+	r.OnButton(device.Circle, func(device.Button, device.ButtonStatus) {
 		buttonCalls++
 	})
-	r.OnTouch(deck.Touch1, func(deck.TouchButton, deck.ButtonStatus, uint16, uint16) {
+	r.OnTouch(device.Touch1, func(device.TouchButton, device.ButtonStatus, uint16, uint16) {
 		touchCalls++
 	})
-	r.OnKnob(deck.Knob1, func(deck.Knob, int) {
+	r.OnKnob(device.Knob1, func(device.Knob, int) {
 		knobCalls++
 	})
 
-	source.emitButton(deck.Circle, deck.ButtonDown)
-	source.emitTouch(deck.Touch1, deck.ButtonDown, 10, 20)
-	source.emitKnob(deck.Knob1, 3)
+	source.emitButton(device.Circle, device.ButtonDown)
+	source.emitTouch(device.Touch1, device.ButtonDown, 10, 20)
+	source.emitKnob(device.Knob1, 3)
 
 	if buttonCalls != 1 || touchCalls != 1 || knobCalls != 1 {
 		t.Fatalf("unexpected callback counts button=%d touch=%d knob=%d", buttonCalls, touchCalls, knobCalls)

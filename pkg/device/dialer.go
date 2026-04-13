@@ -1,13 +1,14 @@
-package loupedeck
+package device
 
 import (
 	//"github.com/tarm/serial"
 	"fmt"
-	"go.bug.st/serial"
-	"go.bug.st/serial/enumerator"
 	"log/slog"
 	"net"
 	"time"
+
+	"go.bug.st/serial"
+	"go.bug.st/serial/enumerator"
 )
 
 // SerialWebSockConn implements an external dialer interface for the

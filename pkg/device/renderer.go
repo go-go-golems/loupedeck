@@ -1,4 +1,4 @@
-package loupedeck
+package device
 
 import (
 	"errors"
