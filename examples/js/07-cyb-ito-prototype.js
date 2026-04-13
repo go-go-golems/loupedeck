@@ -13,8 +13,17 @@ const SHOW_SCAN_LAYER = false;
 const SHOW_RIPPLE_LAYER = false;
 const SHOW_HUD_LAYER = false;
 const CJK_FONT_PATH = "/usr/share/fonts/opentype/noto/NotoSansCJK-Regular.ttc";
-const CJK_FONT = gfx.font(CJK_FONT_PATH, { size: 16, dpi: 72, index: 0 });
-const CJK_FONT_SMALL = gfx.font(CJK_FONT_PATH, { size: 12, dpi: 72, index: 0 });
+
+function loadOptionalFont(path, opts) {
+  try {
+    return gfx.font(path, opts);
+  } catch (_err) {
+    return null;
+  }
+}
+
+const CJK_FONT = loadOptionalFont(CJK_FONT_PATH, { size: 16, dpi: 72, index: 0 });
+const CJK_FONT_SMALL = loadOptionalFont(CJK_FONT_PATH, { size: 12, dpi: 72, index: 0 });
 
 const main = gfx.surface(MAIN_W, MAIN_H);
 const mainScan = gfx.surface(MAIN_W, MAIN_H);
