@@ -121,11 +121,28 @@ func doConnect(c *SerialWebSockConn, writerOptions WriterOptions, renderOptions 
 
 	slog.Info("Connect successful", "resp", resp)
 
+	if c.Product == "" && c.Name != "" {
+		vendor, product, metaErr := lookupSerialPortMetadata(c.Name)
+		if metaErr != nil {
+			slog.Warn("Unable to refresh serial metadata after connect", "path", c.Name, "err", metaErr)
+		} else {
+			if c.Vendor == "" {
+				c.Vendor = vendor
+			}
+			if c.Product == "" {
+				c.Product = product
+			}
+			if c.Product != "" {
+				slog.Info("Resolved serial metadata after connect", "path", c.Name, "vendor", c.Vendor, "product", c.Product)
+			}
+		}
+	}
+
 	profile, err := resolveProfile(c.Product)
 	if err != nil {
 		_ = conn.Close()
 		_ = c.Close()
-		return nil, err
+		return nil, fmt.Errorf("resolve device profile for %q (product %q): %w", c.Name, c.Product, err)
 	}
 
 	l := &Loupedeck{

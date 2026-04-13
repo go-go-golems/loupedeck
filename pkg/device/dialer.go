@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"log/slog"
 	"net"
+	"path/filepath"
 	"time"
 
 	"go.bug.st/serial"
@@ -111,16 +112,59 @@ func ConnectSerialAuto() (*SerialWebSockConn, error) {
 	return nil, fmt.Errorf("no Loupedeck devices found")
 }
 
+func sameSerialPath(a, b string) bool {
+	if a == b {
+		return true
+	}
+	ac, aerr := filepath.EvalSymlinks(a)
+	bc, berr := filepath.EvalSymlinks(b)
+	if aerr == nil && berr == nil {
+		return ac == bc
+	}
+	return false
+}
+
+func lookupPortDetailsForPath(serialPath string, ports []*enumerator.PortDetails) *enumerator.PortDetails {
+	for _, port := range ports {
+		if port == nil {
+			continue
+		}
+		if sameSerialPath(serialPath, port.Name) {
+			return port
+		}
+	}
+	return nil
+}
+
+func lookupSerialPortMetadata(serialPath string) (vendor, product string, err error) {
+	ports, err := enumerator.GetDetailedPortsList()
+	if err != nil {
+		return "", "", err
+	}
+	port := lookupPortDetailsForPath(serialPath, ports)
+	if port == nil {
+		return "", "", nil
+	}
+	return port.VID, port.PID, nil
+}
+
 // ConnectSerialPath connects to a specific Loupedeck, using the path
 // to the USB serial device as a key.
 func ConnectSerialPath(serialPath string) (*SerialWebSockConn, error) {
+	vendor, product, metaErr := lookupSerialPortMetadata(serialPath)
+	if metaErr != nil {
+		slog.Warn("Unable to resolve serial metadata for path", "path", serialPath, "err", metaErr)
+	}
+
 	p, err := serial.Open(serialPath, &serial.Mode{})
 	if err != nil {
 		return nil, fmt.Errorf("Unable to open serial device %q", serialPath)
 	}
 	conn := &SerialWebSockConn{
-		Name: serialPath,
-		Port: p,
+		Name:    serialPath,
+		Port:    p,
+		Vendor:  vendor,
+		Product: product,
 	}
 
 	return conn, nil
