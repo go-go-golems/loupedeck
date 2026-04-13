@@ -37,3 +37,12 @@ Exposed --flush-interval in loupe-js-live and verified on hardware that reducing
 - /home/manuel/code/wesen/2026-04-11--loupedeck-test/cmd/loupe-js-live/options.go — New --flush-interval flag
 - /home/manuel/code/wesen/2026-04-11--loupedeck-test/cmd/loupe-js-live/run.go — Live runner now connects with explicit render options so flush interval is controllable
 
+
+## 2026-04-13
+
+Added a long-form project report that consolidates the cleanup narrative from LOUPE-008 with the later LOUPE-013 performance findings, including the retained flush-interval cap and the raw-vs-live measurement distinction.
+
+### Related Files
+
+- /home/manuel/code/wesen/2026-04-11--loupedeck-test/ttmp/2026/04/13/LOUPE-013--cyb-os-tiles-framerate-investigation-and-raw-transport-benchmark-refresh/design/01-project-report-cleanup-and-performance.md — Ticket-local project report copy of the cleanup and performance writeup
+
