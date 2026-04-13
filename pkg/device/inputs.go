@@ -16,6 +16,8 @@
 
 package device
 
+import "fmt"
+
 // Button represents a physical button on the Loupedeck Live.  This
 // includes the 8 buttons at the bottom of the device as well as the
 // 'click' function of the 6 dials.
@@ -68,7 +70,7 @@ const (
 	// ButtonDown indicates that a button has just been pressed.
 	ButtonDown ButtonStatus = 0
 	// ButtonUp indicates that a button was just released.
-	ButtonUp = 1
+	ButtonUp ButtonStatus = 1
 )
 
 // ButtonFunc is a function signature used for callbacks on Button
@@ -134,6 +136,247 @@ const (
 //   - The X location touched (relative to the whole display)
 //   - The Y location touched (relative to the whole display)
 type TouchFunc func(TouchButton, ButtonStatus, uint16, uint16)
+
+func (b Button) String() string {
+	switch b {
+	case KnobPress1:
+		return "KnobPress1"
+	case KnobPress2:
+		return "KnobPress2"
+	case KnobPress3:
+		return "KnobPress3"
+	case KnobPress4:
+		return "KnobPress4"
+	case KnobPress5:
+		return "KnobPress5"
+	case KnobPress6:
+		return "KnobPress6"
+	case Circle:
+		return "Circle"
+	case Button1:
+		return "Button1"
+	case Button2:
+		return "Button2"
+	case Button3:
+		return "Button3"
+	case Button4:
+		return "Button4"
+	case Button5:
+		return "Button5"
+	case Button6:
+		return "Button6"
+	case Button7:
+		return "Button7"
+	case CTCircle:
+		return "CTCircle"
+	case Undo:
+		return "Undo"
+	case Keyboard:
+		return "Keyboard"
+	case Enter:
+		return "Enter"
+	case Save:
+		return "Save"
+	case LeftFn:
+		return "LeftFn"
+	case Up:
+		return "Up"
+	case Left:
+		return "Left"
+	case RightFn:
+		return "RightFn"
+	case Down:
+		return "Down"
+	case Right:
+		return "Right"
+	case E:
+		return "E"
+	default:
+		return fmt.Sprintf("Button(%d)", b)
+	}
+}
+
+func ParseButton(name string) (Button, error) {
+	switch name {
+	case "KnobPress1":
+		return KnobPress1, nil
+	case "KnobPress2":
+		return KnobPress2, nil
+	case "KnobPress3":
+		return KnobPress3, nil
+	case "KnobPress4":
+		return KnobPress4, nil
+	case "KnobPress5":
+		return KnobPress5, nil
+	case "KnobPress6":
+		return KnobPress6, nil
+	case "Circle":
+		return Circle, nil
+	case "Button1":
+		return Button1, nil
+	case "Button2":
+		return Button2, nil
+	case "Button3":
+		return Button3, nil
+	case "Button4":
+		return Button4, nil
+	case "Button5":
+		return Button5, nil
+	case "Button6":
+		return Button6, nil
+	case "Button7":
+		return Button7, nil
+	case "CTCircle":
+		return CTCircle, nil
+	case "Undo":
+		return Undo, nil
+	case "Keyboard":
+		return Keyboard, nil
+	case "Enter":
+		return Enter, nil
+	case "Save":
+		return Save, nil
+	case "LeftFn":
+		return LeftFn, nil
+	case "Up", "A":
+		return Up, nil
+	case "Left", "C":
+		return Left, nil
+	case "RightFn":
+		return RightFn, nil
+	case "Down", "B":
+		return Down, nil
+	case "Right", "D":
+		return Right, nil
+	case "E":
+		return E, nil
+	default:
+		return 0, fmt.Errorf("unknown button %q", name)
+	}
+}
+
+func (s ButtonStatus) String() string {
+	switch s {
+	case ButtonDown:
+		return "down"
+	case ButtonUp:
+		return "up"
+	default:
+		return fmt.Sprintf("ButtonStatus(%d)", s)
+	}
+}
+
+func (k Knob) String() string {
+	switch k {
+	case CTKnob:
+		return "CTKnob"
+	case Knob1:
+		return "Knob1"
+	case Knob2:
+		return "Knob2"
+	case Knob3:
+		return "Knob3"
+	case Knob4:
+		return "Knob4"
+	case Knob5:
+		return "Knob5"
+	case Knob6:
+		return "Knob6"
+	default:
+		return fmt.Sprintf("Knob(%d)", k)
+	}
+}
+
+func ParseKnob(name string) (Knob, error) {
+	switch name {
+	case "CTKnob":
+		return CTKnob, nil
+	case "Knob1":
+		return Knob1, nil
+	case "Knob2":
+		return Knob2, nil
+	case "Knob3":
+		return Knob3, nil
+	case "Knob4":
+		return Knob4, nil
+	case "Knob5":
+		return Knob5, nil
+	case "Knob6":
+		return Knob6, nil
+	default:
+		return 0, fmt.Errorf("unknown knob %q", name)
+	}
+}
+
+func (t TouchButton) String() string {
+	switch t {
+	case TouchLeft:
+		return "TouchLeft"
+	case TouchRight:
+		return "TouchRight"
+	case Touch1:
+		return "Touch1"
+	case Touch2:
+		return "Touch2"
+	case Touch3:
+		return "Touch3"
+	case Touch4:
+		return "Touch4"
+	case Touch5:
+		return "Touch5"
+	case Touch6:
+		return "Touch6"
+	case Touch7:
+		return "Touch7"
+	case Touch8:
+		return "Touch8"
+	case Touch9:
+		return "Touch9"
+	case Touch10:
+		return "Touch10"
+	case Touch11:
+		return "Touch11"
+	case Touch12:
+		return "Touch12"
+	default:
+		return fmt.Sprintf("TouchButton(%d)", t)
+	}
+}
+
+func ParseTouchButton(name string) (TouchButton, error) {
+	switch name {
+	case "TouchLeft":
+		return TouchLeft, nil
+	case "TouchRight":
+		return TouchRight, nil
+	case "Touch1":
+		return Touch1, nil
+	case "Touch2":
+		return Touch2, nil
+	case "Touch3":
+		return Touch3, nil
+	case "Touch4":
+		return Touch4, nil
+	case "Touch5":
+		return Touch5, nil
+	case "Touch6":
+		return Touch6, nil
+	case "Touch7":
+		return Touch7, nil
+	case "Touch8":
+		return Touch8, nil
+	case "Touch9":
+		return Touch9, nil
+	case "Touch10":
+		return Touch10, nil
+	case "Touch11":
+		return Touch11, nil
+	case "Touch12":
+		return Touch12, nil
+	default:
+		return 0, fmt.Errorf("unknown touch button %q", name)
+	}
+}
 
 // touchCoordToButton translates an x,y coordinate on the
 // touchscreen to a TouchButton.

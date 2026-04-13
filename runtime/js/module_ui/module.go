@@ -17,41 +17,6 @@ import (
 
 const ModuleName = "loupedeck/ui"
 
-var (
-	buttons = map[string]deck.Button{
-		"Circle":  deck.Circle,
-		"Button1": deck.Button1,
-		"Button2": deck.Button2,
-		"Button3": deck.Button3,
-		"Button4": deck.Button4,
-		"Button5": deck.Button5,
-		"Button6": deck.Button6,
-		"Button7": deck.Button7,
-	}
-	touches = map[string]deck.TouchButton{
-		"Touch1":  deck.Touch1,
-		"Touch2":  deck.Touch2,
-		"Touch3":  deck.Touch3,
-		"Touch4":  deck.Touch4,
-		"Touch5":  deck.Touch5,
-		"Touch6":  deck.Touch6,
-		"Touch7":  deck.Touch7,
-		"Touch8":  deck.Touch8,
-		"Touch9":  deck.Touch9,
-		"Touch10": deck.Touch10,
-		"Touch11": deck.Touch11,
-		"Touch12": deck.Touch12,
-	}
-	knobs = map[string]deck.Knob{
-		"Knob1": deck.Knob1,
-		"Knob2": deck.Knob2,
-		"Knob3": deck.Knob3,
-		"Knob4": deck.Knob4,
-		"Knob5": deck.Knob5,
-		"Knob6": deck.Knob6,
-	}
-)
-
 func Register(registry *require.Registry) {
 	registry.RegisterNativeModule(ModuleName, func(runtime *goja.Runtime, module *goja.Object) {
 		bindings, ok := runtimebridge.Lookup(runtime)
@@ -83,9 +48,9 @@ func Register(registry *require.Registry) {
 		})
 		exports.Set("onButton", func(call goja.FunctionCall) goja.Value {
 			name := call.Argument(0).String()
-			button, ok := buttons[name]
-			if !ok {
-				panic(runtime.NewTypeError("unknown button %q", name))
+			button, err := deck.ParseButton(name)
+			if err != nil {
+				panic(runtime.NewTypeError(err.Error()))
 			}
 			fn, ok := goja.AssertFunction(call.Argument(1))
 			if !ok {
@@ -95,7 +60,7 @@ func Register(registry *require.Registry) {
 				_ = bindings.Owner.Post(bindings.Context, "ui.onButton.callback", func(_ context.Context, vm *goja.Runtime) {
 					event := vm.NewObject()
 					_ = event.Set("name", name)
-					_ = event.Set("status", statusString(status))
+					_ = event.Set("status", status.String())
 					_, err := fn(goja.Undefined(), event)
 					if err != nil {
 						panic(vm.NewGoError(err))
@@ -106,9 +71,9 @@ func Register(registry *require.Registry) {
 		})
 		exports.Set("onTouch", func(call goja.FunctionCall) goja.Value {
 			name := call.Argument(0).String()
-			touch, ok := touches[name]
-			if !ok {
-				panic(runtime.NewTypeError("unknown touch %q", name))
+			touch, err := deck.ParseTouchButton(name)
+			if err != nil {
+				panic(runtime.NewTypeError(err.Error()))
 			}
 			fn, ok := goja.AssertFunction(call.Argument(1))
 			if !ok {
@@ -118,7 +83,7 @@ func Register(registry *require.Registry) {
 				_ = bindings.Owner.Post(bindings.Context, "ui.onTouch.callback", func(_ context.Context, vm *goja.Runtime) {
 					event := vm.NewObject()
 					_ = event.Set("name", name)
-					_ = event.Set("status", statusString(status))
+					_ = event.Set("status", status.String())
 					_ = event.Set("x", x)
 					_ = event.Set("y", y)
 					_, err := fn(goja.Undefined(), event)
@@ -131,9 +96,9 @@ func Register(registry *require.Registry) {
 		})
 		exports.Set("onKnob", func(call goja.FunctionCall) goja.Value {
 			name := call.Argument(0).String()
-			knob, ok := knobs[name]
-			if !ok {
-				panic(runtime.NewTypeError("unknown knob %q", name))
+			knob, err := deck.ParseKnob(name)
+			if err != nil {
+				panic(runtime.NewTypeError(err.Error()))
 			}
 			fn, ok := goja.AssertFunction(call.Argument(1))
 			if !ok {
@@ -400,11 +365,4 @@ func layerOptionsFromValue(value goja.Value, runtime *goja.Runtime) ui.LayerOpti
 		B: uint8(bValue.ToInteger()),
 		A: a,
 	}}
-}
-
-func statusString(status deck.ButtonStatus) string {
-	if status == deck.ButtonUp {
-		return "up"
-	}
-	return "down"
 }

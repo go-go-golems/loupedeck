@@ -257,7 +257,7 @@ func registerEventLogging(env *envpkg.Environment) {
 	} {
 		button := button
 		env.Host.OnButton(button, func(b device.Button, s device.ButtonStatus) {
-			slog.Info("button event", "button", buttonName(b), "status", buttonStatusName(s))
+			slog.Info("button event", "button", b.String(), "status", s.String())
 		})
 	}
 	for _, touch := range []device.TouchButton{
@@ -276,7 +276,7 @@ func registerEventLogging(env *envpkg.Environment) {
 	} {
 		touch := touch
 		env.Host.OnTouch(touch, func(t device.TouchButton, s device.ButtonStatus, x, y uint16) {
-			slog.Info("touch event", "touch", touchName(t), "status", buttonStatusName(s), "x", x, "y", y)
+			slog.Info("touch event", "touch", t.String(), "status", s.String(), "x", x, "y", y)
 		})
 	}
 	for _, knob := range []device.Knob{
@@ -289,72 +289,8 @@ func registerEventLogging(env *envpkg.Environment) {
 	} {
 		knob := knob
 		env.Host.OnKnob(knob, func(k device.Knob, value int) {
-			slog.Info("knob event", "knob", knobName(k), "value", value)
+			slog.Info("knob event", "knob", k.String(), "value", value)
 		})
-	}
-}
-
-func buttonName(b device.Button) string {
-	names := map[device.Button]string{
-		device.Circle:  "Circle",
-		device.Button1: "Button1",
-		device.Button2: "Button2",
-		device.Button3: "Button3",
-		device.Button4: "Button4",
-		device.Button5: "Button5",
-		device.Button6: "Button6",
-		device.Button7: "Button7",
-	}
-	if name, ok := names[b]; ok {
-		return name
-	}
-	return fmt.Sprintf("Button%d", b)
-}
-
-func touchName(t device.TouchButton) string {
-	names := map[device.TouchButton]string{
-		device.Touch1:  "Touch1",
-		device.Touch2:  "Touch2",
-		device.Touch3:  "Touch3",
-		device.Touch4:  "Touch4",
-		device.Touch5:  "Touch5",
-		device.Touch6:  "Touch6",
-		device.Touch7:  "Touch7",
-		device.Touch8:  "Touch8",
-		device.Touch9:  "Touch9",
-		device.Touch10: "Touch10",
-		device.Touch11: "Touch11",
-		device.Touch12: "Touch12",
-	}
-	if name, ok := names[t]; ok {
-		return name
-	}
-	return fmt.Sprintf("Touch%d", t)
-}
-
-func knobName(k device.Knob) string {
-	names := map[device.Knob]string{
-		device.Knob1: "Knob1",
-		device.Knob2: "Knob2",
-		device.Knob3: "Knob3",
-		device.Knob4: "Knob4",
-		device.Knob5: "Knob5",
-		device.Knob6: "Knob6",
-	}
-	if name, ok := names[k]; ok {
-		return name
-	}
-	return fmt.Sprintf("Knob%d", k)
-}
-
-func buttonStatusName(s device.ButtonStatus) string {
-	switch s {
-	case device.ButtonDown:
-		return "down"
-	case device.ButtonUp:
-		return "up"
-	default:
-		return fmt.Sprintf("status(%d)", s)
 	}
 }
 
