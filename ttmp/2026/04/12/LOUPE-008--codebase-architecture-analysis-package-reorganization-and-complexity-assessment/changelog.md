@@ -71,3 +71,14 @@ Initialized device profiles during connect and removed manual SetDisplays calls 
 - /home/manuel/code/wesen/2026-04-11--loupedeck-test/pkg/device/connect.go — Connect path now resolves model and displays
 - /home/manuel/code/wesen/2026-04-11--loupedeck-test/pkg/device/profile.go — Device profile table and display specs
 
+
+## 2026-04-13
+
+Added canonical input naming/parsing APIs and removed duplicated JS/live-runner maps (commit 41d4f67)
+
+### Related Files
+
+- /home/manuel/code/wesen/2026-04-11--loupedeck-test/cmd/loupe-js-live/main.go — Live runner logs canonical device names
+- /home/manuel/code/wesen/2026-04-11--loupedeck-test/pkg/device/inputs.go — Single source of truth for button/knob/touch naming
+- /home/manuel/code/wesen/2026-04-11--loupedeck-test/runtime/js/module_ui/module.go — JS event registration now validates through device parse helpers
+
