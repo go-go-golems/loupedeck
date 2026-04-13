@@ -82,3 +82,14 @@ Added canonical input naming/parsing APIs and removed duplicated JS/live-runner 
 - /home/manuel/code/wesen/2026-04-11--loupedeck-test/pkg/device/inputs.go — Single source of truth for button/knob/touch naming
 - /home/manuel/code/wesen/2026-04-11--loupedeck-test/runtime/js/module_ui/module.go — JS event registration now validates through device parse helpers
 
+
+## 2026-04-13
+
+Added dedicated design, implementation plan, and task breakdown for the cmd/loupe-js-live decomposition slice
+
+### Related Files
+
+- /home/manuel/code/wesen/2026-04-11--loupedeck-test/ttmp/2026/04/12/LOUPE-008--codebase-architecture-analysis-package-reorganization-and-complexity-assessment/design-doc/05-design-decompose-cmd-loupe-js-live-into-focused-command-files.md — Separate design rationale for the command-local split
+- /home/manuel/code/wesen/2026-04-11--loupedeck-test/ttmp/2026/04/12/LOUPE-008--codebase-architecture-analysis-package-reorganization-and-complexity-assessment/design-doc/06-implementation-plan-cmd-loupe-js-live-decomposition.md — Separate phased implementation plan
+- /home/manuel/code/wesen/2026-04-11--loupedeck-test/ttmp/2026/04/12/LOUPE-008--codebase-architecture-analysis-package-reorganization-and-complexity-assessment/tasks.md — New task section for the live-runner decomposition
+

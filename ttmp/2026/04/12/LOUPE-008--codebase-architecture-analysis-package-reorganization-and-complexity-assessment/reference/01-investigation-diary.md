@@ -17,6 +17,7 @@ RelatedFiles:
       Note: |-
         Removed manual SetDisplays call after connect-time profile setup (commit 2dac4b1)
         Event logging now uses device String methods rather than local helper maps (commit 41d4f67)
+        Current monolithic command that motivated the new decomposition docs
     - Path: cmd/loupe-svg-buttons/main.go
       Note: SVG demo now relies on connect-time profile setup (commit 2dac4b1)
     - Path: pkg/device/connect.go
@@ -35,12 +36,19 @@ RelatedFiles:
       Note: Table-driven device profiles and display specs (commit 2dac4b1)
     - Path: runtime/js/module_ui/module.go
       Note: JS UI module now parses canonical device input names instead of local maps (commit 41d4f67)
+    - Path: ttmp/2026/04/12/LOUPE-008--codebase-architecture-analysis-package-reorganization-and-complexity-assessment/design-doc/05-design-decompose-cmd-loupe-js-live-into-focused-command-files.md
+      Note: Dedicated design rationale for the live-runner split
+    - Path: ttmp/2026/04/12/LOUPE-008--codebase-architecture-analysis-package-reorganization-and-complexity-assessment/design-doc/06-implementation-plan-cmd-loupe-js-live-decomposition.md
+      Note: Dedicated phased execution plan for the live-runner split
+    - Path: ttmp/2026/04/12/LOUPE-008--codebase-architecture-analysis-package-reorganization-and-complexity-assessment/tasks.md
+      Note: Task tracking for the cmd/loupe-js-live decomposition slice
 ExternalSources: []
 Summary: Chronological diary of codebase analysis investigating package structure, file complexity, and reorganization opportunities for the go-go-golems/loupedeck project
 LastUpdated: 2026-04-12T15:35:00-04:00
 WhatFor: Document the investigation process, findings, and analysis methodology for codebase reorganization recommendations
 WhenToUse: When reviewing analysis conclusions or extending the investigation
 ---
+
 
 
 
@@ -959,3 +967,76 @@ gofmt -w pkg/device/inputs.go pkg/device/inputs_test.go runtime/js/module_ui/mod
 ```text
 [main 41d4f67] Add canonical input naming and parsing APIs
 ```
+
+---
+
+## Step 10: Add dedicated design, plan, and tasks for the `cmd/loupe-js-live` decomposition
+
+After the driver move, connect-time profile cleanup, and canonical input naming cleanup, the next obvious refactor target was the live runner command itself. Before implementing that slice, I wrote a dedicated design doc and a dedicated implementation plan so the decomposition work could be reviewed and tracked independently rather than being buried as a sub-bullet in the broader architecture plan.
+
+This step did not change runtime behavior. It established the documentation and task structure needed to execute the `cmd/loupe-js-live` split as its own focused cleanup track under LOUPE-008.
+
+### Prompt Context
+
+**User prompt (verbatim):** "ok, add a separate implementation plan and design document and tasks to the ticket for that part of the refactor. I like this decomposition."
+
+**Assistant interpretation:** The user wants the proposed `cmd/loupe-js-live` decomposition formalized as its own mini-project inside the ticket, with dedicated docs and actionable task breakdown.
+
+**Inferred user intent:** Make the next refactor slice explicit, reviewable, and easy to execute incrementally rather than leaving it as an informal conversational plan.
+
+### What I did
+- Created a dedicated design doc:
+  - `design-doc/05-design-decompose-cmd-loupe-js-live-into-focused-command-files.md`
+- Created a dedicated implementation plan:
+  - `design-doc/06-implementation-plan-cmd-loupe-js-live-decomposition.md`
+- Updated `tasks.md` to add a new `cmd/loupe-js-live` decomposition section with:
+  - planning tasks checked
+  - Phase A–E implementation tasks listed
+- Framed the decomposition as a command-local refactor, explicitly rejecting a premature shared `pkg/runner` abstraction.
+
+### Why
+- The broader architecture plan already had enough scope.
+- The live-runner decomposition is a meaningful enough refactor to deserve its own design and execution docs.
+- A separate task section makes it much easier to commit the work in slices.
+
+### What worked
+- The decomposition proposal translated cleanly into a design doc plus a phased plan.
+- The task list was straightforward once the target file layout was agreed:
+  - `main.go`
+  - `options.go`
+  - `run.go`
+  - `stats.go`
+  - `logging.go`
+  - `cleanup.go`
+
+### What didn't work
+- `docmgr doc list` did not immediately reflect the new document count during the same command session even though the documents were created successfully. The files existed on disk and were usable, so this looked like a display/update lag rather than a failed creation.
+
+### What I learned
+- The `cmd/loupe-js-live` refactor is now scoped clearly enough to execute without reopening the broader architecture debate.
+- Writing the dedicated docs helped lock in one important decision: keep the first split command-local and avoid introducing a shared runner package prematurely.
+
+### What was tricky to build
+- The main design tension was between “make this reusable now” and “only split what is currently too coupled.” The more I wrote it down, the clearer it became that a local split is the right first step.
+- Another subtlety was keeping the plan behavior-preserving. The docs explicitly frame this as a decomposition refactor, not a semantic redesign.
+
+### What warrants a second pair of eyes
+- Review whether `cleanup.go` still makes sense if it ends up containing only one helper.
+- Review whether the task phases are small enough for separate commits or whether Phase C and D should be combined in practice.
+
+### What should be done in the future
+- Implement the `cmd/loupe-js-live` decomposition in the planned phases.
+- Revisit shared abstractions only after the command-local split is done and at least one second consumer exists.
+
+### Code review instructions
+- Review the new docs:
+  - `design-doc/05-design-decompose-cmd-loupe-js-live-into-focused-command-files.md`
+  - `design-doc/06-implementation-plan-cmd-loupe-js-live-decomposition.md`
+- Review the task update:
+  - `tasks.md`
+- Confirm the decomposition plan aligns with the current `cmd/loupe-js-live/main.go` structure.
+
+### Technical details
+- New docs created under the ticket’s `design-doc/` directory.
+- Task file updated in-place at:
+  - `ttmp/2026/04/12/LOUPE-008--codebase-architecture-analysis-package-reorganization-and-complexity-assessment/tasks.md`
