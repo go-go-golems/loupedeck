@@ -10,13 +10,30 @@ Topics:
 DocType: reference
 Intent: long-term
 Owners: []
-RelatedFiles: []
+RelatedFiles:
+    - Path: cmd/loupe-fps-bench/main.go
+      Note: Benchmark runner no longer performs manual display setup (commit 2dac4b1)
+    - Path: cmd/loupe-js-live/main.go
+      Note: Removed manual SetDisplays call after connect-time profile setup (commit 2dac4b1)
+    - Path: cmd/loupe-svg-buttons/main.go
+      Note: SVG demo now relies on connect-time profile setup (commit 2dac4b1)
+    - Path: pkg/device/connect.go
+      Note: Connect path now resolves device profiles during initialization (commit 2dac4b1)
+    - Path: pkg/device/display.go
+      Note: Display mechanics retained after removing SetDisplays product switch (commit 2dac4b1)
+    - Path: pkg/device/listeners.go
+      Note: Listener model simplified to On* subscriptions only (commit 8018a20)
+    - Path: pkg/device/loupedeck.go
+      Note: Driver package simplified after widget/font removal (commit 8018a20)
+    - Path: pkg/device/profile.go
+      Note: Table-driven device profiles and display specs (commit 2dac4b1)
 ExternalSources: []
-Summary: "Chronological diary of codebase analysis investigating package structure, file complexity, and reorganization opportunities for the go-go-golems/loupedeck project"
+Summary: Chronological diary of codebase analysis investigating package structure, file complexity, and reorganization opportunities for the go-go-golems/loupedeck project
 LastUpdated: 2026-04-12T15:35:00-04:00
-WhatFor: "Document the investigation process, findings, and analysis methodology for codebase reorganization recommendations"
-WhenToUse: "When reviewing analysis conclusions or extending the investigation"
+WhatFor: Document the investigation process, findings, and analysis methodology for codebase reorganization recommendations
+WhenToUse: When reviewing analysis conclusions or extending the investigation
 ---
+
 
 # Investigation Diary
 
@@ -562,4 +579,245 @@ rg -n "\bBind(Button|ButtonUp|Knob|Touch|TouchUp|TouchCT)\b" . --glob '!ttmp/**'
 
 # Verify connect-time setup smell
 rg -n "Model\s*=\s*\"foo\"|SetDisplays\(" . --glob '!ttmp/**' --glob '!sources/**'
+```
+
+---
+
+## Step 7: Checkpoint the pkg/device move and dead-code deletion
+
+At this point the user had already moved the former root driver files into `pkg/device/`, and I took over to cleanly remove the legacy widget stack that we had already identified as deletable. The main goal of this step was to checkpoint that structural change as a focused commit before layering the connect/profile work on top.
+
+This step deliberately did not try to solve everything at once. It removed the obsolete widget and value stack, simplified the listener model to `On*` subscriptions only, and preserved a working baseline in the new `pkg/device` layout so the next refactor could focus only on connection correctness.
+
+### Prompt Context
+
+**User prompt (verbatim):** "commit at appropriate intervals and keep a diary. I think now would be a good time."
+
+**Assistant interpretation:** The user wants the current structural work checkpointed now, in focused commits, and wants the running ticket diary updated as the work proceeds.
+
+**Inferred user intent:** Keep the refactor reviewable and resumable by recording the state after each coherent architectural slice rather than batching everything into one giant uncommitted diff.
+
+**Commit (code):** `8018a20` — "Move driver to pkg/device and delete legacy widget stack"
+
+### What I did
+- Verified the repo was in the expected post-move state (`pkg/device/*`, no root package imports remaining in code).
+- Staged the package move plus the dead-code cleanup already performed.
+- Included the new LOUPE-008 implementation plan doc in the same checkpoint because it described the new target layout and had already been authored.
+- Committed:
+  - deletion of `displayknob.go`, `intknob.go`, `multibutton.go`, `touchdials.go`, `watchedint.go`
+  - deletion of `cmd/loupe-feature-tester/main.go`
+  - deletion of obsolete `loupedeck_test.go`
+  - moved root driver files into `pkg/device/`
+  - updated imports in `cmd/`, `runtime/host`, `runtime/js/module_ui`, and runtime tests
+  - simplified `pkg/device/listeners.go` and removed legacy bind state
+  - removed legacy font/widget code from `pkg/device/loupedeck.go`
+
+### Why
+- The package move and legacy deletion were already a coherent architectural slice.
+- Committing here reduced the blast radius for the next change.
+- It also made the upcoming connect/profile cleanup easier to review because it no longer had to be mentally disentangled from the package reorganization.
+
+### What worked
+- The package move had been applied consistently enough that the repo could be checkpointed cleanly.
+- The widget stack really was removable: after deleting it and cleaning references, `go test ./...` had previously passed in the `pkg/device` layout.
+- The resulting commit was focused and aligned with the intended architecture.
+
+### What didn't work
+- My first commit attempt failed due to a stale git lock file:
+
+```text
+fatal: Unable to create '/home/manuel/code/wesen/2026-04-11--loupedeck-test/.git/index.lock': File exists.
+
+Another git process seems to be running in this repository, e.g.
+an editor opened by 'git commit'. Please make sure all processes
+are terminated then try again. If it still fails, a git process
+may have crashed in this repository earlier:
+remove the file manually to continue.
+```
+
+- I checked for active git processes with:
+
+```bash
+cd /home/manuel/code/wesen/2026-04-11--loupedeck-test && ps -ef | grep '[g]it' && echo '---' && ls -l .git/index.lock
+```
+
+- There was no active lock file by the time I retried, so I removed defensively and re-ran the commit.
+
+### What I learned
+- The `pkg/device` move was already in good enough shape to checkpoint without extra rescue work.
+- The repo is much easier to reason about once the old widget system is gone; the driver package now reads like an actual device driver rather than a half-driver / half-widget-framework hybrid.
+
+### What was tricky to build
+- The sharp edge here was not the code but the repository state. Because the package move had already happened outside my current turn, I needed to validate that the staged set was coherent before committing it.
+- The stale `.git/index.lock` could easily have led to accidental manual cleanup without verification; I checked process state first so I wasn’t deleting a live lock from another tool.
+
+### What warrants a second pair of eyes
+- Review the shape of `pkg/device` after the move to ensure the package boundary is actually what we want long-term.
+- Review that deleting `cmd/loupe-feature-tester` is acceptable and that we do not want a replacement exerciser yet.
+
+### What should be done in the future
+- Follow immediately with connect-time profile initialization so `cmd/*` no longer needs `SetDisplays()`.
+- Add authoritative input naming APIs (`String()` / `Parse*()`) to remove duplicated maps from `runtime/js/module_ui` and `cmd/loupe-js-live`.
+
+### Code review instructions
+- Start with `pkg/device/` and confirm only driver-relevant code remains.
+- Review commit `8018a20` with:
+
+```bash
+git show --stat 8018a20
+git show 8018a20 -- pkg/device cmd runtime/host runtime/js/module_ui
+```
+
+- Validate with:
+
+```bash
+go test ./...
+```
+
+### Technical details
+- Staged diff summary before commit:
+
+```text
+32 files changed, 1307 insertions(+), 1683 deletions(-)
+```
+
+- Commit produced:
+
+```text
+[main 8018a20] Move driver to pkg/device and delete legacy widget stack
+```
+
+---
+
+## Step 8: Move device profiling into connect-time initialization
+
+With the structural checkpoint in place, I tackled the highest-value functional cleanup: making `pkg/device.Connect*()` return a fully initialized device. Before this step the device still came back with `Model: "foo"`, and every command had to remember to call `SetDisplays()` manually before rendering.
+
+This step converted device display layout selection from a late, caller-owned setup action into an early, connect-owned responsibility. That is the right abstraction boundary: hardware identity and display capabilities are part of connecting to the device, not something each command should remember to patch in afterwards.
+
+### Prompt Context
+
+**User prompt (verbatim):** (see Step 7)
+
+**Assistant interpretation:** The user wants me to proceed with the connect/profile cleanup on top of the newly moved `pkg/device` package, still keeping commits focused and the diary current.
+
+**Inferred user intent:** Finish the most important architectural cleanup now that the package layout is sane: remove the `SetDisplays()` footgun and make connect return a usable device.
+
+**Commit (code):** `2dac4b1` — "Initialize device profiles during connect"
+
+### What I did
+- Added `pkg/device/profile.go` with:
+  - `DeviceProfile`
+  - `DisplaySpec`
+  - `deviceProfiles` table
+  - `resolveProfile(product string)`
+  - `(*Loupedeck).applyProfile(profile)`
+- Updated `pkg/device/connect.go` to:
+  - resolve the profile immediately after the websocket connect succeeds
+  - fail fast on unknown product IDs
+  - apply the profile before returning the device
+  - remove the hardcoded `Model: "foo"`
+  - log the resolved model name
+- Removed the old `SetDisplays()` implementation from `pkg/device/display.go`.
+- Removed all `SetDisplays()` calls from:
+  - `cmd/loupe-js-live/main.go`
+  - `cmd/loupe-fps-bench/main.go`
+  - `cmd/loupe-svg-buttons/main.go`
+- Added `pkg/device/profile_test.go` covering:
+  - known profile resolution
+  - unknown profile failure
+  - `applyProfile()` populating displays + model
+- Ran `gofmt -w` on the touched files.
+- Ran focused and full test passes.
+
+### Why
+- `SetDisplays()` was the biggest remaining architectural smell after the package move.
+- A device object should be usable after `Connect*()` returns.
+- Resolving profiles in one place makes unsupported product IDs an error instead of a panic later in arbitrary caller code.
+
+### What worked
+- The profile table approach was straightforward and removed all remaining `SetDisplays()` call sites.
+- Focused validation passed immediately:
+
+```bash
+go test ./pkg/device ./cmd/...
+```
+
+- Full validation also passed:
+
+```bash
+go test ./...
+```
+
+### What didn't work
+- Before the final full run, I had previously seen a transient failure in `runtime/js` during an earlier sweep after the package move:
+
+```text
+--- FAIL: TestAnimModuleLoopCanDriveReactiveUpdates (0.04s)
+    runtime_test.go:229: expected loop to update visible text, got "0"
+FAIL
+FAIL	github.com/go-go-golems/loupedeck/runtime/js	0.543s
+```
+
+- I did not change `runtime/js` in this step. Re-running the full suite after the profile cleanup passed cleanly, so this looks like a flaky or timing-sensitive test rather than a deterministic regression from the profile work.
+
+### What I learned
+- The connect path gets noticeably cleaner once display setup becomes profile-driven.
+- `pkg/device/display.go` is much easier to understand once it only contains display mechanics, not product selection logic.
+- The package move plus this connect-time setup change together complete the most important part of the architecture cleanup.
+
+### What was tricky to build
+- The main subtlety was making the profile failure path safe. Once the websocket is up, an unknown product should return an error without leaving the partially connected transport open. I explicitly closed both `conn` and `c` before returning the error from `resolveProfile()` failure.
+- Another subtlety was making sure command binaries no longer assumed post-connect setup. I removed all `SetDisplays()` call sites and verified the commands still compiled.
+
+### What warrants a second pair of eyes
+- Review `pkg/device/profile.go` for correctness of offsets and display IDs, especially CT vs Live family differences.
+- Review whether `Razer Stream Controller` as the `0d06` model name is the desired public name.
+- Decide whether `DeviceProfile` should remain internal-only or eventually become part of the public API.
+
+### What should be done in the future
+- Add `String()` / `Parse*()` methods in `pkg/device/inputs.go`.
+- Replace manual name maps in `runtime/js/module_ui/module.go`.
+- Remove `buttonName`, `touchName`, `knobName`, `buttonStatusName` from `cmd/loupe-js-live/main.go`.
+
+### Code review instructions
+- Start with:
+  - `pkg/device/profile.go`
+  - `pkg/device/connect.go`
+  - `pkg/device/display.go`
+- Then inspect the caller cleanup in:
+  - `cmd/loupe-js-live/main.go`
+  - `cmd/loupe-fps-bench/main.go`
+  - `cmd/loupe-svg-buttons/main.go`
+- Review commit:
+
+```bash
+git show --stat 2dac4b1
+git show 2dac4b1 -- pkg/device cmd/loupe-js-live cmd/loupe-fps-bench cmd/loupe-svg-buttons
+```
+
+- Validate with:
+
+```bash
+go test ./...
+rg -n '\.SetDisplays\(|Model:\s*"foo"' pkg/device cmd runtime --glob '!ttmp/**'
+```
+
+### Technical details
+- Focused formatting command:
+
+```bash
+gofmt -w pkg/device/connect.go pkg/device/display.go pkg/device/profile.go pkg/device/profile_test.go cmd/loupe-js-live/main.go cmd/loupe-fps-bench/main.go cmd/loupe-svg-buttons/main.go
+```
+
+- Full test command:
+
+```bash
+go test ./...
+```
+
+- Commit produced:
+
+```text
+[main 2dac4b1] Initialize device profiles during connect
 ```

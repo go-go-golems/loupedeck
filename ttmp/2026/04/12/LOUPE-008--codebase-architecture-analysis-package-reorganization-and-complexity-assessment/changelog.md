@@ -49,3 +49,25 @@ Step 6: Big-brother review completed. Graded prior docs (C+ and B+), verified ob
 
 - /home/manuel/code/wesen/2026-04-11--loupedeck-test/connect.go — Connect path currently leaves device partially initialized and hardcodes Model=foo
 
+
+## 2026-04-13
+
+Checkpointed pkg/device migration and removed legacy widget stack (commit 8018a20)
+
+### Related Files
+
+- /home/manuel/code/wesen/2026-04-11--loupedeck-test/cmd/loupe-feature-tester/main.go — Deleted obsolete binary that depended on removed widget stack
+- /home/manuel/code/wesen/2026-04-11--loupedeck-test/pkg/device/listeners.go — Listener-only event model after dead-code removal
+- /home/manuel/code/wesen/2026-04-11--loupedeck-test/pkg/device/loupedeck.go — Driver package simplified after widget/font removal
+
+
+## 2026-04-13
+
+Initialized device profiles during connect and removed manual SetDisplays calls (commit 2dac4b1)
+
+### Related Files
+
+- /home/manuel/code/wesen/2026-04-11--loupedeck-test/cmd/loupe-js-live/main.go — No more post-connect display initialization
+- /home/manuel/code/wesen/2026-04-11--loupedeck-test/pkg/device/connect.go — Connect path now resolves model and displays
+- /home/manuel/code/wesen/2026-04-11--loupedeck-test/pkg/device/profile.go — Device profile table and display specs
+
