@@ -12,7 +12,29 @@ Intent: long-term
 Owners: []
 RelatedFiles:
     - Path: README.md
-      Note: Updated repo layout and protocol-reference shout-out for sources/loupedeck-repo
+      Note: |-
+        Updated repo layout and protocol-reference shout-out for sources/loupedeck-repo
+        Rewritten for the new `cmd/loupedeck` release-facing CLI surface (commit 7949d01)
+    - Path: cmd/loupedeck/main.go
+      Note: New Glazed/Cobra root CLI entrypoint (commit 7949d01)
+    - Path: cmd/loupedeck/cmds/common/build.go
+      Note: Shared helper for building Cobra commands from Glazed commands (commit 7949d01)
+    - Path: cmd/loupedeck/cmds/run/command.go
+      Note: Main `loupedeck run` command that absorbed the former live-runner behavior (commit 7949d01)
+    - Path: dev-tools/loupe-fps-bench/main.go
+      Note: Benchmark binary demoted out of the main shipped command surface (commit 7949d01)
+    - Path: docs/help/doc.go
+      Note: Embedded help filesystem for the new root CLI (commit 7949d01)
+    - Path: examples/cmd/loupe-js-demo/main.go
+      Note: JS demo binary moved under examples to clarify support level (commit 7949d01)
+    - Path: examples/cmd/loupe-svg-buttons/main.go
+      Note: SVG button demo moved under examples to clarify support level (commit 7949d01)
+    - Path: .github/workflows/lint.yml
+      Note: Copied/adapted release-plumbing workflow from the go-template baseline (commit 7949d01)
+    - Path: .goreleaser.yaml
+      Note: Release packaging now targets the new `cmd/loupedeck` binary (commit 7949d01)
+    - Path: Makefile
+      Note: Template-derived build/lint/test entrypoints added for release readiness (commit 7949d01)
     - Path: cmd/loupe-fps-bench/main.go
       Note: Benchmark runner no longer performs manual display setup (commit 2dac4b1)
     - Path: cmd/loupe-js-live/cleanup.go
@@ -63,7 +85,7 @@ RelatedFiles:
       Note: Task tracking for the cmd/loupe-js-live decomposition slice
 ExternalSources: []
 Summary: Chronological diary of codebase analysis investigating package structure, file complexity, and reorganization opportunities for the go-go-golems/loupedeck project
-LastUpdated: 2026-04-12T15:35:00-04:00
+LastUpdated: 2026-04-13T18:15:00-04:00
 WhatFor: Document the investigation process, findings, and analysis methodology for codebase reorganization recommendations
 WhenToUse: When reviewing analysis conclusions or extending the investigation
 ---
@@ -1409,4 +1431,150 @@ go run /tmp/check_connect_path.go
 
 ```text
 [main 55d7b0e] Resolve serial metadata for explicit device paths
+```
+
+---
+
+## Step 14: Promote `cmd/loupedeck` to the main release CLI and add template-derived release plumbing
+
+This step turned the old live-runner binary into the main product surface the repo should ship. Instead of keeping `cmd/loupe-js-live` as a one-off executable beside several equally prominent utility binaries, I introduced a new `cmd/loupedeck` root CLI, moved the non-primary binaries into `dev-tools/` and `examples/cmd/`, and rewired the repo around a narrower supported surface.
+
+I also copied the standard release plumbing from the go-go-golems template and then paid off the lint fallout that this stricter setup exposed. That part mattered because simply copying workflows and linters would not have been enough; the repo needed to actually satisfy the new checks before this could be considered a real release-readiness step.
+
+### Prompt Context
+
+**User prompt (verbatim):**
+```text
+Turn `loupedeck-js-live` into the main binary at `cmd/loupedeck`
+- Move the other binaries into dev tools / examples
+- Make `loupedeck` a Glazed command
+- Copy GitHub Actions, GoReleaser, golangci-lint config, and Makefile from `~/code/wesen/corporate-headquarters/go-template`
+- Update `README.md`
+```
+
+**Assistant interpretation:** Replace the ad hoc main binary with a Glazed/Cobra-based `loupedeck` CLI, demote the other binaries out of the primary command surface, import the usual template release machinery, and rewrite the README around that new support boundary.
+
+**Inferred user intent:** Move the repo from a cleaned-up internal codebase toward a package-and-binary shape that can actually be released, documented, linted, and maintained like the other go-go-golems projects.
+
+**Commit (code):** `7949d01` — "Turn loupedeck into the main glazed CLI"
+
+### What I did
+- Created the new root CLI under:
+  - `cmd/loupedeck/main.go`
+  - `cmd/loupedeck/cmds/common/build.go`
+  - `cmd/loupedeck/cmds/run/command.go`
+- Moved the old command surfaces to make support levels clearer:
+  - `cmd/loupe-fps-bench` → `dev-tools/loupe-fps-bench`
+  - `cmd/loupe-js-demo` → `examples/cmd/loupe-js-demo`
+  - `cmd/loupe-svg-buttons` → `examples/cmd/loupe-svg-buttons`
+  - deleted `cmd/loupe-js-live/` after migrating its behavior into `loupedeck run`
+- Embedded help docs via `docs/help/doc.go` and updated the existing help markdown to reference `loupedeck run` rather than `loupe-js-live`.
+- Copied and adapted template plumbing:
+  - `.github/workflows/*`
+  - `.goreleaser.yaml`
+  - `.golangci.yml`
+  - `.golangci-lint-version`
+  - `Makefile`
+- Rewrote `README.md` to describe:
+  - `cmd/loupedeck` as the main binary
+  - `pkg/device` as the public Go package surface
+  - `dev-tools/` and `examples/` as non-primary surfaces
+  - the copied release/lint/build workflow
+- Cleaned up lint issues surfaced by the new configuration across:
+  - `pkg/device/*`
+  - `runtime/js/*`
+  - `runtime/easing/*`
+  - example/test files
+- Added `.bin/` and `dist/` to `.gitignore` because the copied Makefile/lint tooling creates those paths locally.
+
+### Why
+- The repo had already been structurally cleaned up, but the shipped command surface still looked exploratory rather than release-ready.
+- A single `loupedeck` root CLI gives the project a clear public entrypoint.
+- Demoting the benchmark/demo binaries reduces ambiguity about what is actually supported.
+- Copying the standard template plumbing aligns this repo with the rest of the go-go-golems release workflow instead of inventing bespoke CI/release rules.
+
+### What worked
+- The new CLI help renders correctly:
+
+```bash
+go run ./cmd/loupedeck --help
+go run ./cmd/loupedeck run --help
+```
+
+- The copied release plumbing now passes after the cleanup work:
+
+```bash
+make lint
+go test ./...
+make build
+```
+
+- `loupedeck run` still exposes the important live-runner flags, including `--device`, `--script`, `--flush-interval`, and `--with-glaze-output`.
+
+### What didn't work
+- The first `make lint` pass failed after copying the template config because the repo still had several issues the older setup had not been enforcing. Representative failures included:
+
+```text
+cmd/loupedeck/cmds/run/command.go:286:16: Error return value of `rt.Close` is not checked (errcheck)
+runtime/js/module_ui/module.go:32:14: Error return value of `exports.Set` is not checked (errcheck)
+pkg/device/dialer.go:161:15: ST1005: error strings should not be capitalized (staticcheck)
+pkg/device/message.go:210:15: ST1005: error strings should not be capitalized (staticcheck)
+runtime/js/runtime_test.go:690:21: SA1012: do not pass a nil Context, even if a function permits it
+```
+
+- So this step was not just file copying; the repo needed a small lint-driven cleanup pass before the new release plumbing became credible.
+
+### What I learned
+- Template adoption is only useful if the target repo can actually satisfy the copied checks; otherwise the new workflows just encode known breakage.
+- The Glazed/Cobra pattern fits the existing live runner well enough without introducing a premature shared `pkg/runner` abstraction.
+- Clarifying support level through directory placement (`cmd/` vs `dev-tools/` vs `examples/`) is a cheap but high-signal release-readiness improvement.
+
+### What was tricky to build
+- The main sharp edge was preserving the old live-runner behavior while changing the outer command architecture substantially. The new `loupedeck run` command needed to keep hardware connection, render stats, JS metrics, event logging, Circle-to-exit behavior, and optional Glazed row output intact even though the executable and command parser changed completely.
+- The other tricky part was the lint wave triggered by the template config. Those issues were spread across unrelated packages and tests, so it was important to treat them as a repo-wide cleanup pass in support of the new release plumbing, not as a reason to weaken the copied lint rules.
+
+### What warrants a second pair of eyes
+- Review whether the root CLI command shape is the final one we want for the first release, especially whether `run` should remain the main operational subcommand.
+- Review the copied GitHub Actions and GoReleaser config for any repo-specific assumptions inherited from the template.
+- Review the README wording to make sure the supported surface and experimental surface are stated as explicitly as the code layout now implies.
+
+### What should be done in the future
+- Decide whether `loupedeck run` remains the long-term UX or whether the root command should eventually run scripts directly.
+- Add installation/release instructions once the first tagged release path is exercised end-to-end.
+- Keep the handshake-flake investigation separate from this release-surface reshaping work.
+
+### Code review instructions
+- Start with:
+  - `cmd/loupedeck/main.go`
+  - `cmd/loupedeck/cmds/run/command.go`
+  - `README.md`
+  - `.github/workflows/lint.yml`
+  - `.goreleaser.yaml`
+  - `Makefile`
+- Then review the command moves:
+  - `dev-tools/loupe-fps-bench/main.go`
+  - `examples/cmd/loupe-js-demo/main.go`
+  - `examples/cmd/loupe-svg-buttons/main.go`
+- Review commit:
+
+```bash
+git show --stat 7949d01
+git show 7949d01 -- cmd/loupedeck README.md .github/workflows .goreleaser.yaml .golangci.yml Makefile docs/help
+```
+
+- Validate with:
+
+```bash
+go run ./cmd/loupedeck --help
+go run ./cmd/loupedeck run --help
+make lint
+go test ./...
+make build
+```
+
+### Technical details
+- Code commit produced:
+
+```text
+[main 7949d01] Turn loupedeck into the main glazed CLI
 ```

@@ -114,3 +114,20 @@ Fixed explicit device-path metadata resolution for profile-based connect initial
 - /home/manuel/code/wesen/2026-04-11--loupedeck-test/pkg/device/connect.go — Profile resolution now retries metadata lookup before failing
 - /home/manuel/code/wesen/2026-04-11--loupedeck-test/pkg/device/dialer.go — Manual-path connect now populates vendor/product metadata
 
+
+## 2026-04-13
+
+Promoted `cmd/loupedeck` to the main release-facing CLI, moved support binaries into `dev-tools/` and `examples/`, and added template-derived CI/release/lint/build plumbing (commit 7949d01)
+
+### Related Files
+
+- /home/manuel/code/wesen/2026-04-11--loupedeck-test/cmd/loupedeck/main.go — New root CLI entrypoint
+- /home/manuel/code/wesen/2026-04-11--loupedeck-test/cmd/loupedeck/cmds/run/command.go — Main `loupedeck run` command migrated from the old live runner
+- /home/manuel/code/wesen/2026-04-11--loupedeck-test/dev-tools/loupe-fps-bench/main.go — Benchmark binary demoted out of the main shipped surface
+- /home/manuel/code/wesen/2026-04-11--loupedeck-test/examples/cmd/loupe-js-demo/main.go — Demo binary moved under examples
+- /home/manuel/code/wesen/2026-04-11--loupedeck-test/examples/cmd/loupe-svg-buttons/main.go — SVG example binary moved under examples
+- /home/manuel/code/wesen/2026-04-11--loupedeck-test/.github/workflows/lint.yml — Template-derived lint workflow now enforced successfully
+- /home/manuel/code/wesen/2026-04-11--loupedeck-test/.goreleaser.yaml — Release packaging retargeted to `cmd/loupedeck`
+- /home/manuel/code/wesen/2026-04-11--loupedeck-test/Makefile — Template-derived build/lint/test entrypoints added
+- /home/manuel/code/wesen/2026-04-11--loupedeck-test/README.md — README rewritten around the new main binary and supported surface
+

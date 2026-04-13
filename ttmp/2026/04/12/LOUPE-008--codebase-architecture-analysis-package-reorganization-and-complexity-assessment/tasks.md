@@ -55,8 +55,22 @@
 - [x] Commit the code slice
 - [x] Commit the bookkeeping slice
 
+## Release-facing CLI and repo plumbing
+
+- [x] Replace `cmd/loupe-js-live` with a new `cmd/loupedeck` main binary
+- [x] Implement the main runtime flow as a Glazed/Cobra `loupedeck run` command
+- [x] Embed help docs into the new root CLI
+- [x] Move `loupe-fps-bench` into `dev-tools/`
+- [x] Move `loupe-js-demo` and `loupe-svg-buttons` into `examples/cmd/`
+- [x] Copy and adapt GitHub Actions, GoReleaser, golangci-lint config, and Makefile from the go-template baseline
+- [x] Rewrite `README.md` around the new main binary and supported surface
+- [x] Make the copied lint pipeline pass without weakening the new checks
+- [x] Validate the new CLI and release plumbing with `go run ./cmd/loupedeck --help`, `go run ./cmd/loupedeck run --help`, `make lint`, `go test ./...`, and `make build`
+
 ## Future follow-up candidates
 
-- [ ] Consider whether `cmd/loupe-fps-bench` should be decomposed similarly after `loupe-js-live` stabilizes
-- [ ] Consider whether any stats/logging helpers become worthy of a shared package only after a second consumer appears
+- [ ] Decide whether `loupedeck run` is the final first-release UX or whether the root command should eventually execute scripts directly
+- [ ] Add install/release notes after the first tagged release path is exercised end-to-end
+- [ ] Decide whether `loupe-fps-bench` needs a true three-display benchmark mode before making broader performance claims
+- [ ] Investigate the remaining serial-WebSocket handshake flake separately from the release-surface work
 
