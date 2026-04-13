@@ -17,6 +17,10 @@ RelatedFiles:
       Note: |-
         Step 5 source-derived side-strip port and three-display validation target
         Step 5 presenter-driven full-page strip port and hardware smoke validation target
+    - Path: examples/js/11-cyb-os-tiles.js
+      Note: |-
+        Step 9 first framework port of the imported cyb-os-tiles scene
+        Step 9 scene implementation
     - Path: runtime/gfx/font.go
       Note: Step 2 Go-side font loader/cache implementation
     - Path: runtime/js/module_gfx/module.go
@@ -29,12 +33,15 @@ RelatedFiles:
       Note: |-
         Step 7 offscreen framebuffer preview exporter for visual tuning
         Step 7 offscreen stitched PNG preview export workflow
+    - Path: ttmp/2026/04/12/LOUPE-012--opentype-font-api-for-cyb-ito-kanji-and-sidebar-text-rendering/sources/local/cyb-os-tiles.html
+      Note: Step 9 source of truth for tile widgets and strip behavior
 ExternalSources: []
 Summary: Chronological diary for OpenType font loading and kanji rendering support in the Loupedeck JS runtime.
 LastUpdated: 2026-04-12T18:15:00-04:00
 WhatFor: Use this diary to understand the implementation steps, failures, and validation path for LOUPE-012.
 WhenToUse: Use when continuing or reviewing the OpenType/CJK font support work.
 ---
+
 
 
 
@@ -621,3 +628,103 @@ This made for a good small follow-up slice. The fix was to treat the tile chrome
   - English labels fit cleanly within tiles
   - right-side kanji strip remains clearly visible
   - tile kanji alignment appears reasonably consistent
+
+## Step 9: Import `cyb-os-tiles.html` and port it as a metrics-light framework scene
+
+The next request shifted from tuning the existing cyb-ito scene to bringing in an entirely new reference artifact: `cyb-os-tiles.html`. The important guidance from the user was not just to import and port it, but also to avoid the current metrics-heavy style for now. That made the right scope clear: import the file into the current ticket, read it carefully, add explicit tasks, and build a first scene port focused on visuals and interaction rather than instrumentation.
+
+I kept this work inside `LOUPE-012` because it still sits squarely in the same font/rendering/runtime space: imported browser reference artifact, retained JS scene port, CJK-capable labels, side strips, and scene-preview workflow. The result is a new example scene, not a rewrite of the existing cyb-ito example.
+
+### Prompt Context
+
+**User prompt (verbatim):** "Now let's import /home/manuel/Downloads/cyb-os-tiles.html with docmgr import file --file XXX --ticket YYY to import the file into the ticket, then read it, and port it to our framework. No need to have so many metrics if any at all, for now.
+
+Add tasks and then get to work, committing and writing a diary"
+
+**Assistant interpretation:** Import the new browser reference artifact into `LOUPE-012`, analyze it fully, add ticket tasks for the port, and implement a first framework port as a new scene without extra instrumentation overhead.
+
+**Inferred user intent:** The user wants another source-faithful HTML-to-Loupedeck port, but with a lighter-weight, more visually focused implementation than the instrumentation-heavy cyb-ito investigation scenes.
+
+**Commit (code):** `8854d79` — `Port cyb-os tiles scene into JS runtime`
+
+### What I did
+- Imported the source artifact with:
+  - `docmgr import file --file /home/manuel/Downloads/cyb-os-tiles.html --ticket LOUPE-012`
+- Read the imported file end-to-end at:
+  - `/home/manuel/code/wesen/2026-04-11--loupedeck-test/ttmp/2026/04/12/LOUPE-012--opentype-font-api-for-cyb-ito-kanji-and-sidebar-text-rendering/sources/local/cyb-os-tiles.html`
+- Added explicit `Phase I` tasks to `LOUPE-012` for the new source import and scene port.
+- Implemented a new framework example:
+  - `/home/manuel/code/wesen/2026-04-11--loupedeck-test/examples/js/11-cyb-os-tiles.js`
+- The new scene ports the browser artifact into the retained JS runtime with:
+  - 12 tile mini-widgets
+  - left bar strip
+  - right kanji stream strip
+  - tile flash/scanning state
+  - global ripple effects
+  - scanlines
+  - no scene-metrics instrumentation
+- Added reproducibility scripts:
+  - `/home/manuel/code/wesen/2026-04-11--loupedeck-test/ttmp/2026/04/12/LOUPE-012--opentype-font-api-for-cyb-ito-kanji-and-sidebar-text-rendering/scripts/07-go-test-cyb-os-port.sh`
+  - `/home/manuel/code/wesen/2026-04-11--loupedeck-test/ttmp/2026/04/12/LOUPE-012--opentype-font-api-for-cyb-ito-kanji-and-sidebar-text-rendering/scripts/08-render-cyb-os-preview.sh`
+  - `/home/manuel/code/wesen/2026-04-11--loupedeck-test/ttmp/2026/04/12/LOUPE-012--opentype-font-api-for-cyb-ito-kanji-and-sidebar-text-rendering/scripts/09-hardware-smoke-cyb-os-tiles.sh`
+- Ran:
+  - `go test ./runtime/js ./...`
+- Exported an offscreen preview with:
+  - `go run ./ttmp/2026/04/12/LOUPE-012--opentype-font-api-for-cyb-ito-kanji-and-sidebar-text-rendering/scripts/06-render-scene-preview.go --script ./examples/js/11-cyb-os-tiles.js --out /tmp/loupe-cyb-os-tiles-preview.png --wait 500ms`
+- Ran image analysis on `/tmp/loupe-cyb-os-tiles-preview.png`
+- Attempted a short hardware smoke run with:
+  - `timeout 30s go run ./cmd/loupe-js-live --script ./examples/js/11-cyb-os-tiles.js --duration 5s --send-interval 0ms`
+
+### Why
+- The imported HTML is already shaped like a Loupedeck scene: 12 `90x90` tiles plus left/right strips. That makes it a good fit for the retained JS runtime.
+- Creating a new example scene was cleaner than overloading the existing cyb-ito example with a second unrelated visual identity.
+- Avoiding metrics in this first pass matched the user’s stated preference and kept the port readable.
+
+### What worked
+- The imported source translated naturally into the framework.
+- The new example booted cleanly under `go test ./runtime/js ./...`.
+- The offscreen preview was generated successfully at:
+  - `/tmp/loupe-cyb-os-tiles-preview.png`
+- Image analysis judged the scene coherent, with both side strips visible and no obvious clipped/broken labels.
+
+### What didn't work
+- The short hardware smoke attempt could not actually connect because the device was unavailable at the time:
+  - `connect: no serial ports found`
+  - `exit status 1`
+- Evidence log for that attempt:
+  - `/tmp/loupe-cyb-os-tiles-1776038685.log`
+
+### What I learned
+- `cyb-os-tiles.html` is structurally simpler than the more experimental cyb-ito scenes: it is essentially a cyber dashboard of small widgets rather than one large animated horror composition. That makes it especially well suited to a straightforward framework port.
+- The existing preview exporter is already reusable enough to validate entirely new scenes, not just text tuning in one old example.
+
+### What was tricky to build
+- The main tricky part was deciding how much of the browser source to port literally versus idiomatically. I kept the scene visually close to the source—tile content, strip behavior, scanlines, touch flash/scans/ripples—but adapted the rendering to the retained `left` / `main` / `right` display model rather than forcing everything through one synthetic `432x270` canvas.
+- Another subtle point was ripple coordinates. The browser source uses a single full-canvas coordinate system, while the framework renders three separate surfaces. I preserved global ripple semantics by storing ripples in device/global coordinates and projecting them separately into the left, main, and right surfaces during render.
+
+### What warrants a second pair of eyes
+- The Japanese subtitle/font choices currently mix the new CJK font handles with the default text path depending on content. That is practical, but it may deserve aesthetic review if we want stronger visual consistency.
+- The source browser scene has some exact raster quirks that may still differ slightly from the framework version, especially in tiny text and strip spacing.
+
+### What should be done in the future
+- Retry a real hardware smoke run once the device is available.
+- If the user likes the scene, do a second fidelity pass comparing the preview and source tile-by-tile.
+
+### Code review instructions
+- Start with `/home/manuel/code/wesen/2026-04-11--loupedeck-test/examples/js/11-cyb-os-tiles.js`.
+- Review in this order:
+  - constants/fonts/surfaces/state at the top
+  - tile definitions array
+  - `renderMain()`, `renderLeft()`, `renderRight()`
+  - touch handling and ripple projection
+- Validate with:
+  - `go test ./runtime/js ./...`
+  - `go run ./ttmp/2026/04/12/LOUPE-012--opentype-font-api-for-cyb-ito-kanji-and-sidebar-text-rendering/scripts/06-render-scene-preview.go --script ./examples/js/11-cyb-os-tiles.js --out /tmp/loupe-cyb-os-tiles-preview.png --wait 500ms`
+
+### Technical details
+- Imported source artifact:
+  - `/home/manuel/code/wesen/2026-04-11--loupedeck-test/ttmp/2026/04/12/LOUPE-012--opentype-font-api-for-cyb-ito-kanji-and-sidebar-text-rendering/sources/local/cyb-os-tiles.html`
+- Preview artifact:
+  - `/tmp/loupe-cyb-os-tiles-preview.png`
+- Hardware smoke failure:
+  - `connect: no serial ports found`

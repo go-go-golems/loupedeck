@@ -15,18 +15,23 @@ RelatedFiles:
       Note: First cyb-ito example using the new CJK font API
     - Path: examples/js/10-cyb-ito-full-page-all12.js
       Note: Step 5 ports source-derived side strips and kanji labels into the presenter-driven full-page scene
+    - Path: examples/js/11-cyb-os-tiles.js
+      Note: Step 9 first metrics-light framework port of imported cyb-os-tiles artifact
     - Path: runtime/gfx/font.go
       Note: New Go-side font loading/caching layer designed and implemented under this ticket
     - Path: runtime/js/module_gfx/module.go
       Note: JS font API bridge and text font option
     - Path: ttmp/2026/04/11/LOUPE-006--full-animated-javascript-uis-for-loupedeck-from-cyb-ito-html-reference/sources/local/cyb-ito.html
       Note: Source of truth for left/right strip behavior used in Step 5
+    - Path: ttmp/2026/04/12/LOUPE-012--opentype-font-api-for-cyb-ito-kanji-and-sidebar-text-rendering/sources/local/cyb-os-tiles.html
+      Note: Imported browser reference artifact analyzed and ported in Step 9
 ExternalSources: []
 Summary: Plan the addition of a JS-facing OpenType font API so cyb-ito scenes can render proper kanji and sidebar text through the retained gfx surface pipeline.
 LastUpdated: 2026-04-12T18:15:00-04:00
 WhatFor: Use this document when implementing real font loading and CJK-capable text rendering for the Loupedeck JS runtime.
 WhenToUse: Use when adding `gfx.font(...)`, font caching, kanji rendering, or cyb-ito sidebar/title text support.
 ---
+
 
 
 

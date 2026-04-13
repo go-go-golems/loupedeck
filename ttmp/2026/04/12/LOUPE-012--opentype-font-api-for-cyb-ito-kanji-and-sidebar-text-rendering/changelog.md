@@ -52,3 +52,24 @@
 - Added the imported artifact at:
   - `/home/manuel/code/wesen/2026-04-11--loupedeck-test/ttmp/2026/04/12/LOUPE-012--opentype-font-api-for-cyb-ito-kanji-and-sidebar-text-rendering/sources/local/cyb-os-tiles.html`
 - Read and analyzed the full source file to prepare a first framework port without the current metrics-heavy instrumentation.
+- Added a new framework scene example at `/home/manuel/code/wesen/2026-04-11--loupedeck-test/examples/js/11-cyb-os-tiles.js` (`8854d79` — `Port cyb-os tiles scene into JS runtime`).
+- The new scene ports the imported `cyb-os-tiles.html` structure into the retained JS runtime using:
+  - 12 tile mini-widgets,
+  - hardware `left`/`main`/`right` displays,
+  - touch-driven flash/scan activation,
+  - global ripple effects,
+  - scanlines,
+  - no extra scene-metrics instrumentation.
+- Added ticket-local reproducibility scripts:
+  - `scripts/07-go-test-cyb-os-port.sh`
+  - `scripts/08-render-cyb-os-preview.sh`
+  - `scripts/09-hardware-smoke-cyb-os-tiles.sh`
+- Ran `go test ./runtime/js ./...` successfully after adding the new scene.
+- Exported an offscreen preview artifact for the new scene:
+  - `/tmp/loupe-cyb-os-tiles-preview.png`
+- Image analysis described the preview as a coherent 12-tile cyber dashboard with both side strips visible and no obvious clipped/broken labels.
+- Attempted a short hardware smoke run with:
+  - `timeout 30s go run ./cmd/loupe-js-live --script ./examples/js/11-cyb-os-tiles.js --duration 5s --send-interval 0ms`
+- The hardware smoke attempt was blocked by device availability:
+  - `connect: no serial ports found`
+  - evidence log: `/tmp/loupe-cyb-os-tiles-1776038685.log`

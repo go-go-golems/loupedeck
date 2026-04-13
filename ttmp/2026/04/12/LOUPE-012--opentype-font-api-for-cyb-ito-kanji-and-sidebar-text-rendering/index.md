@@ -60,8 +60,15 @@ Current completion state:
 - Image analysis on `preview-v3` confirmed that the English labels now fit cleanly, the right strip remains visible, and the tile kanji alignment looks reasonable
 - Imported a second reference artifact into this ticket:
   - `sources/local/cyb-os-tiles.html`
-- Completed first-pass source analysis of `cyb-os-tiles.html`; next work is a metrics-light framework port as a new example scene
-- `go test ./...` passes after the preview-driven tuning slice
+- Completed first-pass source analysis of `cyb-os-tiles.html`
+- Added a new metrics-light framework port example:
+  - `examples/js/11-cyb-os-tiles.js`
+- The new scene ports the 12 cyber-OS tile widgets, left bar strip, right kanji stream, scanlines, and touch flash/scan/ripple behavior into the retained JS runtime
+- Exported an offscreen preview artifact for the new scene:
+  - `/tmp/loupe-cyb-os-tiles-preview.png`
+- Image analysis judged the port coherent, with both side strips visible and no obvious clipped/broken labels
+- A short hardware smoke attempt was made but the device was unavailable at that moment (`connect: no serial ports found`)
+- `go test ./...` passes after the first `cyb-os-tiles` port slice
 
 ## Topics
 
