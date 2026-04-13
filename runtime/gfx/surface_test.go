@@ -99,7 +99,7 @@ func TestSurfaceBatchCoalescesChangeNotifications(t *testing.T) {
 	sub := s.OnChange(func() {
 		count++
 	})
-	defer sub.Close()
+	defer func() { _ = sub.Close() }()
 
 	s.Batch(func() {
 		s.Clear(1)

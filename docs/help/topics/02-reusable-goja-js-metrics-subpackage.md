@@ -11,7 +11,7 @@ Topics:
 - performance
 - instrumentation
 Commands:
-- loupe-js-live
+- loupedeck
 Flags:
 - log-js-stats
 - log-render-stats
@@ -429,4 +429,4 @@ That narrowness is a feature. It makes the package easy to carry into other goja
 - `pkg/jsmetrics/jsmetrics.go` — Source of truth for the reusable goja binding and module registration logic
 - `runtime/metrics/metrics.go` — Source of truth for the underlying collector implementation
 - `runtime/js/runtime.go` — Current concrete example of binding a collector and registering prefixed modules
-- `cmd/loupe-js-live/main.go` — Example host process that periodically snapshots and logs JS-side metrics
+- `cmd/loupedeck/cmds/run/command.go` — Example host process that periodically snapshots and logs JS-side metrics

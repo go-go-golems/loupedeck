@@ -173,7 +173,7 @@ func doConnect(c *SerialWebSockConn, writerOptions WriterOptions, renderOptions 
 	m := l.NewMessage(Reset, data)
 	err = l.Send(m)
 	if err != nil {
-		return nil, fmt.Errorf("Unable to send: %v", err)
+		return nil, fmt.Errorf("unable to send: %v", err)
 	}
 
 	slog.Info("Setting default brightness.")
@@ -181,7 +181,7 @@ func doConnect(c *SerialWebSockConn, writerOptions WriterOptions, renderOptions 
 	m = l.NewMessage(SetBrightness, data)
 	err = l.Send(m)
 	if err != nil {
-		return nil, fmt.Errorf("Unable to send: %v", err)
+		return nil, fmt.Errorf("unable to send: %v", err)
 	}
 
 	// Ask the device about itself.  The responses come back
@@ -198,7 +198,7 @@ func doConnect(c *SerialWebSockConn, writerOptions WriterOptions, renderOptions 
 		slog.Info("Received 'Version' response", "version", l.Version)
 	})
 	if err != nil {
-		return nil, fmt.Errorf("Unable to send: %v", err)
+		return nil, fmt.Errorf("unable to send: %v", err)
 	}
 
 	m = l.NewMessage(Serial, data)
@@ -211,7 +211,7 @@ func doConnect(c *SerialWebSockConn, writerOptions WriterOptions, renderOptions 
 		slog.Info("Received 'Serial' response", "serial", l.SerialNo)
 	})
 	if err != nil {
-		return nil, fmt.Errorf("Unable to send: %v", err)
+		return nil, fmt.Errorf("unable to send: %v", err)
 	}
 
 	return l, nil

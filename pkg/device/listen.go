@@ -40,6 +40,7 @@ func (l *Loupedeck) Listen() error {
 			continue
 		}
 
+		//exhaustive:ignore protocol-level message handling intentionally ignores many response-only message types here.
 		switch m.messageType {
 		case ButtonPress:
 			button := Button(binary.BigEndian.Uint16(message[2:]))

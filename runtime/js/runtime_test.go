@@ -1,6 +1,7 @@
 package js
 
 import (
+	"context"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -69,7 +70,7 @@ func (f *fakeSource) emitButton(button device.Button, status device.ButtonStatus
 
 func TestRequireStateAndUIBuildReactivePage(t *testing.T) {
 	rt := NewRuntime(nil)
-	defer rt.Close(nil)
+	defer func() { _ = rt.Close(context.Background()) }()
 	env := rt.Env
 
 	bindings, ok := runtimebridge.Lookup(rt.VM)
@@ -83,7 +84,7 @@ func TestRequireStateAndUIBuildReactivePage(t *testing.T) {
 		t.Fatal("expected environment to be available through runtime bindings")
 	}
 
-	_, err := rt.RunString(nil, `
+	_, err := rt.RunString(context.Background(), `
 		const state = require("loupedeck/state");
 		const ui = require("loupedeck/ui");
 		const mode = state.signal("IDLE");
@@ -127,10 +128,10 @@ func TestButtonCallbackCanMutateSignalFromJS(t *testing.T) {
 	env := envpkg.Ensure(nil)
 	env.Host.Attach(source)
 	rt := NewRuntime(env)
-	defer rt.Close(nil)
+	defer func() { _ = rt.Close(context.Background()) }()
 	env = rt.Env
 
-	_, err := rt.RunString(nil, `
+	_, err := rt.RunString(context.Background(), `
 		const state = require("loupedeck/state");
 		const ui = require("loupedeck/ui");
 		const mode = state.signal("IDLE");
@@ -159,10 +160,10 @@ func TestAnimModuleCanDriveSignalTweenFromButtonEvent(t *testing.T) {
 	env.Host.Attach(source)
 	env.Anim.FrameInterval = 5 * time.Millisecond
 	rt := NewRuntime(env)
-	defer rt.Close(nil)
+	defer func() { _ = rt.Close(context.Background()) }()
 	env = rt.Env
 
-	_, err := rt.RunString(nil, `
+	_, err := rt.RunString(context.Background(), `
 		const state = require("loupedeck/state");
 		const ui = require("loupedeck/ui");
 		const anim = require("loupedeck/anim");
@@ -193,10 +194,10 @@ func TestAnimModuleLoopCanDriveReactiveUpdates(t *testing.T) {
 	env := envpkg.Ensure(nil)
 	env.Anim.FrameInterval = 5 * time.Millisecond
 	rt := NewRuntime(env)
-	defer rt.Close(nil)
+	defer func() { _ = rt.Close(context.Background()) }()
 	env = rt.Env
 
-	_, err := rt.RunString(nil, `
+	_, err := rt.RunString(context.Background(), `
 		const state = require("loupedeck/state");
 		const ui = require("loupedeck/ui");
 		const anim = require("loupedeck/anim");
@@ -232,9 +233,9 @@ func TestAnimModuleLoopCanDriveReactiveUpdates(t *testing.T) {
 
 func TestGfxModuleCanBuildAndCompositeSurface(t *testing.T) {
 	rt := NewRuntime(nil)
-	defer rt.Close(nil)
+	defer func() { _ = rt.Close(context.Background()) }()
 
-	_, err := rt.RunString(nil, `
+	_, err := rt.RunString(context.Background(), `
 		const gfx = require("loupedeck/gfx");
 		const base = gfx.surface(16, 16);
 		base.batch(() => {
@@ -286,9 +287,9 @@ func TestGfxModuleCanLoadFontHandleAndUseItForText(t *testing.T) {
 	}
 
 	rt := NewRuntime(nil)
-	defer rt.Close(nil)
+	defer func() { _ = rt.Close(context.Background()) }()
 
-	_, err := rt.RunString(nil, fmt.Sprintf(`
+	_, err := rt.RunString(context.Background(), fmt.Sprintf(`
 		const gfx = require("loupedeck/gfx");
 		const font = gfx.font(%q, { size: 12, dpi: 72 });
 		const s = gfx.surface(32, 16);
@@ -340,9 +341,9 @@ func TestGfxModuleCanRenderKanjiFromCollectionFontWhenAvailable(t *testing.T) {
 	}
 
 	rt := NewRuntime(nil)
-	defer rt.Close(nil)
+	defer func() { _ = rt.Close(context.Background()) }()
 
-	_, err := rt.RunString(nil, fmt.Sprintf(`
+	_, err := rt.RunString(context.Background(), fmt.Sprintf(`
 		const gfx = require("loupedeck/gfx");
 		const font = gfx.font(%q, { size: 18, dpi: 72, index: 0 });
 		const s = gfx.surface(32, 24);
@@ -375,10 +376,10 @@ func TestGfxModuleCanRenderKanjiFromCollectionFontWhenAvailable(t *testing.T) {
 
 func TestDisplayCanOwnGfxSurface(t *testing.T) {
 	rt := NewRuntime(nil)
-	defer rt.Close(nil)
+	defer func() { _ = rt.Close(context.Background()) }()
 	env := rt.Env
 
-	_, err := rt.RunString(nil, `
+	_, err := rt.RunString(context.Background(), `
 		const ui = require("loupedeck/ui");
 		const gfx = require("loupedeck/gfx");
 		const s = gfx.surface(60, 270);
@@ -405,10 +406,10 @@ func TestDisplayCanOwnGfxSurface(t *testing.T) {
 
 func TestDisplayCanOwnNamedGfxLayer(t *testing.T) {
 	rt := NewRuntime(nil)
-	defer rt.Close(nil)
+	defer func() { _ = rt.Close(context.Background()) }()
 	env := rt.Env
 
-	_, err := rt.RunString(nil, `
+	_, err := rt.RunString(context.Background(), `
 		const ui = require("loupedeck/ui");
 		const gfx = require("loupedeck/gfx");
 		const base = gfx.surface(360, 270);
@@ -446,10 +447,10 @@ func TestDisplayCanOwnNamedGfxLayer(t *testing.T) {
 
 func TestTileCanOwnGfxSurface(t *testing.T) {
 	rt := NewRuntime(nil)
-	defer rt.Close(nil)
+	defer func() { _ = rt.Close(context.Background()) }()
 	env := rt.Env
 
-	_, err := rt.RunString(nil, `
+	_, err := rt.RunString(context.Background(), `
 		const ui = require("loupedeck/ui");
 		const gfx = require("loupedeck/gfx");
 		const s = gfx.surface(90, 90);
@@ -476,9 +477,9 @@ func TestTileCanOwnGfxSurface(t *testing.T) {
 
 func TestMetricsModuleRecordsCountersTimingsAndTrace(t *testing.T) {
 	rt := NewRuntime(nil)
-	defer rt.Close(nil)
+	defer func() { _ = rt.Close(context.Background()) }()
 
-	_, err := rt.RunString(nil, `
+	_, err := rt.RunString(context.Background(), `
 		const metrics = require("loupedeck/metrics");
 		metrics.inc("scene.frames", 2);
 		metrics.observeMillis("scene.manual", 1.5);
@@ -521,9 +522,9 @@ func TestMetricsModuleRecordsCountersTimingsAndTrace(t *testing.T) {
 
 func TestSceneMetricsModuleProvidesReusableHelpers(t *testing.T) {
 	rt := NewRuntime(nil)
-	defer rt.Close(nil)
+	defer func() { _ = rt.Close(context.Background()) }()
 
-	_, err := rt.RunString(nil, `
+	_, err := rt.RunString(context.Background(), `
 		const sceneMetrics = require("loupedeck/scene-metrics").create("demo");
 		sceneMetrics.recordLoopTick();
 		sceneMetrics.recordActivation("T3");
@@ -578,7 +579,7 @@ func TestSceneMetricsModuleProvidesReusableHelpers(t *testing.T) {
 func TestPresentModuleRegistersFrameCallbackAndInvalidates(t *testing.T) {
 	env := envpkg.Ensure(nil)
 	rt := NewRuntime(env)
-	defer rt.Close(nil)
+	defer func() { _ = rt.Close(context.Background()) }()
 	done := make(chan string, 1)
 	env.Present.SetFlushFunc(func() (int, error) {
 		done <- "flushed"
@@ -586,7 +587,7 @@ func TestPresentModuleRegistersFrameCallbackAndInvalidates(t *testing.T) {
 	})
 	env.Present.Start(rt.Context())
 
-	_, err := rt.RunString(nil, `
+	_, err := rt.RunString(context.Background(), `
 		const present = require("loupedeck/present");
 		const metrics = require("loupedeck/metrics");
 		present.onFrame(reason => {
@@ -619,7 +620,7 @@ func TestPresentModuleRegistersFrameCallbackAndInvalidates(t *testing.T) {
 func TestPresentModuleCoalescesInvalidationsToLatestReason(t *testing.T) {
 	env := envpkg.Ensure(nil)
 	rt := NewRuntime(env)
-	defer rt.Close(nil)
+	defer func() { _ = rt.Close(context.Background()) }()
 	firstFlushStarted := make(chan struct{}, 1)
 	releaseFirstFlush := make(chan struct{})
 	secondFlushDone := make(chan struct{}, 1)
@@ -637,7 +638,7 @@ func TestPresentModuleCoalescesInvalidationsToLatestReason(t *testing.T) {
 	})
 	env.Present.Start(rt.Context())
 
-	_, err := rt.RunString(nil, `
+	_, err := rt.RunString(context.Background(), `
 		const present = require("loupedeck/present");
 		const metrics = require("loupedeck/metrics");
 		present.onFrame(reason => {
@@ -654,7 +655,7 @@ func TestPresentModuleCoalescesInvalidationsToLatestReason(t *testing.T) {
 		t.Fatal("timed out waiting for first flush start")
 	}
 
-	_, err = rt.RunString(nil, `
+	_, err = rt.RunString(context.Background(), `
 		present.invalidate("loop-1");
 		present.invalidate("loop-2");
 		present.invalidate("loop-3");
@@ -686,7 +687,7 @@ func TestCloseRemovesRuntimeBridgeBindings(t *testing.T) {
 	if _, ok := runtimebridge.Lookup(rt.VM); !ok {
 		t.Fatal("expected bindings before close")
 	}
-	if err := rt.Close(nil); err != nil {
+	if err := rt.Close(context.Background()); err != nil {
 		t.Fatalf("close runtime: %v", err)
 	}
 	if _, ok := runtimebridge.Lookup(rt.VM); ok {
@@ -699,10 +700,10 @@ func TestConcurrentButtonCallbacksSerializeOntoOwnerThread(t *testing.T) {
 	env := envpkg.Ensure(nil)
 	env.Host.Attach(source)
 	rt := NewRuntime(env)
-	defer rt.Close(nil)
+	defer func() { _ = rt.Close(context.Background()) }()
 	env = rt.Env
 
-	_, err := rt.RunString(nil, `
+	_, err := rt.RunString(context.Background(), `
 		const state = require("loupedeck/state");
 		const ui = require("loupedeck/ui");
 		const count = state.signal(0);
@@ -733,7 +734,7 @@ func TestButtonEventAfterCloseDoesNotApplyMutation(t *testing.T) {
 	rt := NewRuntime(env)
 	env = rt.Env
 
-	_, err := rt.RunString(nil, `
+	_, err := rt.RunString(context.Background(), `
 		const state = require("loupedeck/state");
 		const ui = require("loupedeck/ui");
 		const mode = state.signal("IDLE");
@@ -750,7 +751,7 @@ func TestButtonEventAfterCloseDoesNotApplyMutation(t *testing.T) {
 	if err != nil {
 		t.Fatalf("run script: %v", err)
 	}
-	if err := rt.Close(nil); err != nil {
+	if err := rt.Close(context.Background()); err != nil {
 		t.Fatalf("close runtime: %v", err)
 	}
 	source.emitButton(device.Circle, device.ButtonDown)

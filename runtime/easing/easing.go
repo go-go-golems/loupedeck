@@ -23,7 +23,8 @@ func InOutQuad(t float64) float64 {
 	if t < 0.5 {
 		return 2 * t * t
 	}
-	return 1 - math.Pow(-2*t+2, 2)/2
+	u := -2*t + 2
+	return 1 - (u*u)/2
 }
 
 func InOutCubic(t float64) float64 {
@@ -31,7 +32,8 @@ func InOutCubic(t float64) float64 {
 	if t < 0.5 {
 		return 4 * t * t * t
 	}
-	return 1 - math.Pow(-2*t+2, 3)/2
+	u := -2*t + 2
+	return 1 - (u*u*u)/2
 }
 
 func OutBack(t float64) float64 {
@@ -44,7 +46,8 @@ func OutBack(t float64) float64 {
 	}
 	const c1 = 1.70158
 	const c3 = c1 + 1
-	return 1 + c3*math.Pow(t-1, 3) + c1*math.Pow(t-1, 2)
+	u := t - 1
+	return 1 + c3*u*u*u + c1*u*u
 }
 
 func Steps(n int) Func {

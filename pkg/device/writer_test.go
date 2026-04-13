@@ -14,7 +14,7 @@ type fakeWSConn struct {
 	writeTime []time.Time
 }
 
-func (f *fakeWSConn) ReadMessage() (messageType int, p []byte, err error) {
+func (f *fakeWSConn) ReadMessage() (int, []byte, error) {
 	return 0, nil, nil
 }
 

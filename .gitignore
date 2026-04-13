@@ -11,6 +11,8 @@ hello_world
 *.o
 *.a
 *.prof
+.bin/
+dist/
 
 # Dependency directories
 vendor/

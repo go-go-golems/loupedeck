@@ -29,7 +29,7 @@ func Register(registry *require.Registry) {
 		}
 		ownerCtx := runtimeowner.OwnerContext(bindings.Owner, bindings.Context)
 		exports := module.Get("exports").(*goja.Object)
-		exports.Set("page", func(call goja.FunctionCall) goja.Value {
+		_ = exports.Set("page", func(call goja.FunctionCall) goja.Value {
 			name := call.Argument(0).String()
 			page := env.UI.AddPage(name)
 			obj := pageObject(bindings, ownerCtx, runtime, env, page)
@@ -40,13 +40,13 @@ func Register(registry *require.Registry) {
 			}
 			return obj
 		})
-		exports.Set("show", func(call goja.FunctionCall) goja.Value {
+		_ = exports.Set("show", func(call goja.FunctionCall) goja.Value {
 			if err := env.Host.Show(call.Argument(0).String()); err != nil {
 				panic(runtime.NewGoError(err))
 			}
 			return goja.Undefined()
 		})
-		exports.Set("onButton", func(call goja.FunctionCall) goja.Value {
+		_ = exports.Set("onButton", func(call goja.FunctionCall) goja.Value {
 			name := call.Argument(0).String()
 			button, err := deck.ParseButton(name)
 			if err != nil {
@@ -69,7 +69,7 @@ func Register(registry *require.Registry) {
 			})
 			return subscriptionObject(runtime, sub)
 		})
-		exports.Set("onTouch", func(call goja.FunctionCall) goja.Value {
+		_ = exports.Set("onTouch", func(call goja.FunctionCall) goja.Value {
 			name := call.Argument(0).String()
 			touch, err := deck.ParseTouchButton(name)
 			if err != nil {
@@ -94,7 +94,7 @@ func Register(registry *require.Registry) {
 			})
 			return subscriptionObject(runtime, sub)
 		})
-		exports.Set("onKnob", func(call goja.FunctionCall) goja.Value {
+		_ = exports.Set("onKnob", func(call goja.FunctionCall) goja.Value {
 			name := call.Argument(0).String()
 			knob, err := deck.ParseKnob(name)
 			if err != nil {

@@ -491,6 +491,7 @@ func drawPlaceholder(dst *image.RGBA, fg color.RGBA, button device.TouchButton) 
 		dst.Set(x, midY, fg)
 		dst.Set(x, midY+1, fg)
 	}
+	//exhaustive:ignore placeholder art intentionally distinguishes only a few exemplar buttons.
 	switch button {
 	case device.Touch1:
 		for i := 0; i < 10; i++ {

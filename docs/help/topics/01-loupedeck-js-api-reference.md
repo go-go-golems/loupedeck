@@ -11,8 +11,7 @@ Topics:
 - animation
 - reactive-ui
 Commands:
-- loupe-js-live
-- loupe-js-demo
+- loupedeck
 Flags:
 - script
 - duration
@@ -546,12 +545,12 @@ These functions are useful both as tween easing functions and as ordinary numeri
 
 ## Live-runner command reference
 
-The main hardware execution path is `cmd/loupe-js-live/main.go`. It is not a Cobra/Glazed command yet, but these flags are the operational surface you will use while developing scripts.
+The main hardware execution path is now `cmd/loupedeck`, with the live runner exposed as the `run` subcommand. It is a Cobra/Glazed command, and these flags are the operational surface you will use while developing scripts.
 
 ### Basic usage
 
 ```bash
-go run ./cmd/loupe-js-live --script ./examples/js/01-hello.js --duration 5s
+go run ./cmd/loupedeck run --script ./examples/js/01-hello.js --duration 5s
 ```
 
 ### Important flags
@@ -653,7 +652,7 @@ What is implemented today:
 - numeric animation helpers
 - easing helpers
 - owned-runtime callback serialization
-- live hardware execution through `loupe-js-live`
+- live hardware execution through `loupedeck run`
 
 What is **not** implemented yet:
 
@@ -686,5 +685,6 @@ These omissions are intentional. The current boundary preserves Go-side transpor
 - `runtime/js/module_state/module.go` — Concrete source of truth for the reactive state exports
 - `runtime/js/module_anim/module.go` — Concrete source of truth for the animation exports
 - `runtime/js/module_easing/module.go` — Concrete source of truth for the easing exports
-- `cmd/loupe-js-live/main.go` — Current live hardware runner
+- `cmd/loupedeck/main.go` — Primary CLI root
+- `cmd/loupedeck/cmds/run/command.go` — Current live hardware runner command
 - `examples/js/` — Repository example scripts that match this API surface

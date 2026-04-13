@@ -187,7 +187,7 @@ func (l *Loupedeck) SendAndWait(m *Message, timeout time.Duration) (*Message, er
 		ch <- m2
 	})
 	if err != nil {
-		return nil, fmt.Errorf("Unable to send: %v", err)
+		return nil, fmt.Errorf("unable to send: %v", err)
 	}
 
 	// Trying SendAndWait with Draw() usually fails, because it
@@ -207,6 +207,6 @@ func (l *Loupedeck) SendAndWait(m *Message, timeout time.Duration) (*Message, er
 		return resp, nil
 	case <-time.After(timeout):
 		slog.Warn("sendAndWait timeout")
-		return nil, fmt.Errorf("Timeout waiting for response")
+		return nil, fmt.Errorf("timeout waiting for response")
 	}
 }

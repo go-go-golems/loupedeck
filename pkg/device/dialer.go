@@ -28,15 +28,15 @@ type SerialWebSockConn struct {
 }
 
 // Read reads bytes from the connected serial port.
-func (l *SerialWebSockConn) Read(b []byte) (n int, err error) {
+func (l *SerialWebSockConn) Read(b []byte) (int, error) {
 	//slog.Info("Reading", "limit_bytes", len(b))
-	n, err = l.Port.Read(b)
+	n, err := l.Port.Read(b)
 	//slog.Info("Read", "bytes", n, "err", err, "data", fmt.Sprintf("%v", b[:n]))
 	return n, err
 }
 
 // Write sends bytes to the connected serial port.
-func (l *SerialWebSockConn) Write(b []byte) (n int, err error) {
+func (l *SerialWebSockConn) Write(b []byte) (int, error) {
 	//slog.Info("Writing", "bytes", len(b), "message", fmt.Sprintf("%v", b))
 	return l.Port.Write(b)
 }
@@ -136,7 +136,7 @@ func lookupPortDetailsForPath(serialPath string, ports []*enumerator.PortDetails
 	return nil
 }
 
-func lookupSerialPortMetadata(serialPath string) (vendor, product string, err error) {
+func lookupSerialPortMetadata(serialPath string) (string, string, error) {
 	ports, err := enumerator.GetDetailedPortsList()
 	if err != nil {
 		return "", "", err
@@ -158,7 +158,7 @@ func ConnectSerialPath(serialPath string) (*SerialWebSockConn, error) {
 
 	p, err := serial.Open(serialPath, &serial.Mode{})
 	if err != nil {
-		return nil, fmt.Errorf("Unable to open serial device %q", serialPath)
+		return nil, fmt.Errorf("unable to open serial device %q", serialPath)
 	}
 	conn := &SerialWebSockConn{
 		Name:    serialPath,

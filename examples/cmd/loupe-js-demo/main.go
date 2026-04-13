@@ -1,6 +1,7 @@
 package main
 
 import (
+	"context"
 	"flag"
 	"fmt"
 	"image"
@@ -25,7 +26,7 @@ func (p *pngTarget) Draw(im image.Image, xoff, yoff int) {
 	if err != nil {
 		panic(err)
 	}
-	defer f.Close()
+	defer func() { _ = f.Close() }()
 	if err := png.Encode(f, im); err != nil {
 		panic(err)
 	}
@@ -52,8 +53,8 @@ func main() {
 
 	env := envpkg.Ensure(nil)
 	rt := jsruntime.NewRuntime(env)
-	defer rt.Close(nil)
-	if _, err := rt.RunString(nil, string(script)); err != nil {
+	defer func() { _ = rt.Close(context.Background()) }()
+	if _, err := rt.RunString(context.Background(), string(script)); err != nil {
 		fmt.Fprintf(os.Stderr, "run script: %v\n", err)
 		os.Exit(1)
 	}

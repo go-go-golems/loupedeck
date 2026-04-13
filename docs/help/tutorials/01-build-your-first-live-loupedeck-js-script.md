@@ -10,7 +10,7 @@ Topics:
 - runtime
 - reactive-ui
 Commands:
-- loupe-js-live
+- loupedeck
 Flags:
 - script
 - duration
@@ -56,7 +56,7 @@ cd /home/manuel/code/wesen/2026-04-11--loupedeck-test
 go test ./...
 ```
 
-If the hardware is busy, stop older `loupe-js-live`, `loupe-svg-buttons`, or `loupe-feature-tester` runs before continuing.
+If the hardware is busy, stop older `loupedeck run` sessions or other example/dev-tool runs before continuing.
 
 ## Step 1 — Write a minimal reactive script
 
@@ -109,13 +109,13 @@ If you skip `ui.show(...)`, the page exists but nothing becomes active, so the l
 
 ## Step 2 — Run the script on the device
 
-The live hardware entry point is `cmd/loupe-js-live`. It loads the script into the owned goja runtime, attaches the host runtime to the deck, and flushes retained UI to the main display on a timer.
+The live hardware entry point is now `cmd/loupedeck`, with the hardware runner exposed as the `run` subcommand. It loads the script into the owned goja runtime, attaches the host runtime to the deck, and flushes retained UI to the main display on a timer.
 
 Run:
 
 ```bash
 cd /home/manuel/code/wesen/2026-04-11--loupedeck-test
-go run ./cmd/loupe-js-live \
+go run ./cmd/loupedeck run \
   --script /tmp/loupedeck-button1-counter.js \
   --duration 0 \
   --log-events
@@ -158,7 +158,7 @@ Press Circle to exit, or stop the process from the terminal with `Ctrl-C`.
 If you want to keep Circle for your own script logic instead of exit behavior, disable the default exit hook:
 
 ```bash
-go run ./cmd/loupe-js-live \
+go run ./cmd/loupedeck run \
   --script /tmp/loupedeck-button1-counter.js \
   --duration 0 \
   --exit-on-circle=false \
@@ -183,7 +183,7 @@ Examples currently in the repo:
 Try the page-switcher example:
 
 ```bash
-go run ./cmd/loupe-js-live \
+go run ./cmd/loupedeck run \
   --script ./examples/js/06-page-switcher.js \
   --duration 0 \
   --log-events
@@ -245,7 +245,7 @@ ui.show("pulse");
 Run it with:
 
 ```bash
-go run ./cmd/loupe-js-live \
+go run ./cmd/loupedeck run \
   --script ./examples/js/05-pulse-animation.js \
   --duration 10s \
   --log-events
@@ -270,7 +270,7 @@ These constraints are not accidents. They preserve the transport and rendering b
 
 | Problem | Cause | Solution |
 |---|---|---|
-| `connect: unable to open port "/dev/ttyACM0"` | Another process still owns the device | Stop older `loupe-js-live` or related runs, then retry |
+| `connect: unable to open port "/dev/ttyACM0"` | Another process still owns the device | Stop older `loupedeck run` or related runs, then retry |
 | `malformed HTTP response ...` during connect | The device is in a fragile reconnect state after an earlier run | Wait a moment, reconnect, and prefer clean exits when switching demos |
 | The screen stays blank | The script defined pages but never called `ui.show(...)` | Call `ui.show("page-name")` after building the page |
 | Button presses appear in logs but the screen does not update | The callback is not mutating reactive or retained state | Update a `state.signal(...)` or a tile property from the event callback |
@@ -282,6 +282,7 @@ These constraints are not accidents. They preserve the transport and rendering b
 
 - [Loupedeck JavaScript runtime API reference](../topics/01-loupedeck-js-api-reference.md) — Detailed reference for modules, methods, events, and live-runner behavior
 - `examples/js/` — Built-in example scripts that match the current implementation
-- `cmd/loupe-js-live/main.go` — The live hardware runner used in this tutorial
+- `cmd/loupedeck/main.go` — The main CLI entry point
+- `cmd/loupedeck/cmds/run/command.go` — The live hardware runner used in this tutorial
 - `runtime/js/module_ui/module.go` — JS-facing page, tile, and event bindings
 - `runtime/js/module_state/module.go` — JS-facing reactive state bindings

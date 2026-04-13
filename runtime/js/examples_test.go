@@ -1,6 +1,7 @@
 package js
 
 import (
+	"context"
 	"os"
 	"path/filepath"
 	"testing"
@@ -24,8 +25,8 @@ func TestExampleScriptsBoot(t *testing.T) {
 				t.Fatalf("read script: %v", err)
 			}
 			rt := NewRuntime(nil)
-			defer rt.Close(nil)
-			if _, err := rt.RunString(nil, string(script)); err != nil {
+			defer func() { _ = rt.Close(context.Background()) }()
+			if _, err := rt.RunString(context.Background(), string(script)); err != nil {
 				t.Fatalf("run script %s: %v", filepath.Base(path), err)
 			}
 			time.Sleep(20 * time.Millisecond)

@@ -1,0 +1,84 @@
+version: 2
+project_name: loupedeck
+
+before:
+  hooks:
+    - go mod tidy
+    - go generate ./...
+builds:
+  - id: loupedeck-linux
+    env:
+      - CGO_ENABLED=1
+      - CC_linux_amd64=gcc
+      - CXX_linux_amd64=g++
+      - CC_linux_arm64=aarch64-linux-gnu-gcc
+      - CXX_linux_arm64=aarch64-linux-gnu-g++
+      - 'CC={{ index .Env (print "CC_" .Os "_" .Arch) }}'
+      - 'CXX={{ index .Env (print "CXX_" .Os "_" .Arch) }}'
+    main: ./cmd/loupedeck
+    binary: loupedeck
+    goos:
+      - linux
+    goarch:
+      - amd64
+      - arm64
+  - id: loupedeck-darwin
+    env:
+      - CGO_ENABLED=1
+    main: ./cmd/loupedeck
+    binary: loupedeck
+    goos:
+      - darwin
+    goarch:
+      - amd64
+      - arm64
+checksum:
+  name_template: 'checksums.txt'
+snapshot:
+  name_template: "{{ incpatch .Version }}-next"
+changelog:
+  sort: asc
+  filters:
+    exclude:
+      - '^docs:'
+      - '^test:'
+
+signs:
+  - artifacts: checksum
+    args: ["--batch", "-u", "{{ .Env.GPG_FINGERPRINT }}", "--output", "${signature}", "--detach-sign", "${artifact}"]
+
+brews:
+  - name: loupedeck
+    description: "Run Loupedeck Live JavaScript scenes and hardware workflows"
+    homepage: "https://github.com/go-go-golems/loupedeck"
+    repository:
+      owner: go-go-golems
+      name: homebrew-go-go-go
+      token: "{{ .Env.TAP_GITHUB_TOKEN }}"
+
+nfpms:
+  -
+    id: packages
+    vendor: GO GO GOLEMS
+    homepage: https://github.com/go-go-golems/
+    maintainer: Manuel Odendahl <wesen@ruinwesen.com>
+    description: |-
+      Run Loupedeck Live JavaScript scenes and hardware workflows.
+    license: MIT
+    formats:
+      - deb
+      - rpm
+    release: 1
+    section: default
+    priority: extra
+    deb:
+      lintian_overrides:
+        - statically-linked-binary
+        - changelog-file-missing-in-native-package
+
+publishers:
+  - name: fury.io
+    ids:
+      - packages
+    dir: "{{ dir .ArtifactPath }}"
+    cmd: curl -F package=@{{ .ArtifactName }} https://{{ .Env.FURY_TOKEN }}@push.fury.io/go-go-golems/

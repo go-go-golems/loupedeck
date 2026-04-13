@@ -26,12 +26,12 @@ func Register(registry *require.Registry) {
 		}
 		ownerCtx := runtimeowner.OwnerContext(bindings.Owner, bindings.Context)
 		exports := module.Get("exports").(*goja.Object)
-		exports.Set("signal", func(call goja.FunctionCall) goja.Value {
+		_ = exports.Set("signal", func(call goja.FunctionCall) goja.Value {
 			initial := exportValue(call.Argument(0))
 			sig := reactive.NewSignal(env.Reactive, initial)
 			return signalObject(bindings, ownerCtx, runtime, sig)
 		})
-		exports.Set("computed", func(call goja.FunctionCall) goja.Value {
+		_ = exports.Set("computed", func(call goja.FunctionCall) goja.Value {
 			fn, ok := goja.AssertFunction(call.Argument(0))
 			if !ok {
 				panic(runtime.NewTypeError("state.computed requires a function"))
@@ -55,7 +55,7 @@ func Register(registry *require.Registry) {
 			})
 			return obj
 		})
-		exports.Set("batch", func(call goja.FunctionCall) goja.Value {
+		_ = exports.Set("batch", func(call goja.FunctionCall) goja.Value {
 			fn, ok := goja.AssertFunction(call.Argument(0))
 			if !ok {
 				panic(runtime.NewTypeError("state.batch requires a function"))
@@ -71,7 +71,7 @@ func Register(registry *require.Registry) {
 			})
 			return goja.Undefined()
 		})
-		exports.Set("watch", func(call goja.FunctionCall) goja.Value {
+		_ = exports.Set("watch", func(call goja.FunctionCall) goja.Value {
 			fn, ok := goja.AssertFunction(call.Argument(0))
 			if !ok {
 				panic(runtime.NewTypeError("state.watch requires a function"))
