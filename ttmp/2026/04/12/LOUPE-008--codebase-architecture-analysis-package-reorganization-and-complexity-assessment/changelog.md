@@ -104,3 +104,13 @@ Completed the cmd/loupe-js-live decomposition through Phase E and updated README
 - /home/manuel/code/wesen/2026-04-11--loupedeck-test/cmd/loupe-js-live/options.go — Flag parsing moved to dedicated options struct
 - /home/manuel/code/wesen/2026-04-11--loupedeck-test/cmd/loupe-js-live/run.go — Orchestration extracted from monolithic main.go
 
+
+## 2026-04-13
+
+Fixed explicit device-path metadata resolution for profile-based connect initialization (commit 55d7b0e)
+
+### Related Files
+
+- /home/manuel/code/wesen/2026-04-11--loupedeck-test/pkg/device/connect.go — Profile resolution now retries metadata lookup before failing
+- /home/manuel/code/wesen/2026-04-11--loupedeck-test/pkg/device/dialer.go — Manual-path connect now populates vendor/product metadata
+

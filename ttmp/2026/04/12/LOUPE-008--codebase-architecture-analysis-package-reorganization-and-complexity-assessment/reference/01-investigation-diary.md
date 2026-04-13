@@ -34,7 +34,13 @@ RelatedFiles:
     - Path: cmd/loupe-svg-buttons/main.go
       Note: SVG demo now relies on connect-time profile setup (commit 2dac4b1)
     - Path: pkg/device/connect.go
-      Note: Connect path now resolves device profiles during initialization (commit 2dac4b1)
+      Note: |-
+        Connect path now resolves device profiles during initialization (commit 2dac4b1)
+        Connect path refreshes metadata once more before profile resolution (commit 55d7b0e)
+    - Path: pkg/device/dialer.go
+      Note: ConnectSerialPath now resolves VID/PID from enumerated port metadata (commit 55d7b0e)
+    - Path: pkg/device/dialer_test.go
+      Note: Path-matching coverage for exact and symlinked serial device paths (commit 55d7b0e)
     - Path: pkg/device/display.go
       Note: Display mechanics retained after removing SetDisplays product switch (commit 2dac4b1)
     - Path: pkg/device/inputs.go
@@ -61,6 +67,7 @@ LastUpdated: 2026-04-12T15:35:00-04:00
 WhatFor: Document the investigation process, findings, and analysis methodology for codebase reorganization recommendations
 WhenToUse: When reviewing analysis conclusions or extending the investigation
 ---
+
 
 
 
@@ -1180,4 +1187,226 @@ go test ./...
 
 ```text
 [main 5e51ab2] Decompose cmd/loupe-js-live into focused files
+```
+
+---
+
+## Step 12: Hardware validation of cyb-ito exposed a manual `--device` regression
+
+After finishing the live-runner decomposition, I validated the command on actual hardware using the cyb-ito full-page scene. The hardware run succeeded when I let the runner auto-detect the device, which confirmed that the refactored command, the `pkg/device` move, the connect-time profile setup, and the rendering path all still worked together on a real Loupedeck.
+
+The same validation also exposed a specific regression in the explicit device-path flow. Running with `--device /dev/ttyACM0` failed because the new connect-time profile logic now requires product metadata, but `ConnectSerialPath()` only opened the port and did not populate `Vendor` / `Product`. That meant manual-path connect now fails before it can initialize the display profile.
+
+### Prompt Context
+
+**User prompt (verbatim):** "can you run cyb-ito to validate? ttyACM0 should be avail."
+
+**Assistant interpretation:** Run the live runner against real hardware, preferably through the explicit `/dev/ttyACM0` path the user expects to work, and report whether the refactor still functions on-device.
+
+**Inferred user intent:** Get real hardware confirmation that the recent refactors are not just test-clean but operational on the actual Loupedeck.
+
+### What I did
+- Verified `/dev/ttyACM0` existed.
+- Verified the relevant JS scenes were present.
+- Tried the explicit-device command first:
+
+```bash
+go run ./cmd/loupe-js-live --device /dev/ttyACM0 --script examples/js/10-cyb-ito-full-page-all12.js --duration 10s --log-render-stats --log-writer-stats --stats-interval 2s
+```
+
+- That failed with:
+
+```text
+connect: unknown device product ID: ""
+exit status 1
+```
+
+- Then reran using auto-detect instead of `--device`:
+
+```bash
+go run ./cmd/loupe-js-live --script examples/js/10-cyb-ito-full-page-all12.js --duration 10s --log-render-stats --log-writer-stats --stats-interval 2s
+```
+
+- That hardware run succeeded and produced sustained render/write stats through the full timeout window.
+
+### Why
+- The explicit-path regression needed to be documented before patching because it is a direct consequence of the connect-time profile improvement.
+- Capturing the successful auto-detect run as well was important because it proved the bug was isolated to `ConnectSerialPath()` metadata resolution, not the overall runtime/render path.
+
+### What worked
+- Auto-detect found the real device and ran the full-page cyb-ito scene successfully.
+- The refactored live runner rendered repeatedly and exited cleanly after the requested timeout.
+- Example evidence from the successful run:
+
+```text
+render stats ... flush_ticks=12 non_empty_flushes=12 displays=36 ops=36 avg_render_ms=10.67 max_render_ms=13.62
+writer stats ... FailedCommands:0
+...
+Loupedeck JS live runner exiting reason=timeout ... duration=10s
+```
+
+### What didn't work
+- Explicit `--device /dev/ttyACM0` failed because the product ID was empty:
+
+```text
+connect: unknown device product ID: ""
+```
+
+### What I learned
+- The new profile-based initialization is correct, but it tightened an assumption that auto-detect already satisfied and manual-path connect did not.
+- The bug is not in `cmd/loupe-js-live`; it is in `pkg/device/ConnectSerialPath()`.
+
+### What was tricky to build
+- The tricky part was distinguishing between a general runtime failure and a path-specific device metadata failure. The successful auto-detect run made that distinction clear.
+- This also illustrates a subtle cost of architectural cleanup: once initialization becomes stricter and more correct, old implicit shortcuts get exposed immediately.
+
+### What warrants a second pair of eyes
+- Review the eventual `ConnectSerialPath()` fix to ensure it handles direct device paths and any symlinked serial aliases correctly.
+- Review whether manual path connect should fail early with a clearer error if metadata cannot be determined.
+
+### What should be done in the future
+- Fix `ConnectSerialPath()` so it resolves VID/PID from enumerated serial-port metadata when given a path like `/dev/ttyACM0`.
+- Re-run the same hardware validation with the explicit path after the fix.
+
+### Code review instructions
+- Review the hardware-validation commands above.
+- Then inspect the upcoming fix in `pkg/device/dialer.go`.
+
+### Technical details
+- The failure only affected the explicit device-path code path.
+- Auto-detect remained healthy, which narrowed the bug to metadata population rather than rendering or command decomposition.
+
+---
+
+## Step 13: Fix explicit device-path metadata resolution in `ConnectSerialPath()`
+
+After documenting the hardware regression, I fixed the actual root cause that the previous validation had exposed: explicit-path serial connects were not populating USB vendor/product metadata. Since connect-time profile resolution now depends on the product ID, that omission caused `--device /dev/ttyACM0` to fail immediately with `unknown device product ID: ""`.
+
+The fix was to teach `ConnectSerialPath()` how to recover metadata from the enumerator by matching the supplied serial path against the detailed port list. I also added a second-chance metadata refresh in `doConnect()` so the connect path is a bit more robust even if the initial path lookup somehow comes through empty.
+
+### Prompt Context
+
+**User prompt (verbatim):** "Update your diary, then fix that."
+
+**Assistant interpretation:** Record the validation finding immediately, then patch the manual device-path regression that was just discovered.
+
+**Inferred user intent:** Keep the debugging trail documented in order, then fix the concrete regression rather than leaving the validation failure as an unresolved note.
+
+**Commit (code):** `55d7b0e` — "Resolve serial metadata for explicit device paths"
+
+### What I did
+- Added path-aware metadata lookup helpers in `pkg/device/dialer.go`:
+  - `sameSerialPath(a, b string)`
+  - `lookupPortDetailsForPath(serialPath string, ports []*enumerator.PortDetails)`
+  - `lookupSerialPortMetadata(serialPath string)`
+- Updated `ConnectSerialPath(serialPath string)` to:
+  - enumerate detailed ports
+  - match the supplied path against enumerated port names (including symlink resolution)
+  - populate `Vendor` and `Product` on the returned `SerialWebSockConn`
+- Updated `pkg/device/connect.go` to retry metadata resolution once more before profile resolution if `c.Product` is still empty.
+- Improved the profile-resolution error message to include the device name and product string.
+- Added `pkg/device/dialer_test.go` covering:
+  - exact path match
+  - symlink-path match
+  - missing-path no-match behavior
+- Validated the direct path metadata result with a small Go snippet:
+
+```bash
+cat > /tmp/check_connect_path.go <<'EOF'
+package main
+import (
+  "fmt"
+  "github.com/go-go-golems/loupedeck/pkg/device"
+)
+func main() {
+  c, err := device.ConnectSerialPath("/dev/ttyACM0")
+  if err != nil { panic(err) }
+  defer c.Close()
+  fmt.Printf("name=%s vendor=%s product=%s\n", c.Name, c.Vendor, c.Product)
+}
+EOF
+cd /home/manuel/code/wesen/2026-04-11--loupedeck-test && go run /tmp/check_connect_path.go
+```
+
+which produced:
+
+```text
+name=/dev/ttyACM0 vendor=2ec2 product=0004
+```
+
+### Why
+- This restores the correctness of the explicit-path API after the stricter connect-time profile refactor.
+- The fix keeps device profile resolution centralized while ensuring both auto-detect and manual-path connects provide the metadata it needs.
+
+### What worked
+- The direct metadata probe now returns the expected values for `/dev/ttyACM0`.
+- Unit tests for the new path-matching helpers pass.
+- Package and full-suite validation pass:
+
+```bash
+go test ./pkg/device ./cmd/loupe-js-live
+go test ./...
+```
+
+### What didn't work
+- After fixing the metadata gap, a direct hardware run with `--device /dev/ttyACM0` no longer failed immediately on unknown product ID, but it still hit the older flaky serial-WebSocket handshake behavior and hung after the retry path:
+
+```text
+2026/04/13 15:20:10 INFO Attempting to open websocket connection
+2026/04/13 15:20:10 INFO Dialing...
+2026/04/13 15:20:12 INFO Timeout! Trying again without timeout.
+2026/04/13 15:20:12 WARN dial failed err="Port has been closed"
+2026/04/13 15:20:12 INFO Attempting to open websocket connection
+2026/04/13 15:20:12 INFO Dialing...
+```
+
+- So the specific regression is fixed, but there is still a lower-level handshake flake that affects manual-path runs and can also affect auto-detect transiently.
+
+### What I learned
+- The manual-path failure was actually two issues stacked together:
+  1. the new regression: missing product metadata
+  2. an older intermittent handshake/retry problem in the serial-WebSocket connect path
+- Fixing the first issue makes the second visible instead of masking it.
+
+### What was tricky to build
+- Matching serial paths robustly is a little more subtle than simple string equality because callers may use symlinked aliases. I added `EvalSymlinks`-based comparison with a fallback to raw equality so the helper works both for real device paths and straightforward direct names.
+- It was important to separate “metadata resolution fixed” from “all direct path connects are now perfect.” The code fix addressed the immediate regression, but the hardware run still surfaced the pre-existing handshake instability.
+
+### What warrants a second pair of eyes
+- Review whether `sameSerialPath()` should normalize further than `EvalSymlinks`.
+- Review whether the retry logic in `tryConnect()` should be revisited separately now that the metadata bug is no longer hiding handshake flakiness.
+
+### What should be done in the future
+- If we want rock-solid direct-path runs, investigate the serial-WebSocket handshake retry path next.
+- Consider adding a dedicated troubleshooting note for explicit path connects in the README or help docs if this remains flaky on some systems.
+
+### Code review instructions
+- Start with:
+  - `pkg/device/dialer.go`
+  - `pkg/device/dialer_test.go`
+  - `pkg/device/connect.go`
+- Review commit:
+
+```bash
+git show --stat 55d7b0e
+git show 55d7b0e -- pkg/device/dialer.go pkg/device/dialer_test.go pkg/device/connect.go
+```
+
+- Validate with:
+
+```bash
+go test ./...
+```
+
+- Optional direct metadata probe:
+
+```bash
+go run /tmp/check_connect_path.go
+```
+
+### Technical details
+- Code commit produced:
+
+```text
+[main 55d7b0e] Resolve serial metadata for explicit device paths
 ```
