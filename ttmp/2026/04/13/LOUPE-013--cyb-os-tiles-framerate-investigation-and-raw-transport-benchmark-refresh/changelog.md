@@ -27,3 +27,13 @@ Reran the raw hardware FPS benchmark successfully on the current tree and added 
 - /home/manuel/code/wesen/2026-04-11--loupedeck-test/ttmp/2026/04/13/LOUPE-013--cyb-os-tiles-framerate-investigation-and-raw-transport-benchmark-refresh/scripts/01-js-path-probe-main-only.js — Main-only probe measured effective live-runner throughput near 25 FPS
 - /home/manuel/code/wesen/2026-04-11--loupedeck-test/ttmp/2026/04/13/LOUPE-013--cyb-os-tiles-framerate-investigation-and-raw-transport-benchmark-refresh/scripts/02-js-path-probe-three-display.js — Three-display probe showed ~25 frame-equivalents/sec with proportionally more commands
 
+
+## 2026-04-13
+
+Exposed --flush-interval in loupe-js-live and verified on hardware that reducing the retained flush interval from 40ms to 20ms raises the effective live-runner throughput ceiling.
+
+### Related Files
+
+- /home/manuel/code/wesen/2026-04-11--loupedeck-test/cmd/loupe-js-live/options.go — New --flush-interval flag
+- /home/manuel/code/wesen/2026-04-11--loupedeck-test/cmd/loupe-js-live/run.go — Live runner now connects with explicit render options so flush interval is controllable
+

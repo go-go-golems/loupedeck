@@ -15,8 +15,12 @@ Owners: []
 RelatedFiles:
     - Path: cmd/loupe-fps-bench/main.go
       Note: Raw writer/display benchmark command scoped as the control baseline for this ticket
+    - Path: cmd/loupe-js-live/options.go
+      Note: Added --flush-interval so retained scheduler cadence is tunable from the live runner (commit cec4326)
     - Path: cmd/loupe-js-live/run.go
-      Note: Hardware live-runner path used for smoke runs and stats-enabled scene measurement
+      Note: |-
+        Hardware live-runner path used for smoke runs and stats-enabled scene measurement
+        Live runner now passes explicit render options into device connect helpers (commit cec4326)
     - Path: cmd/loupe-js-live/stats.go
       Note: Render and writer stats used as the primary pacing evidence
     - Path: examples/js/11-cyb-os-tiles.js
@@ -39,6 +43,7 @@ LastUpdated: 2026-04-13T15:32:47.878089581-04:00
 WhatFor: Preserve the first evidence-backed investigation into cyb-os-tiles pacing, especially the difference between three-display redraws and main-only redraws.
 WhenToUse: Use when resuming the cyb-os-tiles framerate investigation or when comparing retained-scene pacing against raw writer benchmark ceilings.
 ---
+
 
 
 
@@ -623,3 +628,133 @@ main-fast/sides-slow probe: delta={QueuedCommands:113 SentCommands:113 SentMessa
 ```
 
 - These are consistent with a retained flush cadence near `25 FPS` when `FlushInterval` is `40ms`.
+
+---
+
+## Step 7: Expose `--flush-interval` in `cmd/loupe-js-live` and verify that the cap moves
+
+Once the probes made the default `40ms` retained flush interval visible, the next step was straightforward: expose that scheduler interval directly on the `loupe-js-live` CLI instead of leaving it trapped inside the device defaults. This is the smallest useful tuning knob because it lets the live runner itself answer whether a scene is hitting an intentional scheduler cadence versus a deeper rendering or transport ceiling.
+
+The implementation was intentionally narrow. I did not change scheduler semantics or add raw mode to the live runner; I only surfaced the existing retained flush interval so it can be tuned explicitly per run. After wiring the flag, I ran two quick present-driven hardware probes at `20ms` to make sure the writer-facing throughput actually changed. It did.
+
+### Prompt Context
+
+**User prompt (verbatim):** "go ahead. Also, does fps bench test the 3 display drawing speed?"
+
+**Assistant interpretation:** Implement the flush-interval exposure in the live runner and also answer whether the existing raw benchmark already measures three-display throughput.
+
+**Inferred user intent:** Add a practical tuning control to the real scene runner and avoid misunderstanding what the current benchmark does or does not measure.
+
+**Commit (code):** `cec4326` — "Expose render flush interval in loupe-js-live"
+
+### What I did
+- Updated:
+  - `/home/manuel/code/wesen/2026-04-11--loupedeck-test/cmd/loupe-js-live/options.go`
+  - `/home/manuel/code/wesen/2026-04-11--loupedeck-test/cmd/loupe-js-live/run.go`
+- Added a new CLI flag:
+
+```text
+--flush-interval duration
+```
+
+- Used `device.DefaultRenderOptions.FlushInterval` as the default flag value.
+- Validated that `--help` shows the new option.
+- Changed the live runner to connect with explicit render options using:
+  - `device.ConnectAutoWithWriterAndRenderOptions(...)`
+  - `device.ConnectPathWithWriterAndRenderOptions(...)`
+- Logged the active `flush_interval` at startup.
+- Ran full test validation:
+
+```bash
+gofmt -w cmd/loupe-js-live/options.go cmd/loupe-js-live/run.go
+go test ./...
+```
+
+- Ran quick hardware validation with present-driven probes at `--flush-interval 20ms`:
+
+```bash
+timeout 18s go run ./cmd/loupe-js-live \
+  --script ./ttmp/2026/04/13/LOUPE-013--cyb-os-tiles-framerate-investigation-and-raw-transport-benchmark-refresh/scripts/04-js-path-probe-main-only-present-driven.js \
+  --duration 4s \
+  --send-interval 0ms \
+  --flush-interval 20ms \
+  --log-render-stats \
+  --log-writer-stats \
+  --stats-interval 2s
+```
+
+and:
+
+```bash
+timeout 18s go run ./cmd/loupe-js-live \
+  --script ./ttmp/2026/04/13/LOUPE-013--cyb-os-tiles-framerate-investigation-and-raw-transport-benchmark-refresh/scripts/05-js-path-probe-three-display-present-driven.js \
+  --duration 4s \
+  --send-interval 0ms \
+  --flush-interval 20ms \
+  --log-render-stats \
+  --log-writer-stats \
+  --stats-interval 2s
+```
+
+### Why
+- We had already shown that the default live-runner path behaves differently from the raw benchmark path.
+- Exposing the interval makes that retained-scheduler tradeoff explicit and measurable without changing the underlying architecture yet.
+
+### What worked
+- `go test ./...` passed after the change.
+- `--help` now shows the flag.
+- The hardware sanity checks proved the cap moved upward when the interval was reduced.
+- With `--flush-interval 20ms`, the main-only present-driven probe produced writer windows around:
+
+```text
+delta={QueuedCommands:71 SentCommands:70 SentMessages:140 FailedCommands:0 ...}
+delta={QueuedCommands:72 SentCommands:72 SentMessages:144 FailedCommands:0 ...}
+```
+
+which is about `35–36 FPS`, up from roughly `25 FPS` with the default `40ms` interval.
+
+- The three-display present-driven probe at `20ms` produced writer windows around:
+
+```text
+delta={QueuedCommands:157 SentCommands:156 SentMessages:312 FailedCommands:0 ...}
+delta={QueuedCommands:155 SentCommands:155 SentMessages:310 FailedCommands:0 ...}
+```
+
+which is about `26 frame-equivalents/sec` (`~156 / 3 / 2s`) instead of the previous `~25`.
+
+### What didn't work
+- This did not magically turn three-display live scenes into raw-benchmark-speed workloads. The three-display path still pays for three device commands per frame and still carries some additional work beyond the scheduler cadence itself.
+- The quick validation only used minimal probes, not `cyb-os-tiles` itself yet.
+
+### What I learned
+- The retained flush interval really was an active limiter, not just a theoretical explanation.
+- Lowering it from `40ms` to `20ms` measurably improves the effective writer throughput of the live runner.
+- `cmd/loupe-fps-bench` still does **not** test the left+main+right three-display path; it benchmarks full-screen main display, single `90x90` main-display updates, and mixed multi-button animation on the main display only.
+
+### What was tricky to build
+- The implementation itself was simple; the subtle part was making sure the measurement used a probe that self-invalidates continuously so any improvement in throughput could be attributed to the scheduler setting rather than to a specific animation-loop cadence.
+
+### What warrants a second pair of eyes
+- Review whether `--flush-interval` should remain a pure measurement/tuning flag or become part of the recommended public UX for scene authors.
+- Review whether a follow-up `--disable-render-scheduler` flag belongs in the live runner as well.
+
+### What should be done in the future
+- Measure `cyb-os-tiles` directly at `20ms` and possibly `10ms`.
+- Decide whether the default `40ms` should remain unchanged or be lowered.
+
+### Code review instructions
+- Start with:
+  - `/home/manuel/code/wesen/2026-04-11--loupedeck-test/cmd/loupe-js-live/options.go`
+  - `/home/manuel/code/wesen/2026-04-11--loupedeck-test/cmd/loupe-js-live/run.go`
+- Validate with:
+
+```bash
+go run ./cmd/loupe-js-live --help | rg 'flush-interval|send-interval'
+go test ./...
+```
+
+- Optional hardware spot-check with the present-driven probes and `--flush-interval 20ms`.
+
+### Technical details
+- The change uses the existing render scheduler API rather than inventing a new path.
+- The raw benchmark coverage question is answered directly by `cmd/loupe-fps-bench/main.go`: it currently measures only main-display workloads, not a left+main+right three-display scene frame.
