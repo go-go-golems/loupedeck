@@ -64,8 +64,11 @@
 - [x] Move `loupe-js-demo` and `loupe-svg-buttons` into `examples/cmd/`
 - [x] Copy and adapt GitHub Actions, GoReleaser, golangci-lint config, and Makefile from the go-template baseline
 - [x] Rewrite `README.md` around the new main binary and supported surface
+- [x] Tighten `README.md` into a more consumer-facing release document and add the explicit upstream repo URL
 - [x] Make the copied lint pipeline pass without weakening the new checks
-- [x] Validate the new CLI and release plumbing with `go run ./cmd/loupedeck --help`, `go run ./cmd/loupedeck run --help`, `make lint`, `go test ./...`, and `make build`
+- [x] Review the copied GitHub Actions workflows against the actual shipped CLI surface
+- [x] Review and modernize `.goreleaser.yaml` until `goreleaser check` passes without deprecation failures
+- [x] Validate the new CLI and release plumbing with `go run ./cmd/loupedeck --help`, `go run ./cmd/loupedeck run --help`, `make lint`, `go test ./...`, `make build`, `goreleaser check`, and `goreleaser release --snapshot --clean --skip=sign --skip=publish --single-target`
 
 ## Future follow-up candidates
 

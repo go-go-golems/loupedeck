@@ -131,3 +131,15 @@ Promoted `cmd/loupedeck` to the main release-facing CLI, moved support binaries 
 - /home/manuel/code/wesen/2026-04-11--loupedeck-test/Makefile — Template-derived build/lint/test entrypoints added
 - /home/manuel/code/wesen/2026-04-11--loupedeck-test/README.md — README rewritten around the new main binary and supported surface
 
+
+## 2026-04-13
+
+Tightened the README for release consumers, added an explicit upstream reference URL, and reviewed GitHub Actions / GoReleaser until local release validation passed cleanly (commit 8dfc2bf)
+
+### Related Files
+
+- /home/manuel/code/wesen/2026-04-11--loupedeck-test/README.md — Added clearer supported-surface, source-build, validation, and upstream-reference guidance
+- /home/manuel/code/wesen/2026-04-11--loupedeck-test/.github/workflows/push.yml — CI now builds the repo and smoke-tests `loupedeck` help entrypoints
+- /home/manuel/code/wesen/2026-04-11--loupedeck-test/.github/workflows/release.yaml — Release workflow now only triggers on `v*` tags
+- /home/manuel/code/wesen/2026-04-11--loupedeck-test/.goreleaser.yaml — Removed current GoReleaser deprecations and validated snapshot release build locally
+

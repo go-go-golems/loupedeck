@@ -31,8 +31,14 @@ RelatedFiles:
       Note: SVG button demo moved under examples to clarify support level (commit 7949d01)
     - Path: .github/workflows/lint.yml
       Note: Copied/adapted release-plumbing workflow from the go-template baseline (commit 7949d01)
+    - Path: .github/workflows/push.yml
+      Note: CI workflow now builds the repo and smoke-tests the shipped CLI help entrypoints (commit 8dfc2bf)
+    - Path: .github/workflows/release.yaml
+      Note: Release workflow now restricts tag triggers to version-like `v*` tags (commit 8dfc2bf)
     - Path: .goreleaser.yaml
-      Note: Release packaging now targets the new `cmd/loupedeck` binary (commit 7949d01)
+      Note: |-
+        Release packaging now targets the new `cmd/loupedeck` binary (commit 7949d01)
+        Reviewed and updated to remove current GoReleaser v2 deprecations, including snapshot/homebrew config drift (commit 8dfc2bf)
     - Path: Makefile
       Note: Template-derived build/lint/test entrypoints added for release readiness (commit 7949d01)
     - Path: cmd/loupe-fps-bench/main.go
@@ -85,7 +91,7 @@ RelatedFiles:
       Note: Task tracking for the cmd/loupe-js-live decomposition slice
 ExternalSources: []
 Summary: Chronological diary of codebase analysis investigating package structure, file complexity, and reorganization opportunities for the go-go-golems/loupedeck project
-LastUpdated: 2026-04-13T18:15:00-04:00
+LastUpdated: 2026-04-13T19:05:00-04:00
 WhatFor: Document the investigation process, findings, and analysis methodology for codebase reorganization recommendations
 WhenToUse: When reviewing analysis conclusions or extending the investigation
 ---
@@ -1577,4 +1583,140 @@ make build
 
 ```text
 [main 7949d01] Turn loupedeck into the main glazed CLI
+```
+
+---
+
+## Step 15: Tighten the README and review the copied GitHub Actions / GoReleaser setup against the real repo
+
+After the first release-plumbing pass, the next useful improvement was to stop treating the copied template files as automatically correct. I tightened the README into a more consumer-facing document, added an explicit URL credit to the original upstream protocol-reference repo, and then audited the copied GitHub Actions and GoReleaser config against what this repository actually builds and ships.
+
+That audit immediately paid off: a real local `goreleaser check` found that the copied config still used deprecated v2 properties. So this step became both a docs cleanup and an actual release-config modernization pass rather than just a wording tweak.
+
+### Prompt Context
+
+**User prompt (verbatim):** "Tighten the README, and mention the original repo by URL . Then review the GA/releaser stuff."
+
+**Assistant interpretation:** Improve the README so it reads more like a release-facing consumer document, add a direct upstream repository URL credit, and perform a real audit of the copied GitHub Actions and GoReleaser files instead of assuming the template import was already final.
+
+**Inferred user intent:** Make the repo’s public story and release machinery more trustworthy before moving further toward a first release.
+
+**Commit (code):** `8dfc2bf` — "Tighten README and harden release plumbing"
+
+### What I did
+- Rewrote `README.md` into a tighter release-facing structure with:
+  - clearer status and supported-surface language
+  - source-build guidance
+  - validation commands
+  - a more explicit separation between the shipped CLI and non-primary example/dev binaries
+- Added an explicit upstream protocol-reference URL to the README:
+  - `https://github.com/scottlaird/loupedeck`
+- Reviewed the copied GitHub Actions files and adjusted them where the initial template import was too generic:
+  - `push.yml` now runs generate, tests, full build, and smoke-checks `loupedeck --help` / `loupedeck run --help`
+  - `release.yaml` now triggers only on `v*` tags instead of every tag
+- Reviewed `.goreleaser.yaml` with a real local `goreleaser check` run and updated it to current supported fields:
+  - `snapshot.name_template` → `snapshot.version_template`
+  - `brews` → `homebrew_casks`
+  - `homebrew_casks.binary` → `homebrew_casks.binaries`
+- Improved the GoReleaser changelog filtering so this repo’s actual commit style is handled more cleanly:
+  - exclude case-insensitive `docs:`, `diary:`, and `test:` prefixes
+  - exclude merge commits
+- Validated the release config with:
+
+```bash
+goreleaser check
+goreleaser release --snapshot --clean --skip=sign --skip=publish --single-target
+```
+
+### Why
+- The first pass got the repo onto the standard template, but template adoption is not the same thing as repo-specific review.
+- The README needed to speak more clearly to release consumers instead of mostly to contributors already familiar with the cleanup history.
+- The release workflow should align to version tags, not arbitrary tags.
+- The GoReleaser config needed to be modern enough that its own validation tooling passed cleanly.
+
+### What worked
+- The new README now states the supported surface, current status, and validation flow more directly.
+- The explicit upstream reference is now concrete rather than indirect.
+- `goreleaser check` now passes cleanly after the config updates.
+- A local snapshot/single-target release build also succeeded:
+
+```text
+• release succeeded after 9s
+```
+
+- CLI smoke checks continued to work:
+
+```bash
+go run ./cmd/loupedeck --help
+go run ./cmd/loupedeck run --help
+```
+
+### What didn't work
+- The first local GoReleaser validation surfaced two copied-template deprecations immediately:
+
+```text
+DEPRECATED: snapshot.name_template should not be used anymore
+DEPRECATED: brews is being phased out in favor of homebrew_casks
+```
+
+- After the first config cleanup pass, a second deprecation still remained:
+
+```text
+DEPRECATED: homebrew_casks.binary should not be used anymore
+```
+
+- So the review uncovered a layered drift problem: the template-derived file was usable enough to look plausible, but not current enough to pass modern GoReleaser validation unchanged.
+
+### What I learned
+- A release-plumbing review should always include an actual local GoReleaser validation run, not just a visual inspection of YAML.
+- README quality matters more once the repo has a clearer shipped surface; consumers need a short, opinionated map of what is supported and what is not.
+- The go-go-golems template was a useful starting point, but its copied form still needed repo-local modernization and constraint tightening.
+
+### What was tricky to build
+- The main tricky part was separating “template consistency” from “release readiness.” The copied files were directionally right, but a real review had to test whether the configs matched this repo’s current binary, tagging expectations, and the current GoReleaser version installed on the machine.
+- The other sharp edge was that deprecations came in sequence: fixing `brews` by moving to `homebrew_casks` still left a second deprecated property (`binary`) to clean up. Running `goreleaser check` after each change kept the update grounded in actual tool feedback rather than assumptions.
+
+### What warrants a second pair of eyes
+- Review whether `homebrew_casks` is the right long-term Homebrew publication shape for this CLI, especially if we later want completions/manpages/caveats.
+- Review whether the CI workflow should eventually split into separate build and smoke jobs once the release surface expands.
+- Review whether the README should eventually include tagged-install instructions once the first real release exists.
+
+### What should be done in the future
+- Once the first tagged release exists, add concrete install instructions that reference the released binary artifacts rather than only source builds.
+- Consider validating the GitHub Actions workflow set with `gh workflow list` / `gh run list` after the next push.
+- Keep the remaining handshake-flake work separate from this release-machinery cleanup.
+
+### Code review instructions
+- Start with:
+  - `README.md`
+  - `.github/workflows/push.yml`
+  - `.github/workflows/release.yaml`
+  - `.goreleaser.yaml`
+- Review commit:
+
+```bash
+git show --stat 8dfc2bf
+git show 8dfc2bf -- README.md .github/workflows/push.yml .github/workflows/release.yaml .goreleaser.yaml
+```
+
+- Validate with:
+
+```bash
+go run ./cmd/loupedeck --help
+go run ./cmd/loupedeck run --help
+goreleaser check
+goreleaser release --snapshot --clean --skip=sign --skip=publish --single-target
+```
+
+### Technical details
+- Upstream reference URL added to README:
+
+```text
+https://github.com/scottlaird/loupedeck
+```
+
+- Code commit produced:
+
+```text
+[main 8dfc2bf] Tighten README and harden release plumbing
 ```
