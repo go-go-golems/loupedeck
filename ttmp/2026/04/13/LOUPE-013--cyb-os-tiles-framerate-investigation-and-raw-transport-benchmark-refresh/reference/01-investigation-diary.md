@@ -21,12 +21,25 @@ RelatedFiles:
       Note: Render and writer stats used as the primary pacing evidence
     - Path: examples/js/11-cyb-os-tiles.js
       Note: Scene under investigation; redraws left
+    - Path: pkg/device/renderer.go
+      Note: Default retained flush interval explains the live-runner's ~25 FPS ceiling
+    - Path: ttmp/2026/04/13/LOUPE-013--cyb-os-tiles-framerate-investigation-and-raw-transport-benchmark-refresh/scripts/01-js-path-probe-main-only.js
+      Note: Main-only live-runner probe used to compare against raw full-screen throughput
+    - Path: ttmp/2026/04/13/LOUPE-013--cyb-os-tiles-framerate-investigation-and-raw-transport-benchmark-refresh/scripts/02-js-path-probe-three-display.js
+      Note: Three-display live-runner probe used to compare command count effects
+    - Path: ttmp/2026/04/13/LOUPE-013--cyb-os-tiles-framerate-investigation-and-raw-transport-benchmark-refresh/scripts/03-js-path-probe-main-fast-sides-slow.js
+      Note: Decimated-side probe used to test lower side-display cadence
+    - Path: ttmp/2026/04/13/LOUPE-013--cyb-os-tiles-framerate-investigation-and-raw-transport-benchmark-refresh/scripts/04-js-path-probe-main-only-present-driven.js
+      Note: Self-invalidating main-only probe used to separate presenter cadence from anim.loop cadence
+    - Path: ttmp/2026/04/13/LOUPE-013--cyb-os-tiles-framerate-investigation-and-raw-transport-benchmark-refresh/scripts/05-js-path-probe-three-display-present-driven.js
+      Note: Self-invalidating three-display probe used to confirm the same scheduler cap under presenter-driven invalidation
 ExternalSources: []
 Summary: Backfilled diary for the first cyb-os-tiles hardware smoke run, framerate investigation, main-only A/B probe, and raw benchmark ticket setup.
 LastUpdated: 2026-04-13T15:32:47.878089581-04:00
 WhatFor: Preserve the first evidence-backed investigation into cyb-os-tiles pacing, especially the difference between three-display redraws and main-only redraws.
 WhenToUse: Use when resuming the cyb-os-tiles framerate investigation or when comparing retained-scene pacing against raw writer benchmark ceilings.
 ---
+
 
 
 # Investigation Diary
@@ -410,3 +423,203 @@ Loupedeck Live FPS benchmark
 Mode: raw writer benchmark (render scheduler disabled, writer interval = 0)
 Display measured as full touchscreen main display = 360x270 for product 0004
 ```
+
+---
+
+## Step 5: Rerun the raw hardware benchmark successfully on the current tree
+
+With the ticket in place, the first real follow-up measurement was to rerun the dedicated raw benchmark harness on the current codebase. This mattered because the earlier `cyb-os-tiles` observations were scene-level and live-runner-level observations; they were not a clean control for what the underlying device path can still do right now.
+
+The benchmark rerun completed successfully on the second attempt. The first streamed run aborted mid-output while the mixed sweep was still in progress, so I reran it quietly to a log file and then extracted the summary lines. The successful rerun confirmed that the raw writer/display path is still substantially stronger than the `cyb-os-tiles` live-scene results would suggest.
+
+### Prompt Context
+
+**User prompt (verbatim):** "ok, go ahead. You can also write your own JS based fps measurement scripts, to test the different paths"
+
+**Assistant interpretation:** Proceed with the fresh benchmark work and, if useful, add dedicated measurement probes rather than relying only on the existing scene.
+
+**Inferred user intent:** Turn the ticket from a hypothesis into evidence by collecting both raw baseline numbers and targeted live-path measurements.
+
+**Commit (code):** N/A
+
+### What I did
+- Tried an initial streamed benchmark run:
+
+```bash
+go run ./cmd/loupe-fps-bench | tee /tmp/loupe-fps-bench-1776109234.log
+```
+
+- That run aborted mid mixed-sweep before producing a final complete summary.
+- Reran the benchmark quietly to a file and extracted the summary lines:
+
+```bash
+timeout 360s go run ./cmd/loupe-fps-bench >/tmp/loupe-fps-bench-rerun-1776109486.log 2>&1
+rg -n "^== |^summary:|^target=|^scale=" /tmp/loupe-fps-bench-rerun-1776109486.log | tail -120
+```
+
+- Recorded the successful raw-writer results:
+  - full-screen main display stable to `36 FPS`, peak achieved `37.38 FPS`
+  - single `90x90` button region stable to `320 FPS`, peak achieved `313.66 FPS`
+  - mixed 12-button animation stable to total target `288 FPS`
+
+### Why
+- The ticket needed a current-tree control baseline, not only prior historical numbers.
+- The raw benchmark disables the retained render scheduler and uses writer interval `0`, so it is the right baseline for what the device path can sustain absent the live runner’s normal coalescing path.
+
+### What worked
+- The benchmark completed successfully on the rerun with exit status `0`.
+- The successful summary from `/tmp/loupe-fps-bench-rerun-1776109486.log` showed:
+
+```text
+summary: max stable target fps=36.0, peak achieved fps=37.38
+summary: max stable target fps=320.0, peak achieved fps=313.66
+summary: best stable mixed-framerate total target fps=288.00 total actual fps=288.00
+```
+
+- This is materially faster than the earlier `cyb-os-tiles` live-scene cadence, especially for full-screen main-display updates.
+
+### What didn't work
+- The first streamed benchmark run aborted before completion while the mixed sweep was still printing results.
+- That did not invalidate the benchmark harness, but it did reinforce that long interactive runs are safer when redirected to a log file and summarized after the fact.
+
+### What I learned
+- The raw writer/display path on the current tree still supports roughly:
+  - `36 FPS` full-screen main-display updates
+  - `320 FPS` for a single `90x90` region
+  - `288 total FPS` for the best stable mixed 12-button workload
+- That means `cyb-os-tiles` feeling slow is not simply “the hardware can only do ~10 FPS.” The retained live-runner path and the scene structure matter a lot.
+
+### What was tricky to build
+- The main sharp edge was the interactive output path. The benchmark itself is long-running and verbose enough that streaming it directly was less robust than logging to a file and post-processing the summary lines.
+
+### What warrants a second pair of eyes
+- Review whether `cmd/loupe-fps-bench` should grow flags for narrower reruns so future comparisons do not require the full end-to-end sweep every time.
+
+### What should be done in the future
+- Compare these raw baseline numbers directly against purpose-built JS path probes under `cmd/loupe-js-live`.
+- Keep distinguishing raw writer/display ceilings from retained-scene ceilings.
+
+### Code review instructions
+- Start with:
+  - `/home/manuel/code/wesen/2026-04-11--loupedeck-test/cmd/loupe-fps-bench/main.go`
+- Reproduce with:
+
+```bash
+timeout 360s go run ./cmd/loupe-fps-bench >/tmp/loupe-fps-bench-rerun.log 2>&1
+rg -n "^== |^summary:|^target=|^scale=" /tmp/loupe-fps-bench-rerun.log | tail -120
+```
+
+### Technical details
+- Successful evidence log:
+  - `/tmp/loupe-fps-bench-rerun-1776109486.log`
+- Key stable ceilings from that run:
+  - full-screen main display: `36 FPS`
+  - single `90x90` region: `320 FPS`
+  - mixed 12-button bank: `288 total FPS`
+
+---
+
+## Step 6: Add dedicated JS path probes and uncover the live runner's default 40ms cap
+
+After confirming the raw baseline, I added a set of dedicated JS probe scenes to test the live-runner path more directly. The goal was to separate questions that the big `cyb-os-tiles` scene confounds together: one main display versus three displays, full-speed sides versus decimated side redraws, and animation-loop pacing versus presenter-driven self-invalidation.
+
+These probes turned out to reveal the most important ticket insight so far. The live-runner path is not operating at the raw benchmark ceiling by default. `cmd/loupe-js-live` goes through the retained render scheduler, and the scheduler’s default flush interval is `40ms`, which implies a built-in cap of about `25 FPS`. The JS probes matched that exactly at the writer layer: the main-only probe sent about `50` commands per `2s` window, and the three-display probe sent about `150` commands per `2s` window, which is still only about `25` frame-equivalents per second.
+
+### Prompt Context
+
+**User prompt (verbatim):** (same as Step 5)
+
+**Assistant interpretation:** Use custom JS probes if they help isolate which part of the live path is limiting throughput.
+
+**Inferred user intent:** Test different display-update shapes directly in the JS runtime rather than inferring everything from one complex demo scene.
+
+**Commit (code):** `bc408ec` — "Add LOUPE-013 JS path probe scripts"
+
+### What I did
+- Added five probe scripts under:
+  - `/home/manuel/code/wesen/2026-04-11--loupedeck-test/ttmp/2026/04/13/LOUPE-013--cyb-os-tiles-framerate-investigation-and-raw-transport-benchmark-refresh/scripts/`
+- The probe set includes:
+  - `01-js-path-probe-main-only.js`
+  - `02-js-path-probe-three-display.js`
+  - `03-js-path-probe-main-fast-sides-slow.js`
+  - `04-js-path-probe-main-only-present-driven.js`
+  - `05-js-path-probe-three-display-present-driven.js`
+- Ran the animation-loop-driven probes with:
+
+```bash
+timeout 25s go run ./cmd/loupe-js-live --script <probe.js> --duration 8s --send-interval 0ms --log-render-stats --log-writer-stats --stats-interval 2s
+```
+
+- Ran the presenter-driven probes with:
+
+```bash
+timeout 20s go run ./cmd/loupe-js-live --script <probe.js> --duration 6s --send-interval 0ms --log-render-stats --log-writer-stats --stats-interval 2s
+```
+
+- Inspected the live-runner render scheduler defaults in:
+  - `/home/manuel/code/wesen/2026-04-11--loupedeck-test/pkg/device/renderer.go`
+- Confirmed the default retained flush interval is:
+
+```go
+var DefaultRenderOptions = RenderOptions{
+    FlushInterval: 40 * time.Millisecond,
+    QueueSize:     256,
+}
+```
+
+### Why
+- The big scene alone could not distinguish “device is slow” from “live runner is coalescing at a fixed cadence” from “scene-generation work is heavy.”
+- Purpose-built probes made those layers much easier to separate.
+
+### What worked
+- The scripts ran successfully on hardware and produced stable per-window writer statistics.
+- The key writer-level results were strikingly consistent:
+  - main-only probe: about `50` commands per `2s` window
+  - three-display probe: about `150` commands per `2s` window
+  - decimated-side probe: about `112–113` commands per `2s` window
+- Interpreted as frame-equivalents, that is approximately:
+  - main-only: `25 FPS`
+  - three-display: `150 / 3 / 2s = 25 FPS`
+  - main-fast/sides-slow: about `28 commands/s`, or about `25` main frames/s with side updates layered on top
+- The presenter-driven self-invalidating probes produced the same writer-layer outcome as the animation-loop-driven probes, which strongly suggests the default retained scheduler cadence, not the JS invalidation source, is the main cap.
+
+### What didn't work
+- The render stats themselves can look much larger than the writer command rates because they count retained flush activity/coalescing behavior rather than literal device commands. That makes them easy to misread if viewed without the writer stats.
+- The probe scripts do not yet answer how much of `cyb-os-tiles` remaining slowdown below `25 FPS` comes from scene-generation work versus the exact shape of its redraws.
+
+### What I learned
+- The raw hardware path and the live-runner default path are different ceilings.
+- `cmd/loupe-js-live` currently uses the retained scheduler default of `40ms`, which is about `25 FPS` maximum flush cadence.
+- The earlier `cyb-os-tiles` main-only A/B result now makes more sense: the main-only version improved to roughly `22–24 FPS`, which is very close to the live-runner default cap.
+- The full three-display `cyb-os-tiles` run being down around `10–15 FPS` means there is additional scene-level cost on top of the scheduler cap.
+
+### What was tricky to build
+- The tricky part was interpreting the mixed evidence correctly. At first glance, the large `flush_ticks` values in render stats could make it look like the live runner was rendering far faster than the writer was sending. Reading `pkg/device/renderer.go` clarified the architectural reason: the renderer is a coalescing scheduler with a fixed default flush interval, and writer stats are the more honest source for effective device-facing throughput.
+
+### What warrants a second pair of eyes
+- Review whether `cmd/loupe-js-live` should expose render flush interval as a CLI flag for measurement and tuning.
+- Review whether future scene-performance discussions should always report both raw benchmark numbers and live-runner scheduler settings together.
+
+### What should be done in the future
+- Add a real `cyb-os-tiles` variant with reduced side-display cadence to see how close it can get to the `25 FPS` live-runner ceiling.
+- Decide whether to expose scheduler tuning in the live runner or keep the current `40ms` default as a user-experience tradeoff.
+
+### Code review instructions
+- Start with:
+  - `/home/manuel/code/wesen/2026-04-11--loupedeck-test/pkg/device/renderer.go`
+  - `/home/manuel/code/wesen/2026-04-11--loupedeck-test/cmd/loupe-fps-bench/main.go`
+  - `/home/manuel/code/wesen/2026-04-11--loupedeck-test/ttmp/2026/04/13/LOUPE-013--cyb-os-tiles-framerate-investigation-and-raw-transport-benchmark-refresh/scripts/01-js-path-probe-main-only.js`
+  - `/home/manuel/code/wesen/2026-04-11--loupedeck-test/ttmp/2026/04/13/LOUPE-013--cyb-os-tiles-framerate-investigation-and-raw-transport-benchmark-refresh/scripts/02-js-path-probe-three-display.js`
+  - `/home/manuel/code/wesen/2026-04-11--loupedeck-test/ttmp/2026/04/13/LOUPE-013--cyb-os-tiles-framerate-investigation-and-raw-transport-benchmark-refresh/scripts/03-js-path-probe-main-fast-sides-slow.js`
+- Reproduce the main finding with either the animation-loop or presenter-driven probe pair and compare writer stats.
+
+### Technical details
+- Example writer windows from the probes:
+
+```text
+main-only probe: delta={QueuedCommands:50 SentCommands:50 SentMessages:100 FailedCommands:0 ...}
+three-display probe: delta={QueuedCommands:150 SentCommands:150 SentMessages:300 FailedCommands:0 ...}
+main-fast/sides-slow probe: delta={QueuedCommands:113 SentCommands:113 SentMessages:226 FailedCommands:0 ...}
+```
+
+- These are consistent with a retained flush cadence near `25 FPS` when `FlushInterval` is `40ms`.
