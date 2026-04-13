@@ -132,7 +132,6 @@ func main() {
 		}
 	}()
 
-	deck.SetDisplays()
 	mainDisplay := deck.GetDisplay("main")
 	if mainDisplay == nil {
 		fmt.Fprintln(os.Stderr, "missing main display")

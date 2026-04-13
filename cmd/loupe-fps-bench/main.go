@@ -90,7 +90,6 @@ func main() {
 
 	fmt.Println("== Full-screen main display sweep ==")
 	fullResults, err := runSingleRegionSweep(writerOptions, nil, fullTargets, duration, func(l *device.Loupedeck) *device.Display {
-		l.SetDisplays()
 		return l.GetDisplay("main")
 	}, func(d *device.Display, frame int) {
 		d.Draw(fullFrames[frame%len(fullFrames)], 0, 0)
@@ -104,7 +103,6 @@ func main() {
 
 	fmt.Println("== Single touch-button area sweep (90x90) ==")
 	singleResults, err := runSingleRegionSweep(writerOptions, nil, singleTargets, duration, func(l *device.Loupedeck) *device.Display {
-		l.SetDisplays()
 		return l.GetDisplay("main")
 	}, func(d *device.Display, frame int) {
 		d.Draw(singleFrames[frame%len(singleFrames)], 0, 0)
@@ -244,7 +242,6 @@ func runButtonSweep(
 		if err != nil {
 			return results, err
 		}
-		l.SetDisplays()
 		mainDisplay := l.GetDisplay("main")
 		if mainDisplay == nil {
 			_ = l.Close()

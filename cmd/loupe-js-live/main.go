@@ -72,7 +72,6 @@ func main() {
 			slog.Warn("close failed", "error", err)
 		}
 	}()
-	deckConn.SetDisplays()
 	displays := map[string]*device.Display{
 		"left":  deckConn.GetDisplay("left"),
 		"main":  deckConn.GetDisplay("main"),

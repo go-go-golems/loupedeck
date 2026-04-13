@@ -68,39 +68,6 @@ func (l *Loupedeck) addDisplay(name string, id byte, width, height, offsetx, off
 	l.displays[name] = d
 }
 
-// SetDisplays configures the Loupdeck's displays based on the
-// hardware ID of the conencted device.
-func (l *Loupedeck) SetDisplays() {
-	switch l.Product {
-	case "0003":
-		slog.Info("Using Loupedeck CT v1 display settings.")
-		l.addDisplay("left", 'L', 60, 270, 0, 0, false)
-		l.addDisplay("main", 'A', 360, 270, 60, 0, false)
-		l.addDisplay("right", 'R', 60, 270, 420, 0, false)
-		l.addDisplay("dial", 'W', 240, 240, 0, 0, true)
-	case "0007":
-		slog.Info("Using Loupedeck CT v2 display settings.")
-		l.addDisplay("left", 'M', 60, 270, 0, 0, false)
-		l.addDisplay("main", 'M', 360, 270, 60, 0, false)
-		l.addDisplay("right", 'M', 60, 270, 420, 0, false)
-		l.addDisplay("all", 'M', 480, 270, 0, 0, false) // Same as left+main+right
-		l.addDisplay("dial", 'W', 240, 240, 0, 0, true)
-	case "0004":
-		slog.Info("Using Loupedeck Live display settings.")
-		l.addDisplay("left", 'L', 60, 270, 0, 0, false)
-		l.addDisplay("main", 'A', 360, 270, 0, 0, false)
-		l.addDisplay("right", 'R', 60, 270, 0, 0, false)
-	case "0006", "0d06":
-		slog.Info("Using Loupedeck Live S/Razor Stream Controller display settings.")
-		l.addDisplay("left", 'M', 60, 270, 0, 0, false)
-		l.addDisplay("main", 'M', 360, 270, 60, 0, false)
-		l.addDisplay("right", 'M', 60, 270, 420, 0, false)
-		l.addDisplay("all", 'M', 480, 270, 0, 0, false) // Same as left+main+right
-	default:
-		panic("Unknown device type: " + l.Product)
-	}
-}
-
 // Height returns the height (in pixels) of the Loupedeck's displays.
 func (d *Display) Height() int {
 	return d.height

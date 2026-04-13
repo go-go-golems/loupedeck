@@ -121,6 +121,13 @@ func doConnect(c *SerialWebSockConn, writerOptions WriterOptions, renderOptions 
 
 	slog.Info("Connect successful", "resp", resp)
 
+	profile, err := resolveProfile(c.Product)
+	if err != nil {
+		_ = conn.Close()
+		_ = c.Close()
+		return nil, err
+	}
+
 	l := &Loupedeck{
 		conn:                 conn,
 		serial:               c,
@@ -132,17 +139,17 @@ func doConnect(c *SerialWebSockConn, writerOptions WriterOptions, renderOptions 
 		touchUpListeners:     make(map[TouchButton]map[uint64]TouchFunc),
 		Vendor:               c.Vendor,
 		Product:              c.Product,
-		Model:                "foo",
 		transactionCallbacks: map[byte]transactionCallback{},
 		displays:             map[string]*Display{},
 	}
+	l.applyProfile(profile)
 	l.writer = newOutboundWriter(l.conn, writerOptions)
 	if renderOptions != nil {
 		l.renderOptions = *renderOptions
 		l.renderer = newRenderScheduler(l.writer, l.renderOptions)
 	}
 
-	slog.Info("Found Loupedeck", "vendor", l.Vendor, "product", l.Product)
+	slog.Info("Found Loupedeck", "vendor", l.Vendor, "product", l.Product, "model", l.Model)
 
 	slog.Info("Sending reset.")
 	data := make([]byte, 0)
