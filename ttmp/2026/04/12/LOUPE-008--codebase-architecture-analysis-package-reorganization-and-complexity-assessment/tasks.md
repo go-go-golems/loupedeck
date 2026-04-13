@@ -68,6 +68,7 @@
 - [x] Make the copied lint pipeline pass without weakening the new checks
 - [x] Review the copied GitHub Actions workflows against the actual shipped CLI surface
 - [x] Review and modernize `.goreleaser.yaml` until `goreleaser check` passes without deprecation failures
+- [x] Make example-script boot tests tolerate missing host CJK fonts so GitHub runners do not require distro-specific font packages
 - [x] Validate the new CLI and release plumbing with `go run ./cmd/loupedeck --help`, `go run ./cmd/loupedeck run --help`, `make lint`, `go test ./...`, `make build`, `goreleaser check`, and `goreleaser release --snapshot --clean --skip=sign --skip=publish --single-target`
 
 ## Future follow-up candidates

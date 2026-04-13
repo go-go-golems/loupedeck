@@ -143,3 +143,14 @@ Tightened the README for release consumers, added an explicit upstream reference
 - /home/manuel/code/wesen/2026-04-11--loupedeck-test/.github/workflows/release.yaml — Release workflow now only triggers on `v*` tags
 - /home/manuel/code/wesen/2026-04-11--loupedeck-test/.goreleaser.yaml — Removed current GoReleaser deprecations and validated snapshot release build locally
 
+
+## 2026-04-13
+
+Made the example-script boot test portable on GitHub by making `07-cyb-ito-prototype.js` tolerate missing host CJK fonts the same way newer examples already do
+
+### Related Files
+
+- /home/manuel/code/wesen/2026-04-11--loupedeck-test/examples/js/07-cyb-ito-prototype.js — Older prototype script now uses optional CJK font loading instead of unconditional top-level font reads
+- /home/manuel/code/wesen/2026-04-11--loupedeck-test/examples/js/10-cyb-ito-full-page-all12.js — Existing optional-font pattern used as the normalization target
+- /home/manuel/code/wesen/2026-04-11--loupedeck-test/examples/js/11-cyb-os-tiles.js — Existing optional-font pattern used as the normalization target
+

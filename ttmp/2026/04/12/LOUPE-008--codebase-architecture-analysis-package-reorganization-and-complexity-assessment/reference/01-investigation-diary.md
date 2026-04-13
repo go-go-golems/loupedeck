@@ -91,7 +91,7 @@ RelatedFiles:
       Note: Task tracking for the cmd/loupe-js-live decomposition slice
 ExternalSources: []
 Summary: Chronological diary of codebase analysis investigating package structure, file complexity, and reorganization opportunities for the go-go-golems/loupedeck project
-LastUpdated: 2026-04-13T19:05:00-04:00
+LastUpdated: 2026-04-13T19:20:00-04:00
 WhatFor: Document the investigation process, findings, and analysis methodology for codebase reorganization recommendations
 WhenToUse: When reviewing analysis conclusions or extending the investigation
 ---
@@ -1720,3 +1720,120 @@ https://github.com/scottlaird/loupedeck
 ```text
 [main 8dfc2bf] Tighten README and harden release plumbing
 ```
+
+---
+
+## Step 16: Make example-script boot tests tolerant of missing host CJK fonts in GitHub Actions
+
+After the repo move and release-plumbing work were pushed, GitHub surfaced one more portability problem: the example-script boot test was still assuming that Ubuntu runners would have the Noto CJK collection installed at `/usr/share/fonts/opentype/noto/NotoSansCJK-Regular.ttc`. That assumption was already handled defensively in the newer cyb-ito/cyb-os scripts, but the older prototype script still loaded the font unconditionally at top level.
+
+The fix here was intentionally small and local. Rather than special-casing CI in Go tests or weakening the example boot coverage, I aligned `07-cyb-ito-prototype.js` with the newer examples and made its optional CJK font load degrade to the default built-in face when the host does not provide that font file.
+
+### Prompt Context
+
+**User prompt (verbatim):** "we also have this: 
+Run GOWORK=off go test ./...
+?       github.com/go-go-golems/loupedeck/cmd/loupedeck    [no test files]
+?       github.com/go-go-golems/loupedeck/cmd/loupedeck/cmds/common    [no test files]
+?       github.com/go-go-golems/loupedeck/cmd/loupedeck/cmds/run    [no test files]
+?       github.com/go-go-golems/loupedeck/dev-tools/loupe-fps-bench    [no test files]
+?       github.com/go-go-golems/loupedeck/docs/help    [no test files]
+?       github.com/go-go-golems/loupedeck/examples/cmd/loupe-js-demo    [no test files]
+ok      github.com/go-go-golems/loupedeck/examples/cmd/loupe-svg-buttons    0.006s
+ok      github.com/go-go-golems/loupedeck/pkg/device    0.088s
+?       github.com/go-go-golems/loupedeck/pkg/jsmetrics    [no test files]
+ok      github.com/go-go-golems/loupedeck/pkg/runtimebridge    0.005s
+ok      github.com/go-go-golems/loupedeck/pkg/runtimeowner    0.140s
+ok      github.com/go-go-golems/loupedeck/runtime/anim    0.176s
+ok      github.com/go-go-golems/loupedeck/runtime/easing    0.003s
+ok      github.com/go-go-golems/loupedeck/runtime/gfx    0.054s
+ok      github.com/go-go-golems/loupedeck/runtime/host    0.064s
+--- FAIL: TestExampleScriptsBoot (0.28s)
+    --- FAIL: TestExampleScriptsBoot/07-cyb-ito-prototype.js (0.00s)
+        examples_test.go:30: run script 07-cyb-ito-prototype.js: GoError: gfx: read font \"/usr/share/fonts/opentype/noto/NotoSansCJK-Regular.ttc\": open /usr/share/fonts/opentype/noto/NotoSansCJK-Regular.ttc: no such file or directory at github.com/go-go-golems/loupedeck/runtime/js.NewRuntime.Register.func5.2 (native)
+FAIL
+FAIL    github.com/go-go-golems/loupedeck/runtime/js    0.461s
+?       github.com/go-go-golems/loupedeck/runtime/js/env    [no test files]
+?       github.com/go-go-golems/loupedeck/runtime/js/module_anim    [no test files]
+?       github.com/go-go-golems/loupedeck/runtime/js/module_easing    [no test files]
+?       github.com/go-go-golems/loupedeck/runtime/js/module_gfx    [no test files]
+?       github.com/go-go-golems/loupedeck/runtime/js/module_metrics    [no test files]
+?       github.com/go-go-golems/loupedeck/runtime/js/module_present    [no test files]
+?       github.com/go-go-golems/loupedeck/runtime/js/module_scene_metrics    [no test files]
+?       github.com/go-go-golems/loupedeck/runtime/js/module_state    [no test files]
+?       github.com/go-go-golems/loupedeck/runtime/js/module_ui    [no test files]
+ (when running on github)"
+
+**Assistant interpretation:** Fix the GitHub Actions failure caused by one example script still hard-requiring a host-installed CJK font.
+
+**Inferred user intent:** Keep the example boot tests meaningful on GitHub without making the repo depend on distro-specific font packages.
+
+### What I did
+- Inspected `runtime/js/examples_test.go` and the failing script path.
+- Verified that:
+  - `examples/js/10-cyb-ito-full-page-all12.js`
+  - `examples/js/11-cyb-os-tiles.js`
+  already use a `loadOptionalFont(...)` wrapper with `try/catch`.
+- Updated `examples/js/07-cyb-ito-prototype.js` to use the same pattern instead of calling `gfx.font(...)` directly at top level.
+- Re-ran:
+
+```bash
+go test ./runtime/js ./examples/cmd/...
+GOWORK=off go test ./...
+```
+
+### Why
+- The example boot test should verify that examples can initialize under normal CI conditions, not require an exact system font package layout.
+- Matching the older script to the already-established optional-font pattern keeps the example set internally consistent.
+
+### What worked
+- The previously failing `runtime/js` example boot test now passes.
+- Full-suite validation passes again locally, including the `GOWORK=off go test ./...` form that GitHub Actions uses.
+
+### What didn't work
+- The old script failed immediately on GitHub because it loaded the font collection unconditionally at module top level:
+
+```text
+GoError: gfx: read font "/usr/share/fonts/opentype/noto/NotoSansCJK-Regular.ttc": open /usr/share/fonts/opentype/noto/NotoSansCJK-Regular.ttc: no such file or directory
+```
+
+- That made the example boot test sensitive to the runner image instead of just the runtime behavior.
+
+### What I learned
+- The portability bug was not in the test harness; it was one inconsistent example script.
+- The repo already had the right fallback pattern in newer scripts, so the best fix was to normalize the older example to that pattern instead of adding CI-specific logic.
+
+### What was tricky to build
+- The main subtlety was choosing the right layer for the fix. It would have been easy to skip the test or add host-specific exceptions in Go, but the better fix was at the example-script layer because the example itself was the only inconsistent piece.
+
+### What warrants a second pair of eyes
+- Review whether any other examples still assume host-installed assets beyond the already-known optional CJK font path.
+
+### What should be done in the future
+- If more examples start depending on optional host resources, consider documenting a simple convention for making those resources optional by default.
+
+### Code review instructions
+- Review:
+  - `examples/js/07-cyb-ito-prototype.js`
+  - `examples/js/10-cyb-ito-full-page-all12.js`
+  - `examples/js/11-cyb-os-tiles.js`
+- Validate with:
+
+```bash
+go test ./runtime/js ./examples/cmd/...
+GOWORK=off go test ./...
+```
+
+### Technical details
+- The fix reused the existing JS-side pattern:
+
+```javascript
+function loadOptionalFont(path, opts) {
+  try {
+    return gfx.font(path, opts);
+  } catch (_err) {
+    return null;
+  }
+}
+```
+
