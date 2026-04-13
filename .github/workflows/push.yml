@@ -1,4 +1,4 @@
-name: golang-pipeline
+name: ci
 
 on:
   push:
@@ -6,8 +6,11 @@ on:
       - 'main'
   pull_request:
 
+permissions:
+  contents: read
+
 jobs:
-  test:
+  test-build-smoke:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v6
@@ -18,9 +21,13 @@ jobs:
         with:
           go-version-file: go.mod
           cache: true
-      -
-        name: generate assets
-        run: go generate ./...
-      -
-        name: run unit tests
-        run: go test ./...
+      - name: generate assets
+        run: GOWORK=off go generate ./...
+      - name: run unit tests
+        run: GOWORK=off go test ./...
+      - name: build packages
+        run: GOWORK=off go build ./...
+      - name: smoke test shipped CLI help
+        run: |
+          GOWORK=off go run ./cmd/loupedeck --help
+          GOWORK=off go run ./cmd/loupedeck run --help

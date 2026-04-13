@@ -1,10 +1,12 @@
+name: release
+
 on:
   workflow_dispatch:
 
   push:
-    # run only against tags
+    # run only against version tags
     tags:
-      - '*'
+      - 'v*'
 
 permissions:
   contents: write
