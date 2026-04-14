@@ -5,7 +5,9 @@ import (
 	"github.com/go-go-golems/glazed/pkg/help"
 	helpcmd "github.com/go-go-golems/glazed/pkg/help/cmd"
 	loupedeckcmdcommon "github.com/go-go-golems/loupedeck/cmd/loupedeck/cmds/common"
+	doccmd "github.com/go-go-golems/loupedeck/cmd/loupedeck/cmds/doc"
 	runcmd "github.com/go-go-golems/loupedeck/cmd/loupedeck/cmds/run"
+	verbscmd "github.com/go-go-golems/loupedeck/cmd/loupedeck/cmds/verbs"
 	doc "github.com/go-go-golems/loupedeck/docs/help"
 	"github.com/spf13/cobra"
 )
@@ -33,6 +35,8 @@ func main() {
 	runCobraCmd, err := loupedeckcmdcommon.BuildCobraCommandDualMode(runCommand)
 	cobra.CheckErr(err)
 	rootCmd.AddCommand(runCobraCmd)
+	rootCmd.AddCommand(verbscmd.NewCommand())
+	rootCmd.AddCommand(doccmd.NewCommand())
 
 	cobra.CheckErr(rootCmd.Execute())
 }

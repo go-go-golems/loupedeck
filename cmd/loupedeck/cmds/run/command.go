@@ -23,7 +23,9 @@ import (
 	"github.com/go-go-golems/glazed/pkg/middlewares"
 	"github.com/go-go-golems/glazed/pkg/settings"
 	"github.com/go-go-golems/glazed/pkg/types"
+	"github.com/go-go-golems/go-go-goja/engine"
 	"github.com/go-go-golems/loupedeck/pkg/device"
+	"github.com/go-go-golems/loupedeck/pkg/scriptmeta"
 	jsruntime "github.com/go-go-golems/loupedeck/runtime/js"
 	envpkg "github.com/go-go-golems/loupedeck/runtime/js/env"
 	"github.com/go-go-golems/loupedeck/runtime/metrics"
@@ -35,26 +37,32 @@ type Command struct {
 }
 
 type settings_ struct {
-	ScriptPath      string `glazed:"script"`
-	DevicePath      string `glazed:"device"`
-	Duration        string `glazed:"duration"`
-	QueueSize       int    `glazed:"queue-size"`
-	SendInterval    string `glazed:"send-interval"`
-	FlushInterval   string `glazed:"flush-interval"`
-	LogEvents       bool   `glazed:"log-events"`
-	LogRenderStats  bool   `glazed:"log-render-stats"`
-	LogWriterStats  bool   `glazed:"log-writer-stats"`
-	LogJSStats      bool   `glazed:"log-js-stats"`
-	LogJSTrace      bool   `glazed:"log-js-trace"`
-	LogGoTrace      bool   `glazed:"log-go-trace"`
-	TraceLimit      int    `glazed:"trace-limit"`
-	TraceDumpOnExit bool   `glazed:"trace-dump-on-exit"`
-	StatsInterval   string `glazed:"stats-interval"`
-	ExitOnCircle    bool   `glazed:"exit-on-circle"`
+	ScriptPath      string   `glazed:"script"`
+	Verb            string   `glazed:"verb"`
+	VerbConfig      []string `glazed:"verb-config"`
+	VerbValuesJSON  string   `glazed:"verb-values-json"`
+	DevicePath      string   `glazed:"device"`
+	Duration        string   `glazed:"duration"`
+	QueueSize       int      `glazed:"queue-size"`
+	SendInterval    string   `glazed:"send-interval"`
+	FlushInterval   string   `glazed:"flush-interval"`
+	LogEvents       bool     `glazed:"log-events"`
+	LogRenderStats  bool     `glazed:"log-render-stats"`
+	LogWriterStats  bool     `glazed:"log-writer-stats"`
+	LogJSStats      bool     `glazed:"log-js-stats"`
+	LogJSTrace      bool     `glazed:"log-js-trace"`
+	LogGoTrace      bool     `glazed:"log-go-trace"`
+	TraceLimit      int      `glazed:"trace-limit"`
+	TraceDumpOnExit bool     `glazed:"trace-dump-on-exit"`
+	StatsInterval   string   `glazed:"stats-interval"`
+	ExitOnCircle    bool     `glazed:"exit-on-circle"`
 }
 
 type options struct {
 	ScriptPath      string
+	Verb            string
+	VerbConfig      []string
+	VerbValuesJSON  string
 	DevicePath      string
 	Duration        time.Duration
 	QueueSize       int
@@ -74,6 +82,7 @@ type options struct {
 
 type commandResult struct {
 	ScriptPath     string
+	Verb           string
 	DevicePath     string
 	Duration       time.Duration
 	SendInterval   time.Duration
@@ -106,9 +115,13 @@ func NewCommand() (*Command, error) {
 Examples:
   loupedeck run --script ./examples/js/01-hello.js --duration 5s
   loupedeck run --script ./examples/js/11-cyb-os-tiles.js --send-interval 0ms --flush-interval 20ms
+  loupedeck run --script ./examples/js/12-documented-scene.js --verb configure --verb-values-json '{"default":{"title":"OPS"}}'
   loupedeck run --script ./examples/js/01-hello.js --with-glaze-output --output json`),
 		cmds.WithFlags(
-			fields.New("script", fields.TypeString, fields.WithIsArgument(true), fields.WithHelp("Path to the JavaScript file to execute")),
+			fields.New("script", fields.TypeString, fields.WithIsArgument(true), fields.WithHelp("Path to the JavaScript file or scene directory to execute")),
+			fields.New("verb", fields.TypeString, fields.WithDefault(""), fields.WithHelp("Optional jsverbs verb to invoke inside the live runtime instead of raw script execution")),
+			fields.New("verb-config", fields.TypeStringList, fields.WithDefault([]string{}), fields.WithHelp("Optional config files used to resolve jsverbs field values")),
+			fields.New("verb-values-json", fields.TypeString, fields.WithDefault(""), fields.WithHelp("Optional JSON object or section map used to resolve jsverbs field values")),
 			fields.New("device", fields.TypeString, fields.WithDefault(""), fields.WithHelp("Optional serial device path (default: auto-detect)")),
 			fields.New("duration", fields.TypeString, fields.WithDefault("15s"), fields.WithHelp("How long to run before exiting; use 0 to run until interrupted")),
 			fields.New("queue-size", fields.TypeInteger, fields.WithDefault(256), fields.WithHelp("Writer queue size")),
@@ -143,6 +156,7 @@ func (c *Command) RunIntoGlazeProcessor(ctx context.Context, vals *values.Values
 	}
 	return gp.AddRow(ctx, types.NewRow(
 		types.MRP("script", result.ScriptPath),
+		types.MRP("verb", result.Verb),
 		types.MRP("device", result.DevicePath),
 		types.MRP("duration", result.Duration.String()),
 		types.MRP("send_interval", result.SendInterval.String()),
@@ -173,6 +187,7 @@ func (c *Command) execute(ctx context.Context, vals *values.Values) (*commandRes
 	}
 	return &commandResult{
 		ScriptPath:     opts.ScriptPath,
+		Verb:           opts.Verb,
 		DevicePath:     devicePath,
 		Duration:       opts.Duration,
 		SendInterval:   opts.SendInterval,
@@ -210,6 +225,9 @@ func decodeOptions(s *settings_) (options, error) {
 	}
 	return options{
 		ScriptPath:      s.ScriptPath,
+		Verb:            s.Verb,
+		VerbConfig:      append([]string{}, s.VerbConfig...),
+		VerbValuesJSON:  s.VerbValuesJSON,
 		DevicePath:      s.DevicePath,
 		Duration:        duration,
 		QueueSize:       s.QueueSize,
@@ -236,17 +254,92 @@ func parseDurationFlag(name, value string) (time.Duration, error) {
 	return d, nil
 }
 
-func run(ctx context.Context, opts options) error {
-	script, err := os.ReadFile(opts.ScriptPath)
-	if err != nil {
-		return fmt.Errorf("read script: %w", err)
-	}
+type runtimeBootstrap func(context.Context, *jsruntime.Runtime) error
 
+func run(ctx context.Context, opts options) error {
+	if strings.TrimSpace(opts.Verb) != "" {
+		return runVerbScene(ctx, opts)
+	}
+	return runRawScriptScene(ctx, opts)
+}
+
+func prepareRawScriptBootstrap(scriptPath string) ([]engine.Option, runtimeBootstrap, error) {
+	script, err := os.ReadFile(scriptPath)
+	if err != nil {
+		return nil, nil, fmt.Errorf("read script: %w", err)
+	}
+	target, err := scriptmeta.ResolveTarget(scriptPath)
+	if err != nil {
+		return nil, nil, err
+	}
+	runtimeOptions, err := scriptmeta.EngineOptionsForTarget(target, nil)
+	if err != nil {
+		return nil, nil, err
+	}
+	bootstrap := func(runCtx context.Context, rt *jsruntime.Runtime) error {
+		_, err := rt.RunString(runCtx, string(script))
+		if err != nil {
+			return fmt.Errorf("run script: %w", err)
+		}
+		return nil
+	}
+	return runtimeOptions, bootstrap, nil
+}
+
+func runRawScriptScene(ctx context.Context, opts options) error {
+	runtimeOptions, bootstrap, err := prepareRawScriptBootstrap(opts.ScriptPath)
+	if err != nil {
+		return err
+	}
+	return runSceneSession(ctx, opts, runtimeOptions, bootstrap)
+}
+
+func prepareVerbBootstrap(opts options) ([]engine.Option, runtimeBootstrap, error) {
+	target, registry, err := scriptmeta.ScanVerbRegistry(opts.ScriptPath)
+	if err != nil {
+		return nil, nil, fmt.Errorf("scan verbs: %w", err)
+	}
+	verb, err := scriptmeta.FindVerb(target, registry, opts.Verb)
+	if err != nil {
+		return nil, nil, err
+	}
+	desc, err := registry.CommandDescriptionForVerb(verb)
+	if err != nil {
+		return nil, nil, err
+	}
+	parsedValues, err := scriptmeta.ParseVerbValues(desc, opts.VerbConfig, opts.VerbValuesJSON)
+	if err != nil {
+		return nil, nil, fmt.Errorf("parse verb values: %w", err)
+	}
+	runtimeOptions, err := scriptmeta.EngineOptionsForTarget(target, registry)
+	if err != nil {
+		return nil, nil, err
+	}
+	bootstrap := func(runCtx context.Context, rt *jsruntime.Runtime) error {
+		_, err := registry.InvokeInRuntime(runCtx, rt.Runtime, verb, parsedValues)
+		if err != nil {
+			return fmt.Errorf("invoke verb %s: %w", verb.FullPath(), err)
+		}
+		return nil
+	}
+	return runtimeOptions, bootstrap, nil
+}
+
+func runVerbScene(ctx context.Context, opts options) error {
+	runtimeOptions, bootstrap, err := prepareVerbBootstrap(opts)
+	if err != nil {
+		return err
+	}
+	return runSceneSession(ctx, opts, runtimeOptions, bootstrap)
+}
+
+func runSceneSession(ctx context.Context, opts options, runtimeOptions []engine.Option, bootstrap runtimeBootstrap) error {
 	writerOptions := device.WriterOptions{QueueSize: opts.QueueSize, SendInterval: opts.SendInterval}
 	renderOptions := device.DefaultRenderOptions
 	renderOptions.FlushInterval = opts.FlushInterval
 
 	var deckConn *device.Loupedeck
+	var err error
 	if opts.DevicePath == "" {
 		deckConn, err = device.ConnectAutoWithWriterAndRenderOptions(writerOptions, &renderOptions)
 	} else {
@@ -282,10 +375,13 @@ func run(ctx context.Context, opts options) error {
 		registerEventLogging(env)
 	}
 
-	rt := jsruntime.NewRuntime(env)
+	rt, err := jsruntime.OpenRuntime(context.Background(), env, runtimeOptions...)
+	if err != nil {
+		return err
+	}
 	defer func() { _ = rt.Close(context.Background()) }()
-	if _, err := rt.RunString(rt.Context(), string(script)); err != nil {
-		return fmt.Errorf("run script: %w", err)
+	if err := bootstrap(rt.Context(), rt); err != nil {
+		return err
 	}
 
 	renderer := render.NewWithDisplays(rt.Env.UI, map[string]render.DrawTarget{
@@ -333,16 +429,16 @@ func run(ctx context.Context, opts options) error {
 		}
 		snap := rt.Env.Metrics.SnapshotAndReset()
 		if opts.LogJSStats {
-			slog.Info("js stats", "script", opts.ScriptPath, "label", label, "counters", formatJSCounters(snap), "timings", formatJSTimings(snap))
+			slog.Info("js stats", "script", opts.ScriptPath, "verb", opts.Verb, "label", label, "counters", formatJSCounters(snap), "timings", formatJSTimings(snap))
 		}
 		if opts.LogJSTrace {
 			for _, event := range filterTraceEvents(snap.Trace, false) {
-				slog.Info("js trace", "script", opts.ScriptPath, "label", label, "seq", event.Seq, "event", event.Name, "fields", formatTraceFields(event.Fields))
+				slog.Info("js trace", "script", opts.ScriptPath, "verb", opts.Verb, "label", label, "seq", event.Seq, "event", event.Name, "fields", formatTraceFields(event.Fields))
 			}
 		}
 		if opts.LogGoTrace {
 			for _, event := range filterTraceEvents(snap.Trace, true) {
-				slog.Info("go trace", "script", opts.ScriptPath, "label", label, "seq", event.Seq, "event", event.Name, "fields", formatTraceFields(event.Fields))
+				slog.Info("go trace", "script", opts.ScriptPath, "verb", opts.Verb, "label", label, "seq", event.Seq, "event", event.Name, "fields", formatTraceFields(event.Fields))
 			}
 		}
 	}
@@ -369,9 +465,9 @@ func run(ctx context.Context, opts options) error {
 	rt.Env.Present.Start(rt.Context())
 	defer rt.Env.Present.Close()
 
-	slog.Info("Loupedeck JS live runner started", "script", opts.ScriptPath, "duration", opts.Duration, "send_interval", opts.SendInterval, "flush_interval", opts.FlushInterval, "log_render_stats", opts.LogRenderStats, "log_writer_stats", opts.LogWriterStats, "log_js_stats", opts.LogJSStats, "log_js_trace", opts.LogJSTrace, "log_go_trace", opts.LogGoTrace, "trace_limit", opts.TraceLimit)
+	slog.Info("Loupedeck JS live runner started", "script", opts.ScriptPath, "verb", opts.Verb, "duration", opts.Duration, "send_interval", opts.SendInterval, "flush_interval", opts.FlushInterval, "log_render_stats", opts.LogRenderStats, "log_writer_stats", opts.LogWriterStats, "log_js_stats", opts.LogJSStats, "log_js_trace", opts.LogJSTrace, "log_go_trace", opts.LogGoTrace, "trace_limit", opts.TraceLimit)
 	exitRunner := func(reason string, attrs ...any) error {
-		logAttrs := []any{"reason", reason, "script", opts.ScriptPath}
+		logAttrs := []any{"reason", reason, "script", opts.ScriptPath, "verb", opts.Verb}
 		logAttrs = append(logAttrs, attrs...)
 		slog.Info("Loupedeck JS live runner exiting", logAttrs...)
 		if opts.TraceDumpOnExit {
@@ -389,14 +485,14 @@ func run(ctx context.Context, opts options) error {
 		case <-statsTick:
 			if opts.LogRenderStats {
 				renderWindowMu.Lock()
-				slog.Info("render stats", "script", opts.ScriptPath, "stats", renderWindow.String())
+				slog.Info("render stats", "script", opts.ScriptPath, "verb", opts.Verb, "stats", renderWindow.String())
 				renderWindow = renderStatsWindow{}
 				renderWindowMu.Unlock()
 			}
 			if opts.LogWriterStats {
 				current := deckConn.WriterStats()
 				delta := diffWriterStats(lastWriterStats, current)
-				slog.Info("writer stats", "script", opts.ScriptPath, "delta", delta, "current", current)
+				slog.Info("writer stats", "script", opts.ScriptPath, "verb", opts.Verb, "delta", delta, "current", current)
 				lastWriterStats = current
 			}
 			dumpMetricsWindow("interval")

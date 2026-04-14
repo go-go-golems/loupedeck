@@ -14,22 +14,27 @@ type Runtime struct {
 	Env *envpkg.LoupeDeckEnvironment
 }
 
-func NewRuntime(env *envpkg.LoupeDeckEnvironment) *Runtime {
+func OpenRuntime(ctx context.Context, env *envpkg.LoupeDeckEnvironment, opts ...engine.Option) (*Runtime, error) {
 	env = envpkg.Ensure(env)
-	factory, err := engine.NewBuilder().
-		WithRuntimeModuleRegistrars(NewRegistrar(env)).
-		Build()
+	builder := engine.NewBuilder(opts...).
+		WithRuntimeModuleRegistrars(NewRegistrar(env))
+	factory, err := builder.Build()
 	if err != nil {
-		panic(fmt.Errorf("build loupedeck runtime factory: %w", err))
+		return nil, fmt.Errorf("build loupedeck runtime factory: %w", err)
 	}
-	rt, err := factory.NewRuntime(context.Background())
+	rt, err := factory.NewRuntime(ctx)
 	if err != nil {
-		panic(fmt.Errorf("create loupedeck runtime: %w", err))
+		return nil, fmt.Errorf("create loupedeck runtime: %w", err)
 	}
-	return &Runtime{
-		Runtime: rt,
-		Env:     env,
+	return &Runtime{Runtime: rt, Env: env}, nil
+}
+
+func NewRuntime(env *envpkg.LoupeDeckEnvironment) *Runtime {
+	rt, err := OpenRuntime(context.Background(), env)
+	if err != nil {
+		panic(err)
 	}
+	return rt
 }
 
 func (r *Runtime) RunString(ctx context.Context, src string) (goja.Value, error) {

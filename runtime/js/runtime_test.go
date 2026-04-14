@@ -218,7 +218,16 @@ func TestAnimModuleLoopCanDriveReactiveUpdates(t *testing.T) {
 		t.Fatalf("run script: %v", err)
 	}
 
-	time.Sleep(40 * time.Millisecond)
+	deadline := time.Now().Add(200 * time.Millisecond)
+	for {
+		if got := env.UI.Page("home").Tile(0, 0).Text(); got != "0" && got != "" {
+			break
+		}
+		if time.Now().After(deadline) {
+			break
+		}
+		time.Sleep(10 * time.Millisecond)
+	}
 	loopHandle := rt.VM.Get("__loopHandle").ToObject(rt.VM)
 	stop, ok := goja.AssertFunction(loopHandle.Get("stop"))
 	if !ok {
