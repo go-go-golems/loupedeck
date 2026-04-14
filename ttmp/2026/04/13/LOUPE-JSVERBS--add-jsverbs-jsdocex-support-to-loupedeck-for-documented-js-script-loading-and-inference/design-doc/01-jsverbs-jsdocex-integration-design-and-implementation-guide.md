@@ -738,7 +738,26 @@ Proceed with the new direction, but do it in this order:
 
 This is the correct design if the goal is not merely “get jsverbs working,” but to leave loupedeck with a cleaner and more maintainable runtime architecture afterward.
 
+## Implementation notes discovered during execution
+
+The implemented CLI shape ended up being slightly more pragmatic than the early design sketch:
+
+- `loupedeck run --script ...` remains the compatibility path for plain scripts
+- `loupedeck run --script ... --verb ...` runs an annotated jsverbs verb inside the same long-lived hardware/runtime session
+- `loupedeck verbs list --script ...` lists explicit verbs
+- `loupedeck verbs help --script ... --verb ...` renders the generated Glazed/Cobra help for a selected verb, which is the primary metadata-accurate help surface
+- `loupedeck doc --script ... --format json|markdown` exports jsdoc/jsdocex output
+
+That split keeps the hardware runner stable while still exposing metadata-accurate help/flag rendering through a dedicated inspection command.
+
+## Follow-up work intentionally left out of this ticket
+
+- doc browser `--serve` mode for jsdoc server integration
+- richer multi-script command trees beyond the current script-root scanning model
+- more advanced run-path config UX than `--verb-config` / `--verb-values-json`
+
 ## Document History
 
 - **2026-04-13:** initial first-pass design written.
 - **2026-04-13 (revised):** design replaced with runtime-convergence-first plan after explicit decision to standardize on go-go-goja and remove loupedeck-local runtime copies.
+- **2026-04-14:** implementation completed using the runtime-convergence-first approach, with `run --verb`, `verbs list/help`, `doc`, and the annotated reference example landed.

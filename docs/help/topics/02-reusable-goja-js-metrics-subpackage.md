@@ -69,15 +69,11 @@ This layer does not know anything about goja, module names, or application seman
 
 ### 2. Binding layer
 
-`pkg/jsmetrics` uses `runtimebridge` to find a collector from a running goja VM.
+`pkg/jsmetrics` uses a runtime-scoped VM lookup to find a collector from a running goja VM.
 
-The binding key is:
+In the current Loupedeck runtime, that lookup goes through the VM's `LoupeDeckEnvironment` rather than a collector-specific key in `runtimebridge.Values`.
 
-```go
-const BindingKeyCollector = "metricsCollector"
-```
-
-This matters because the binding layer is what makes the package portable. A runtime does not need to import any Loupedeck environment type to expose metrics to JavaScript. It only needs to make sure `runtimebridge.Values` contains a collector under that key.
+This package is still reusable, but the current Loupedeck runtime now resolves the collector through the VM's environment lookup instead of storing a second copy inside `runtimebridge.Values`.
 
 ### 3. Module layer
 
@@ -237,19 +233,20 @@ This is useful when your event reasons are concrete values like `T12` or `B1` bu
 
 ## How it is implemented
 
-The implementation works by binding a Go collector into the current VM through `runtimebridge` and then letting the module code look it up lazily.
+The implementation works by making the current Loupedeck environment available for the VM and then letting `pkg/jsmetrics.Lookup(vm)` derive the collector from `env.Lookup(vm)` lazily.
 
 At a high level:
 
 ```text
 collector in Go
--> runtimebridge.Values["metricsCollector"]
+-> LoupeDeckEnvironment.Metrics
+-> env.Lookup(vm)
 -> pkg/jsmetrics.Lookup(vm)
 -> native module exports
 -> JavaScript counters and timers
 ```
 
-This is the critical portability trick. The JavaScript modules do not need to know about Loupedeck pages, host runtimes, or custom environment types. They only need a collector in `runtimebridge`.
+The important portability point is unchanged: the JavaScript modules do not need to know about concrete scene objects. They only need a runtime-scoped way to find the collector for the current VM.
 
 ## Integrating it into your own goja runtime
 
@@ -280,22 +277,11 @@ This gives your scripts:
 
 If you want a different naming scheme, change the prefix before enabling the registry.
 
-### Step 3 — bind the collector through runtimebridge
+### Step 3 — bind or derive the collector for the runtime
 
-Store the collector in the VM bindings.
+In the current Loupedeck runtime, the collector is stored on the VM-scoped `LoupeDeckEnvironment` and resolved through `env.Lookup(vm)`.
 
-```go
-runtimebridge.Store(vm, runtimebridge.Bindings{
-    Context: ctx,
-    Loop:    loop,
-    Owner:   owner,
-    Values: map[string]any{
-        jsmetrics.BindingKeyCollector: collector,
-    },
-})
-```
-
-This step is the actual integration point. Without it, the modules load but panic when used because they cannot find a collector.
+If you reuse `pkg/jsmetrics` in another runtime, provide an equivalent VM-scoped lookup path so the module can find the collector for the current runtime instance.
 
 ### Step 4 — execute your script
 
@@ -340,14 +326,11 @@ collector := metrics.New()
 owner := runtimeowner.NewRunner(vm, loop, runtimeowner.Options{Name: "myapp-runtime"})
 ctx := context.Background()
 
-runtimebridge.Store(vm, runtimebridge.Bindings{
-    Context: ctx,
-    Loop:    loop,
-    Owner:   owner,
-    Values: map[string]any{
-        jsmetrics.BindingKeyCollector: collector,
-    },
-})
+// Make the collector reachable from your VM-scoped host lookup.
+// In loupedeck this is env.Lookup(vm) -> LoupeDeckEnvironment.Metrics.
+_ = ctx
+_ = owner
+_ = collector
 
 _, err := owner.Call(ctx, "vm.run", func(_ context.Context, vm *goja.Runtime) (any, error) {
     return vm.RunString(`
@@ -371,13 +354,15 @@ The important lesson is not the exact logging output. The important lesson is th
 
 ## How the current Loupedeck runtime uses it
 
-The current runtime wires the reusable package here:
+The current runtime wires the reusable package through the engine registrar in:
 
-- `runtime/js/runtime.go`
+- `runtime/js/registrar.go`
+- `runtime/js/env/env.go`
+- `pkg/jsmetrics/jsmetrics.go`
 
-It binds the collector like this conceptually:
+It now derives the collector conceptually like this:
 
-- `runtimebridge.Values[jsmetrics.BindingKeyCollector] = env.Metrics`
+- `env.Lookup(vm).Metrics`
 
 And it registers the JS modules with the `loupedeck` prefix:
 
@@ -416,7 +401,7 @@ That narrowness is a feature. It makes the package easy to carry into other goja
 
 | Problem | Cause | Solution |
 |---|---|---|
-| `metrics module requires collector binding` | The VM bindings do not contain a collector under `jsmetrics.BindingKeyCollector` | Store the collector in `runtimebridge.Values` before running JS |
+| `metrics module requires collector binding` | The runtime-specific VM lookup path does not expose a collector for the current VM | Ensure your runtime stores a collector in the host-side VM environment/lookup before running JS |
 | `require("myapp/metrics")` fails | The modules were not registered with the prefix your script expects | Call `jsmetrics.RegisterModules(registry, "myapp")` before `registry.Enable(vm)` |
 | Counters stay at zero even though JS ran | You are reading a different collector instance than the one bound into the VM | Verify the same `*metrics.Collector` is both bound and later inspected |
 | `scene-metrics` names do not match your workload | The helper uses opinionated default names like `renderAll` and `tile.<name>` | Either use the low-level `metrics` module directly or wrap the helper with your own naming conventions |

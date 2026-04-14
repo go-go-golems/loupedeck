@@ -56,3 +56,16 @@ Completed Phase 0 and Phase 1 implementation: added direct go-go-goja workspace 
 - /home/manuel/workspaces/2026-04-13/js-loupedeck/loupedeck/runtime/js/env/env.go — LoupeDeckEnvironment rename and env lookup migration
 - /home/manuel/workspaces/2026-04-13/js-loupedeck/loupedeck/runtime/js/registrar.go — Engine registrar for loupedeck runtime composition
 
+
+## 2026-04-14
+
+Completed the full ticket: added upstream jsverbs host-runtime APIs, integrated verb-aware scene execution and jsdoc extraction into loupedeck, added verbs/doc commands, shipped an annotated reference scene, updated tests, and refreshed help/docs to match the new runtime model.
+
+### Related Files
+
+- /home/manuel/workspaces/2026-04-13/js-loupedeck/go-go-goja/pkg/jsverbs/runtime.go — Exported InvokeInRuntime and RequireLoader for host-owned runtimes
+- /home/manuel/workspaces/2026-04-13/js-loupedeck/loupedeck/cmd/loupedeck/cmds/doc/command.go — Doc extraction CLI
+- /home/manuel/workspaces/2026-04-13/js-loupedeck/loupedeck/cmd/loupedeck/cmds/run/command.go — Run command now supports verb-aware scene bootstrapping
+- /home/manuel/workspaces/2026-04-13/js-loupedeck/loupedeck/cmd/loupedeck/cmds/verbs/command.go — Verb listing and metadata-accurate help surfaces
+- /home/manuel/workspaces/2026-04-13/js-loupedeck/loupedeck/examples/js/12-documented-scene.js — Annotated reference example
+

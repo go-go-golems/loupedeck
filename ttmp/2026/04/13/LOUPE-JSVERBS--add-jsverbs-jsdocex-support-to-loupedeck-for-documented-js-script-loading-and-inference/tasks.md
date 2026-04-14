@@ -26,63 +26,63 @@
 
 ### 2. Keep current loupedeck run behavior working on the shared runtime
 
-- [ ] Migrate `cmd/loupedeck/cmds/run/command.go` to create and own an `engine.Runtime`
-- [ ] Preserve current raw `--script` execution behavior during the migration
-- [ ] Preserve current renderer / present lifecycle and exit semantics
-- [ ] Verify existing event callbacks still work correctly after runtime migration
-- [ ] Verify runtime shutdown still cleans up device, renderer, and runtime resources in the correct order
+- [x] Migrate `cmd/loupedeck/cmds/run/command.go` to create and own an `engine.Runtime`
+- [x] Preserve current raw `--script` execution behavior during the migration
+- [x] Preserve current renderer / present lifecycle and exit semantics
+- [x] Verify existing event callbacks still work correctly after runtime migration
+- [x] Verify runtime shutdown still cleans up device, renderer, and runtime resources in the correct order
 
 ### 3. Extend go-go-goja jsverbs for host-owned long-lived runtimes
 
-- [ ] Add an exported jsverbs API for building command descriptions per verb without forcing the default runtime invocation path
-- [ ] Add an exported jsverbs API for obtaining the scanned-source require loader / overlay loader
-- [ ] Add an exported jsverbs API for invoking a verb inside an already-live caller-owned `engine.Runtime`
-- [ ] Keep existing jsverbs convenience APIs working for current upstream callers
-- [ ] Add upstream tests proving jsverbs invocation can reuse a live runtime without closing it
-- [ ] Add upstream tests proving a runtime remains usable after jsverbs invocation completes
+- [x] Add an exported jsverbs API for building command descriptions per verb without forcing the default runtime invocation path
+- [x] Add an exported jsverbs API for obtaining the scanned-source require loader / overlay loader
+- [x] Add an exported jsverbs API for invoking a verb inside an already-live caller-owned `engine.Runtime`
+- [x] Keep existing jsverbs convenience APIs working for current upstream callers
+- [x] Add upstream tests proving jsverbs invocation can reuse a live runtime without closing it
+- [x] Add upstream tests proving a runtime remains usable after jsverbs invocation completes
 
 ### 4. Integrate jsverbs into loupedeck scene execution
 
-- [ ] Scan target script or script root with jsverbs when `--verb` is requested
-- [ ] Compose the engine runtime with both loupedeck runtime registration and jsverbs scanned-source loading
-- [ ] Use script-path-derived module roots so local `require("./...")` continues to work
-- [ ] Add `--verb` support to the loupedeck run path
-- [ ] If verbs are present, invoke the selected verb inside the already-live runtime
-- [ ] Keep compatibility mode for plain scripts with no jsverbs metadata
-- [ ] Verify a verb can configure a scene and leave the runtime alive for later callbacks and reactive updates
-- [ ] Verify Glazed help/flags for `--verb` execution reflect jsverbs metadata accurately
+- [x] Scan target script or script root with jsverbs when `--verb` is requested
+- [x] Compose the engine runtime with both loupedeck runtime registration and jsverbs scanned-source loading
+- [x] Use script-path-derived module roots so local `require("./...")` continues to work
+- [x] Add `--verb` support to the loupedeck run path
+- [x] If verbs are present, invoke the selected verb inside the already-live runtime
+- [x] Keep compatibility mode for plain scripts with no jsverbs metadata
+- [x] Verify a verb can configure a scene and leave the runtime alive for later callbacks and reactive updates
+- [x] Verify Glazed help/flags for `--verb` execution reflect jsverbs metadata accurately
 
 ### 5. Integrate jsdoc/jsdocex extraction
 
-- [ ] Add script or directory scanning for jsdoc metadata using `pkg/jsdoc`
-- [ ] Build a `DocStore` from loupedeck scene scripts
-- [ ] Add a `loupedeck doc` CLI surface for extracted documentation
-- [ ] Support at least `json` and `markdown` output modes for docs
-- [ ] Ensure docs and verb scanning use the same script root and source set where appropriate
+- [x] Add script or directory scanning for jsdoc metadata using `pkg/jsdoc`
+- [x] Build a `DocStore` from loupedeck scene scripts
+- [x] Add a `loupedeck doc` CLI surface for extracted documentation
+- [x] Support at least `json` and `markdown` output modes for docs
+- [x] Ensure docs and verb scanning use the same script root and source set where appropriate
 
 ### 6. Add annotated reference examples
 
-- [ ] Add one fully annotated loupedeck example script using `__package__`, `__section__`, `__verb__`, `__doc__`, and `doc\`...\``
-- [ ] Ensure the example demonstrates correct `__verb__("functionName", {...})` string syntax
-- [ ] Ensure the example covers at least one section binding and one context binding
-- [ ] Ensure the example is usable both as a runnable scene and as a jsdoc extraction fixture
+- [x] Add one fully annotated loupedeck example script using `__package__`, `__section__`, `__verb__`, `__doc__`, and `doc\`...\``
+- [x] Ensure the example demonstrates correct `__verb__("functionName", {...})` string syntax
+- [x] Ensure the example covers at least one section binding and one context binding
+- [x] Ensure the example is usable both as a runnable scene and as a jsdoc extraction fixture
 
 ### 7. Testing and validation
 
-- [ ] Update or replace runtime tests so they validate the engine-based runtime path instead of the removed local runtime wrapper
-- [ ] Add loupedeck integration tests for `run --script ... --verb ...`
-- [ ] Add tests for compatibility mode on plain non-jsverbs scripts
-- [ ] Add tests for jsdoc extraction from the annotated reference example
-- [ ] Run targeted tests in both repos after each major migration milestone
-- [ ] Run full test suites in both repos before final review
+- [x] Update or replace runtime tests so they validate the engine-based runtime path instead of the removed local runtime wrapper
+- [x] Add loupedeck integration tests for `run --script ... --verb ...`
+- [x] Add tests for compatibility mode on plain non-jsverbs scripts
+- [x] Add tests for jsdoc extraction from the annotated reference example
+- [x] Run targeted tests in both repos after each major migration milestone
+- [x] Run full test suites in both repos before final review
 
 ### 8. Cleanup and documentation
 
-- [ ] Remove stale comments and docs that reference the old loupedeck-local runtime ownership stack
-- [ ] Update loupedeck help/docs to describe jsverbs-enabled scene scripts and the new `--verb` flow
-- [ ] Update ticket docs with any design changes discovered during implementation
-- [ ] Record final migration notes about removed duplicated runtime infrastructure
-- [ ] Capture any follow-up tickets for optional doc server support, advanced multi-script support, or broader scripting ergonomics
+- [x] Remove stale comments and docs that reference the old loupedeck-local runtime ownership stack
+- [x] Update loupedeck help/docs to describe jsverbs-enabled scene scripts and the new `--verb` flow
+- [x] Update ticket docs with any design changes discovered during implementation
+- [x] Record final migration notes about removed duplicated runtime infrastructure
+- [x] Capture any follow-up tickets for optional doc server support, advanced multi-script support, or broader scripting ergonomics
 
 ## Done
 
