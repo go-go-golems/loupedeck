@@ -11,8 +11,8 @@ import (
 	"time"
 
 	"github.com/dop251/goja"
+	"github.com/go-go-golems/go-go-goja/pkg/runtimebridge"
 	"github.com/go-go-golems/loupedeck/pkg/device"
-	"github.com/go-go-golems/loupedeck/pkg/runtimebridge"
 	"github.com/go-go-golems/loupedeck/runtime/gfx"
 	envpkg "github.com/go-go-golems/loupedeck/runtime/js/env"
 	"golang.org/x/image/font/gofont/goregular"
@@ -80,8 +80,9 @@ func TestRequireStateAndUIBuildReactivePage(t *testing.T) {
 	if bindings.Owner == nil || bindings.Context == nil || bindings.Loop == nil {
 		t.Fatal("expected owner/context/loop bindings to be populated")
 	}
-	if bindings.Values["environment"] != env {
-		t.Fatal("expected environment to be available through runtime bindings")
+	lookupEnv, ok := envpkg.Lookup(rt.VM)
+	if !ok || lookupEnv != env {
+		t.Fatal("expected environment to be available through env lookup")
 	}
 
 	_, err := rt.RunString(context.Background(), `

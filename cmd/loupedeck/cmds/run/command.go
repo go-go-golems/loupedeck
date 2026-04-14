@@ -276,7 +276,7 @@ func run(ctx context.Context, opts options) error {
 		listenErrCh <- deckConn.Listen()
 	}()
 
-	env := envpkg.Ensure(&envpkg.Environment{Metrics: metrics.NewWithTraceLimit(opts.TraceLimit)})
+	env := envpkg.Ensure(&envpkg.LoupeDeckEnvironment{Metrics: metrics.NewWithTraceLimit(opts.TraceLimit)})
 	env.Host.Attach(deckConn)
 	if opts.LogEvents {
 		registerEventLogging(env)
@@ -420,7 +420,7 @@ func run(ctx context.Context, opts options) error {
 	}
 }
 
-func registerEventLogging(env *envpkg.Environment) {
+func registerEventLogging(env *envpkg.LoupeDeckEnvironment) {
 	if env == nil {
 		return
 	}

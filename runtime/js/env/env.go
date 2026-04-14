@@ -2,7 +2,6 @@ package env
 
 import (
 	"github.com/dop251/goja"
-	"github.com/go-go-golems/loupedeck/pkg/runtimebridge"
 	"github.com/go-go-golems/loupedeck/runtime/anim"
 	"github.com/go-go-golems/loupedeck/runtime/host"
 	"github.com/go-go-golems/loupedeck/runtime/metrics"
@@ -11,9 +10,7 @@ import (
 	"github.com/go-go-golems/loupedeck/runtime/ui"
 )
 
-const BindingKeyEnvironment = "environment"
-
-type Environment struct {
+type LoupeDeckEnvironment struct {
 	Reactive *reactive.Runtime
 	UI       *ui.UI
 	Host     *host.Runtime
@@ -22,18 +19,21 @@ type Environment struct {
 	Metrics  *metrics.Collector
 }
 
-func Lookup(vm *goja.Runtime) (*Environment, bool) {
-	bindings, ok := runtimebridge.Lookup(vm)
-	if !ok || bindings.Values == nil {
+func Lookup(vm *goja.Runtime) (*LoupeDeckEnvironment, bool) {
+	if vm == nil {
 		return nil, false
 	}
-	env, ok := bindings.Values[BindingKeyEnvironment].(*Environment)
-	return env, ok
+	value, ok := environmentsByVM.Load(vm)
+	if !ok {
+		return nil, false
+	}
+	env, ok := value.(*LoupeDeckEnvironment)
+	return env, ok && env != nil
 }
 
-func Ensure(e *Environment) *Environment {
+func Ensure(e *LoupeDeckEnvironment) *LoupeDeckEnvironment {
 	if e == nil {
-		e = &Environment{}
+		e = &LoupeDeckEnvironment{}
 	}
 	if e.Host != nil && e.UI == nil {
 		e.UI = e.Host.UI

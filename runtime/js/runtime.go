@@ -2,84 +2,38 @@ package js
 
 import (
 	"context"
-	"sync"
+	"fmt"
 
 	"github.com/dop251/goja"
-	"github.com/dop251/goja_nodejs/eventloop"
-	"github.com/dop251/goja_nodejs/require"
-	"github.com/go-go-golems/loupedeck/pkg/jsmetrics"
-	"github.com/go-go-golems/loupedeck/pkg/runtimebridge"
-	"github.com/go-go-golems/loupedeck/pkg/runtimeowner"
+	"github.com/go-go-golems/go-go-goja/engine"
 	envpkg "github.com/go-go-golems/loupedeck/runtime/js/env"
-	"github.com/go-go-golems/loupedeck/runtime/js/module_anim"
-	"github.com/go-go-golems/loupedeck/runtime/js/module_easing"
-	"github.com/go-go-golems/loupedeck/runtime/js/module_gfx"
-	"github.com/go-go-golems/loupedeck/runtime/js/module_present"
-	"github.com/go-go-golems/loupedeck/runtime/js/module_state"
-	"github.com/go-go-golems/loupedeck/runtime/js/module_ui"
 )
 
 type Runtime struct {
-	VM    *goja.Runtime
-	Loop  *eventloop.EventLoop
-	Owner runtimeowner.Runner
-	Env   *envpkg.Environment
-
-	runtimeCtx       context.Context
-	runtimeCtxCancel context.CancelFunc
-	closeOnce        sync.Once
+	*engine.Runtime
+	Env *envpkg.LoupeDeckEnvironment
 }
 
-func NewRuntime(env *envpkg.Environment) *Runtime {
+func NewRuntime(env *envpkg.LoupeDeckEnvironment) *Runtime {
 	env = envpkg.Ensure(env)
-	vm := goja.New()
-	loop := eventloop.NewEventLoop()
-	go loop.Start()
-
-	registry := new(require.Registry)
-	module_state.Register(registry)
-	module_ui.Register(registry)
-	module_easing.Register(registry)
-	module_anim.Register(registry)
-	module_gfx.Register(registry)
-	module_present.Register(registry)
-	jsmetrics.RegisterModules(registry, "loupedeck")
-	registry.Enable(vm)
-
-	owner := runtimeowner.NewRunner(vm, loop, runtimeowner.Options{
-		Name:          "loupedeck-js-runtime",
-		RecoverPanics: true,
-	})
-	ctx, cancel := context.WithCancel(context.Background())
-	runtimebridge.Store(vm, runtimebridge.Bindings{
-		Context: ctx,
-		Loop:    loop,
-		Owner:   owner,
-		Values: map[string]any{
-			envpkg.BindingKeyEnvironment:  env,
-			jsmetrics.BindingKeyCollector: env.Metrics,
-		},
-	})
-
+	factory, err := engine.NewBuilder().
+		WithRuntimeModuleRegistrars(NewRegistrar(env)).
+		Build()
+	if err != nil {
+		panic(fmt.Errorf("build loupedeck runtime factory: %w", err))
+	}
+	rt, err := factory.NewRuntime(context.Background())
+	if err != nil {
+		panic(fmt.Errorf("create loupedeck runtime: %w", err))
+	}
 	return &Runtime{
-		VM:               vm,
-		Loop:             loop,
-		Owner:            owner,
-		Env:              env,
-		runtimeCtx:       ctx,
-		runtimeCtxCancel: cancel,
+		Runtime: rt,
+		Env:     env,
 	}
-}
-
-func (r *Runtime) Context() context.Context {
-	if r == nil || r.runtimeCtx == nil {
-		return context.Background()
-	}
-	return r.runtimeCtx
 }
 
 func (r *Runtime) RunString(ctx context.Context, src string) (goja.Value, error) {
-	if r == nil {
+	if r == nil || r.Runtime == nil {
 		return nil, nil
 	}
 	result, err := r.Owner.Call(ctx, "vm.run-string", func(_ context.Context, vm *goja.Runtime) (any, error) {
@@ -95,26 +49,4 @@ func (r *Runtime) RunString(ctx context.Context, src string) (goja.Value, error)
 		return value, nil
 	}
 	return r.VM.ToValue(result), nil
-}
-
-func (r *Runtime) Close(ctx context.Context) error {
-	if r == nil {
-		return nil
-	}
-	var err error
-	r.closeOnce.Do(func() {
-		if r.runtimeCtxCancel != nil {
-			r.runtimeCtxCancel()
-		}
-		if r.VM != nil {
-			runtimebridge.Delete(r.VM)
-		}
-		if r.Owner != nil {
-			err = r.Owner.Shutdown(ctx)
-		}
-		if r.Loop != nil {
-			r.Loop.Stop()
-		}
-	})
-	return err
 }

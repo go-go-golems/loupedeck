@@ -7,19 +7,16 @@ import (
 
 	"github.com/dop251/goja"
 	"github.com/dop251/goja_nodejs/require"
-	"github.com/go-go-golems/loupedeck/pkg/runtimebridge"
+	envpkg "github.com/go-go-golems/loupedeck/runtime/js/env"
 	"github.com/go-go-golems/loupedeck/runtime/metrics"
 )
 
-const BindingKeyCollector = "metricsCollector"
-
 func Lookup(vm *goja.Runtime) (*metrics.Collector, bool) {
-	bindings, ok := runtimebridge.Lookup(vm)
-	if !ok || bindings.Values == nil {
+	env, ok := envpkg.Lookup(vm)
+	if !ok || env == nil || env.Metrics == nil {
 		return nil, false
 	}
-	collector, ok := bindings.Values[BindingKeyCollector].(*metrics.Collector)
-	return collector, ok && collector != nil
+	return env.Metrics, true
 }
 
 func RegisterModules(registry *require.Registry, prefix string) {

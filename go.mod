@@ -1,6 +1,6 @@
 module github.com/go-go-golems/loupedeck
 
-go 1.25.0
+go 1.26.1
 
 toolchain go1.26.2
 
@@ -8,6 +8,7 @@ require (
 	github.com/dop251/goja v0.0.0-20260311135729-065cd970411c
 	github.com/dop251/goja_nodejs v0.0.0-20260212111938-1f56ff5bcf14
 	github.com/go-go-golems/glazed v1.2.1
+	github.com/go-go-golems/go-go-goja v0.0.0-00010101000000-000000000000
 	github.com/gorilla/websocket v1.5.0
 	github.com/spf13/cobra v1.10.2
 	github.com/srwiley/oksvg v0.0.0-20221011165216-be6e8873101c
@@ -54,7 +55,7 @@ require (
 	github.com/go-openapi/strfmt v0.23.0 // indirect
 	github.com/go-sourcemap/sourcemap v2.1.4+incompatible // indirect
 	github.com/go-viper/mapstructure/v2 v2.4.0 // indirect
-	github.com/google/pprof v0.0.0-20240727154555-813a5fbdbec8 // indirect
+	github.com/google/pprof v0.0.0-20241029153458-d1b30febd7db // indirect
 	github.com/google/uuid v1.6.0 // indirect
 	github.com/gorilla/css v1.0.1 // indirect
 	github.com/hashicorp/errwrap v1.1.0 // indirect
@@ -128,3 +129,5 @@ require (
 	gopkg.in/yaml.v2 v2.4.0 // indirect
 	gopkg.in/yaml.v3 v3.0.1 // indirect
 )
+
+replace github.com/go-go-golems/go-go-goja => ../go-go-goja
