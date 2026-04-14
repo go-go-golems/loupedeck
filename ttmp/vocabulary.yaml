@@ -43,6 +43,16 @@ topics:
       description: Font loading, rasterization, font APIs, and typography work
     - slug: unicode
       description: Unicode, CJK, and non-ASCII text rendering topics
+    - slug: documentation
+      description: Documentation generation and extraction
+    - slug: inference
+      description: Type and metadata inference from code
+    - slug: jsdoc
+      description: JavaScript documentation extraction
+    - slug: jsverbs
+      description: JavaScript verb command discovery
+    - slug: script-loading
+      description: Script loading and execution
 docTypes:
     - slug: design-doc
       description: Structured rationale and architecture notes
