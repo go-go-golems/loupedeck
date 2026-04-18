@@ -53,6 +53,8 @@ topics:
       description: JavaScript verb command discovery
     - slug: script-loading
       description: Script loading and execution
+    - slug: cli
+      description: Command-line interface design, Cobra command trees, flag parsing, and command UX.
 docTypes:
     - slug: design-doc
       description: Structured rationale and architecture notes
