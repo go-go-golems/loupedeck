@@ -55,6 +55,12 @@ topics:
       description: Script loading and execution
     - slug: cli
       description: Command-line interface design, Cobra command trees, flag parsing, and command UX.
+    - slug: simulation
+      description: Virtual or emulated runtime and device behavior used for prototyping and demos
+    - slug: ui
+      description: User interface design, controls, and visual presentation surfaces
+    - slug: web
+      description: Browser, HTTP, websocket, and web-based delivery surfaces
 docTypes:
     - slug: design-doc
       description: Structured rationale and architecture notes

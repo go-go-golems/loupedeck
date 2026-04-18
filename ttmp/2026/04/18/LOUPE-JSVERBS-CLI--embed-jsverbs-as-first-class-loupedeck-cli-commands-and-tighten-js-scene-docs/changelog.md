@@ -7,6 +7,8 @@
 - Added an investigation diary recording the evidence from the current `loupedeck` root command, the current `run`/`verbs` split, and the upstream `jsverbs-example` embedding pattern.
 - Recorded the implementation phases and docs/example tightening tasks for the follow-up ticket.
 - Updated the ticket scope to drop the earlier backward-compatibility-oriented `run --verb` emphasis and instead scan configured roots to expose annotated commands directly under `loupedeck verbs ...`.
+- Expanded `tasks.md` into a detailed implementation checklist covering repository/config modeling, bootstrap discovery, embedded + filesystem repository scanning, reusable live-scene execution helpers, dynamic Cobra registration, docs updates, and validation gates.
+- Clarified the product decision that this ticket should be a clean cutover: remove `run --verb`, remove the old inspection-only `verbs list/help` flow, and avoid compatibility shims or wrapper-preserving logic.
 
 ## 2026-04-18
 

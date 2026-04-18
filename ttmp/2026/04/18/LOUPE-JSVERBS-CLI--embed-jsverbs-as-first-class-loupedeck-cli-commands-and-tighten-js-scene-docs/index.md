@@ -31,9 +31,9 @@ WhenToUse: Open this workspace when you need the intern handoff docs, task check
 
 This ticket picks up the next UX step after `LOUPE-JSVERBS`.
 
-The previous ticket made annotated scripts work correctly on the shared `go-go-goja` runtime and added a transitional split between `run --verb`, `verbs list/help`, and `doc`.
+The previous ticket made annotated scripts work correctly on the shared `go-go-goja` runtime and shipped a transitional split between `run --verb`, `verbs list/help`, and `doc`.
 
-This follow-up revises that direction. The intended end state is that annotated scene commands execute directly under `loupedeck verbs ...`, for example `loupedeck verbs documented configure`, while `run` returns to being the plain-file runner.
+This follow-up replaces that transitional shape with a clean cutover. The intended end state is that annotated scene commands execute directly under `loupedeck verbs ...`, for example `loupedeck verbs documented configure`, while `run` returns to being the plain-file runner and the old wrapper/inspection surfaces are removed.
 
 The same ticket also includes the postponed docs/example tightening work related to the JS scene flow.
 
@@ -54,7 +54,7 @@ Current status: **active**
 
 - first-class CLI embedding of annotated scene verbs under `loupedeck verbs ...`
 - reuse of `CommandDescriptionForVerb(...)` + `InvokeInRuntime(...)` through the native loupedeck hardware execution path
-- configured-root discovery so all annotated scripts can be exposed
+- repository discovery so all annotated scripts can be exposed
 - docs/example tightening related to the new flow
 
 ### Deferred

@@ -518,7 +518,7 @@ Recommended structure:
 
 - `loupedeck verbs` root command always exists
 - if configured repositories resolve successfully, it gets dynamic child commands for discovered verbs
-- optional debugging helpers like `list`/`help` can be retained only if they still add value
+- the old inspection-only `list`/`help` helpers should be removed as part of the cutover
 
 ### B. Scan before final registration
 
@@ -582,8 +582,8 @@ After this redesign:
 - `run` should be treated as the plain-file runner
 - `verbs` should be treated as the annotated-scene runner
 - `doc` should remain the doc-export surface
-
-The implementation does not need to preserve `run --verb` as a compatibility commitment if the product no longer wants it.
+- `run --verb` should be removed rather than preserved behind a compatibility shim
+- the old `verbs list` / `verbs help` inspection flow should be removed rather than carried forward
 
 ## Pseudocode and key flows
 
@@ -669,9 +669,9 @@ func collectAllVerbs(registries []*jsverbs.Registry) ([]DiscoveredVerb, error) {
 
 **Why:** this matches the desired product UX and avoids the extra `scene` wrapper namespace.
 
-### Decision 2: Stop designing around compatibility for `run --verb`
+### Decision 2: Do a clean cutover instead of preserving compatibility wrappers
 
-**Why:** the user explicitly said backward compatibility is not needed for this follow-up direction. That frees the implementation to simplify product boundaries.
+**Why:** the user explicitly said backward compatibility is not needed for this follow-up direction. That frees the implementation to simplify product boundaries, remove `run --verb`, and delete the old inspection-only `verbs list/help` flow instead of carrying shim behavior forward.
 
 ### Decision 3: Scan all configured repositories, not just one selected file
 
@@ -712,8 +712,9 @@ Cons:
 
 - not first-class command embedding
 - keeps annotated scenes as a submode rather than a true command tree
+- preserves transitional surface area the product explicitly wants to delete
 
-Rejected as the primary end state.
+Rejected.
 
 ### Alternative C: Inject dynamic commands directly at the root
 
@@ -846,14 +847,14 @@ Tasks:
 1. startup scanning cost grows with the number of configured repositories and scripts
 2. duplicate full paths may appear once multiple repositories are loaded
 3. dynamic command registration may complicate help/testing if repository discovery is not deterministic
-4. some current automation may rely on `run --verb` and would need migration if that path is reduced or removed
+4. any current automation that still uses `run --verb` will need to migrate during the cutover because that path should be removed
 
 ### Open questions
 
 1. Should the app config schema accept only structured repository objects in v1, or also a string-list shorthand?
-2. Should `verbs list` survive as a debugging aid once `verbs` becomes the real execution namespace?
-3. Should the dynamic `verbs` namespace expose only explicit verbs, or also inferred public functions in some later phase?
-4. Should command registration happen strictly from configured repositories, or should there be documented conventional fallback directories in a later phase?
+2. Should the dynamic `verbs` namespace expose only explicit verbs, or also inferred public functions in some later phase?
+3. Should command registration happen strictly from configured repositories, or should there be documented conventional fallback directories in a later phase?
+4. Do we want an explicit app-config override flag in v1, or only default app-config locations plus env/CLI repository flags?
 
 ## References
 
