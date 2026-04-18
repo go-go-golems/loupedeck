@@ -3,104 +3,170 @@ package verbs
 import (
 	"context"
 	"fmt"
-	"sort"
-	"strings"
+	"io"
+	"path/filepath"
 
+	glazedcli "github.com/go-go-golems/glazed/pkg/cli"
 	"github.com/go-go-golems/glazed/pkg/cmds"
+	"github.com/go-go-golems/glazed/pkg/cmds/schema"
 	"github.com/go-go-golems/glazed/pkg/cmds/values"
-	loupedeckcmdcommon "github.com/go-go-golems/loupedeck/cmd/loupedeck/cmds/common"
-	"github.com/go-go-golems/loupedeck/pkg/scriptmeta"
+	"github.com/go-go-golems/glazed/pkg/middlewares"
+	"github.com/go-go-golems/go-go-goja/pkg/jsverbs"
+	runcmd "github.com/go-go-golems/loupedeck/cmd/loupedeck/cmds/run"
 	"github.com/spf13/cobra"
 )
 
-type helpOnlyCommand struct {
-	*cmds.CommandDescription
+type invokerFactory func(repo scannedRepository, verb *jsverbs.VerbSpec, verbDescription *cmds.CommandDescription) jsverbs.VerbInvoker
+
+type glazeCommandWrapper struct {
+	base cmds.GlazeCommand
+	desc *cmds.CommandDescription
 }
 
-func (c *helpOnlyCommand) Run(context.Context, *values.Values) error {
-	return nil
+func (c *glazeCommandWrapper) Description() *cmds.CommandDescription {
+	return c.desc
 }
 
-func NewCommand() *cobra.Command {
+func (c *glazeCommandWrapper) ToYAML(w io.Writer) error {
+	return c.desc.ToYAML(w)
+}
+
+func (c *glazeCommandWrapper) RunIntoGlazeProcessor(ctx context.Context, parsedValues *values.Values, gp middlewares.Processor) error {
+	return c.base.RunIntoGlazeProcessor(ctx, parsedValues, gp)
+}
+
+type writerCommandWrapper struct {
+	base cmds.WriterCommand
+	desc *cmds.CommandDescription
+}
+
+func (c *writerCommandWrapper) Description() *cmds.CommandDescription {
+	return c.desc
+}
+
+func (c *writerCommandWrapper) ToYAML(w io.Writer) error {
+	return c.desc.ToYAML(w)
+}
+
+func (c *writerCommandWrapper) RunIntoWriter(ctx context.Context, parsedValues *values.Values, w io.Writer) error {
+	return c.base.RunIntoWriter(ctx, parsedValues, w)
+}
+
+func NewCommand(bootstrap Bootstrap) (*cobra.Command, error) {
+	return newCommandWithInvokerFactory(bootstrap, liveSceneInvokerFactory)
+}
+
+func newCommandWithInvokerFactory(bootstrap Bootstrap, invokers invokerFactory) (*cobra.Command, error) {
 	root := &cobra.Command{
 		Use:   "verbs",
-		Short: "Inspect jsverbs metadata for loupedeck scene scripts",
+		Short: "Run annotated loupedeck scene verbs",
 	}
 
-	root.AddCommand(newListCommand())
-	root.AddCommand(newHelpCommand())
-	return root
+	repositories, err := scanRepositories(bootstrap)
+	if err != nil {
+		return nil, err
+	}
+	discovered, err := collectDiscoveredVerbs(repositories)
+	if err != nil {
+		return nil, err
+	}
+	commands, err := buildCommands(discovered, invokers)
+	if err != nil {
+		return nil, err
+	}
+	if err := glazedcli.AddCommandsToRootCommand(root, commands, nil,
+		glazedcli.WithDualMode(true),
+		glazedcli.WithGlazeToggleFlag("with-glaze-output"),
+		glazedcli.WithParserConfig(glazedcli.CobraParserConfig{
+			ShortHelpSections: []string{schema.DefaultSlug},
+			MiddlewaresFunc:   glazedcli.CobraCommandDefaultMiddlewares,
+		}),
+	); err != nil {
+		return nil, err
+	}
+	return root, nil
 }
 
-func newListCommand() *cobra.Command {
-	var scriptPath string
-	cmd := &cobra.Command{
-		Use:   "list --script <path>",
-		Short: "List explicit jsverbs discovered for a script or scene directory",
-		RunE: func(cmd *cobra.Command, _ []string) error {
-			if strings.TrimSpace(scriptPath) == "" {
-				return fmt.Errorf("missing --script")
-			}
-			target, registry, err := scriptmeta.ScanVerbRegistry(scriptPath)
-			if err != nil {
-				return err
-			}
-			verbs := scriptmeta.EntryVerbs(target, registry)
-			if len(verbs) == 0 {
-				_, _ = fmt.Fprintln(cmd.OutOrStdout(), "No explicit jsverbs found.")
-				return nil
-			}
-			paths := make([]string, 0, len(verbs))
-			for _, verb := range verbs {
-				paths = append(paths, verb.FullPath())
-			}
-			sort.Strings(paths)
-			for _, path := range paths {
-				_, _ = fmt.Fprintln(cmd.OutOrStdout(), path)
-			}
-			return nil
-		},
+func buildCommands(discovered []discoveredVerb, invokers invokerFactory) ([]cmds.Command, error) {
+	commands := make([]cmds.Command, 0, len(discovered))
+	for _, discoveredVerb := range discovered {
+		verbDescription, err := discoveredVerb.Repository.Registry.CommandDescriptionForVerb(discoveredVerb.Verb)
+		if err != nil {
+			return nil, err
+		}
+		upstreamCommand, err := discoveredVerb.Repository.Registry.CommandForVerbWithInvoker(discoveredVerb.Verb, invokers(discoveredVerb.Repository, discoveredVerb.Verb, verbDescription))
+		if err != nil {
+			return nil, err
+		}
+		augmentedDescription, err := augmentDescription(upstreamCommand.Description())
+		if err != nil {
+			return nil, err
+		}
+		wrapped, err := wrapCommandWithDescription(upstreamCommand, augmentedDescription)
+		if err != nil {
+			return nil, err
+		}
+		commands = append(commands, wrapped)
 	}
-	cmd.Flags().StringVar(&scriptPath, "script", "", "Path to the JavaScript file or scene directory")
-	return cmd
+	return commands, nil
 }
 
-func newHelpCommand() *cobra.Command {
-	var scriptPath string
-	var verbName string
-	cmd := &cobra.Command{
-		Use:   "help --script <path> --verb <name>",
-		Short: "Render generated help for one jsverbs verb using its Glazed schema",
-		RunE: func(cmd *cobra.Command, _ []string) error {
-			if strings.TrimSpace(scriptPath) == "" {
-				return fmt.Errorf("missing --script")
-			}
-			if strings.TrimSpace(verbName) == "" {
-				return fmt.Errorf("missing --verb")
-			}
-			target, registry, err := scriptmeta.ScanVerbRegistry(scriptPath)
-			if err != nil {
-				return err
-			}
-			verb, err := scriptmeta.FindVerb(target, registry, verbName)
-			if err != nil {
-				return err
-			}
-			desc, err := registry.CommandDescriptionForVerb(verb)
-			if err != nil {
-				return err
-			}
-			helpCmd, err := loupedeckcmdcommon.BuildCobraCommandDualMode(&helpOnlyCommand{CommandDescription: desc})
-			if err != nil {
-				return err
-			}
-			helpCmd.SetOut(cmd.OutOrStdout())
-			helpCmd.SetErr(cmd.ErrOrStderr())
-			helpCmd.SetArgs([]string{"--help"})
-			return helpCmd.ExecuteContext(cmd.Context())
-		},
+func augmentDescription(description *cmds.CommandDescription) (*cmds.CommandDescription, error) {
+	if description == nil {
+		return nil, fmt.Errorf("command description is nil")
 	}
-	cmd.Flags().StringVar(&scriptPath, "script", "", "Path to the JavaScript file or scene directory")
-	cmd.Flags().StringVar(&verbName, "verb", "", "Verb full path or unique short name")
-	return cmd
+	ret := description.Clone(true)
+	commonSections, err := runcmd.CommonSections()
+	if err != nil {
+		return nil, err
+	}
+	ret.SetSections(commonSections...)
+	return ret, nil
+}
+
+func wrapCommandWithDescription(command cmds.Command, description *cmds.CommandDescription) (cmds.Command, error) {
+	switch c := command.(type) {
+	case cmds.GlazeCommand:
+		return &glazeCommandWrapper{base: c, desc: description}, nil
+	case cmds.WriterCommand:
+		return &writerCommandWrapper{base: c, desc: description}, nil
+	default:
+		return nil, fmt.Errorf("unsupported command type %T", command)
+	}
+}
+
+func liveSceneInvokerFactory(repo scannedRepository, verb *jsverbs.VerbSpec, verbDescription *cmds.CommandDescription) jsverbs.VerbInvoker {
+	identity := runcmd.SceneIdentity{ScriptPath: verbSourceLabel(repo, verb), Verb: verb.FullPath()}
+	runtimeOptions := repo.runtimeOptions()
+	return func(ctx context.Context, _ *jsverbs.Registry, _ *jsverbs.VerbSpec, parsedValues *values.Values) (interface{}, error) {
+		sessionOptions, err := runcmd.DecodeSessionOptions(parsedValues)
+		if err != nil {
+			return nil, err
+		}
+		verbValues := subsetValuesForDescription(parsedValues, verbDescription)
+		return runcmd.RunAnnotatedVerbScene(ctx, identity, sessionOptions, runtimeOptions, repo.Registry, verb, verbValues)
+	}
+}
+
+func subsetValuesForDescription(parsedValues *values.Values, description *cmds.CommandDescription) *values.Values {
+	if parsedValues == nil || description == nil || description.Schema == nil {
+		return values.New()
+	}
+	ret := values.New()
+	description.Schema.ForEach(func(slug string, _ schema.Section) {
+		if sectionValues, ok := parsedValues.Get(slug); ok {
+			ret.Set(slug, sectionValues.Clone())
+		}
+	})
+	return ret
+}
+
+func verbSourceLabel(repo scannedRepository, verb *jsverbs.VerbSpec) string {
+	if verb == nil || verb.File == nil {
+		return repo.Repository.Name
+	}
+	if verb.File.AbsPath != "" {
+		return verb.File.AbsPath
+	}
+	return fmt.Sprintf("%s:%s", repo.Repository.Name, filepath.ToSlash(verb.File.RelPath))
 }

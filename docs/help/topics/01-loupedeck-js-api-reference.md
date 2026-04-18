@@ -550,14 +550,14 @@ The main hardware execution path is now `cmd/loupedeck`, with the live runner ex
 ### Basic usage
 
 ```bash
-go run ./cmd/loupedeck run --script ./examples/js/01-hello.js --duration 5s
+go run ./cmd/loupedeck run ./examples/js/01-hello.js --duration 5s
 ```
 
 ### Important flags
 
 | Flag | Meaning | Why you care |
 |---|---|---|
-| `--script` | Path to the JS file | Required entry point |
+| positional `script` argument | Path to the JS file | Required entry point |
 | `--device` | Optional serial device override | Use when auto-detect is wrong or unavailable |
 | `--duration` | How long to run | Use `0` for run-until-interrupted |
 | `--flush-interval` | Retained-render flush cadence | Useful when experimenting with update pacing |
