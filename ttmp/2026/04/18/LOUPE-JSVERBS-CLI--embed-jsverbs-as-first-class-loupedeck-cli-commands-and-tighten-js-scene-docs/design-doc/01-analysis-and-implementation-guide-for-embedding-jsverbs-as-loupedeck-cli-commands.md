@@ -18,6 +18,22 @@ RelatedFiles:
       Note: Upstream command-description and generated-command behavior
     - Path: ../../../../../../../go-go-goja/pkg/jsverbs/runtime.go
       Note: Upstream runtime ownership split between invoke and InvokeInRuntime
+    - Path: ../../../../../../../go-go-goja/pkg/jsverbs/scan.go
+      Note: Upstream support for scanning both filesystem directories and embedded fs.FS trees
+    - Path: ../../../../../../../sqleton/cmd/sqleton/config.go
+      Note: Sqleton app-level repository discovery via config file plus environment merge
+    - Path: ../../../../../../../sqleton/cmd/sqleton/main.go
+      Note: Sqleton composition of embedded repository content with user-provided filesystem repositories
+    - Path: ../../../../../../../sqleton/cmd/sqleton/doc/topics/06-query-commands.md
+      Note: Sqleton user-facing repository model and separation between app config discovery and per-command config
+    - Path: ../../../../../../../glazed/pkg/config/plan.go
+      Note: Declarative config-plan API with layered discovery and provenance-aware resolution
+    - Path: ../../../../../../../glazed/pkg/config/plan_sources.go
+      Note: Built-in system/XDG/home/git-root/cwd/explicit config source constructors
+    - Path: ../../../../../../../glazed/pkg/doc/topics/24-config-files.md
+      Note: Guidance for explicit config discovery and parser integration
+    - Path: ../../../../../../../glazed/pkg/doc/topics/27-declarative-config-plans.md
+      Note: Reference for layered config plans and why they are preferable to hidden discovery helpers
     - Path: cmd/loupedeck/cmds/run/command.go
       Note: Current live hardware scene execution path and existing raw/verb split that will be simplified
     - Path: cmd/loupedeck/cmds/verbs/command.go
@@ -27,10 +43,10 @@ RelatedFiles:
     - Path: docs/help/topics/03-annotated-scene-scripts-and-jsverbs.md
       Note: Current public docs for annotated scenes that will need tightening
 ExternalSources: []
-Summary: "Revised design for making `loupedeck verbs ...` the primary dynamic execution namespace for annotated jsverbs scene commands, scanning configured roots at startup and dropping the earlier compatibility-oriented `scene` parent plan."
+Summary: "Revised design for making `loupedeck verbs ...` the primary dynamic execution namespace for annotated jsverbs scene commands, using a sqleton-style repository model with both embedded builtins and user-provided repositories, discovered through Glazed config plans."
 LastUpdated: 2026-04-18T11:30:09.66691294-04:00
-WhatFor: "Use when implementing the revised product direction where `loupedeck verbs ...` directly executes annotated scene verbs discovered from configured roots and `run` returns to being the plain-file runner."
-WhenToUse: "Read before changing the root Cobra wiring, replacing the current static verbs list/help commands, or deciding how loupedeck discovers and registers annotated scripts across multiple roots."
+WhatFor: "Use when implementing the revised product direction where `loupedeck verbs ...` directly executes annotated scene verbs discovered from both embedded builtins and configured repositories, while `run` returns to being the plain-file runner."
+WhenToUse: "Read before changing the root Cobra wiring, replacing the current static verbs list/help commands, or deciding how loupedeck discovers, configures, and registers annotated scripts across embedded and filesystem repositories."
 ---
 
 # Analysis and implementation guide for embedding jsverbs as loupedeck CLI commands
@@ -47,7 +63,7 @@ rather than a separate `scene` parent or continued reliance on `run --verb`.
 
 This is the right product direction if the goals are:
 
-1. load and expose all annotated scripts from one or more configured roots,
+1. load and expose all annotated scripts from one or more configured repositories,
 2. make annotated scene entrypoints feel like real CLI commands,
 3. avoid backward-compatibility baggage from the transitional `run --verb` UX,
 4. keep `run` focused on plain JavaScript file execution.
@@ -66,7 +82,7 @@ This ticket should therefore implement a new model where:
 
 - `loupedeck run <file.js>` is the plain-file runner,
 - `loupedeck verbs ...` is the annotated-scene command namespace,
-- the CLI boot process scans configured roots before Cobra registration and mounts all discovered annotated verbs under `verbs`.
+- the CLI boot process discovers configured repositories before Cobra registration and mounts all discovered annotated verbs under `verbs`.
 
 ## Problem statement and scope
 
@@ -102,7 +118,7 @@ with full generated help/flags and hardware-backed execution.
 
 - redesign the CLI plan so `verbs` becomes the dynamic execution namespace,
 - explain how loupedeck can scan and expose multiple annotated scripts,
-- define the discovery/bootstrap model for script roots,
+- define the discovery/bootstrap model for repositories and app config,
 - define how execution still uses loupedeck’s live hardware/runtime session,
 - fold the JS docs/example tightening work into the same ticket.
 
@@ -179,8 +195,42 @@ This is the main reason we still cannot just mount upstream generated commands d
 - `go-go-goja/pkg/jsverbs/command.go:49-53` exports `CommandDescriptionForVerb(...)`
 - `go-go-goja/pkg/jsverbs/runtime.go:38-42` exports `RequireLoader()`
 - `go-go-goja/pkg/jsverbs/runtime.go:44-108` exports `InvokeInRuntime(...)`
+- `go-go-goja/pkg/jsverbs/scan.go:17-71` provides `ScanDir(...)` for filesystem roots
+- `go-go-goja/pkg/jsverbs/scan.go:73-110` provides `ScanFS(...)` for embedded `fs.FS` trees
 
-So loupedeck already has the primitives it needs to build native dynamic commands under `verbs` without reintroducing runtime duplication.
+So loupedeck already has the primitives it needs to build native dynamic commands under `verbs` without reintroducing runtime duplication, and it can support both embedded builtins and filesystem repositories without inventing a second scanner.
+
+### 8. Sqleton already uses the closest repository-discovery model we want
+
+Sqleton separates repository discovery from command execution.
+
+Evidence:
+
+- `sqleton/cmd/sqleton/config.go:12-57` defines a tiny app config with a `repositories:` list, discovers it from app config paths, merges repository paths from config plus environment, and normalizes/dedupes the results.
+- `sqleton/cmd/sqleton/config_test.go:16-56` proves that repository paths are trimmed, deduped, and merged from config plus env.
+- `sqleton/cmd/sqleton/main.go:217-265` loads repository paths from config/env, appends an embedded repository directory, appends valid filesystem repositories, and then loads all commands from the composed repository set.
+- `sqleton/cmd/sqleton/doc/topics/06-query-commands.md:48-94` documents the user model explicitly: embedded repositories plus filesystem repositories discovered from app config and env, while per-command settings still come from explicit command config.
+
+This is a strong precedent for loupedeck: one app-level repository-discovery mechanism, one always-present embedded repository, and separate per-command config for actual command execution.
+
+### 9. Glazed already provides the config-discovery API we should build on
+
+Sqleton currently uses `ResolveAppConfigPath(...)` directly, which is simple but narrow. Glazed now has a better long-term model: declarative config plans with explicit layers and provenance.
+
+Evidence:
+
+- `glazed/pkg/config/plan.go:13-119` defines the layered plan model and resolved-file/report outputs.
+- `glazed/pkg/config/plan_sources.go:14-88` provides the built-in app-config source constructors:
+  - `SystemAppConfig(...)`
+  - `XDGAppConfig(...)`
+  - `HomeAppConfig(...)`
+  - `ExplicitFile(...)`
+- `glazed/pkg/config/plan_sources.go:90-132` also provides repo/cwd discovery via `WorkingDirFile(...)` and `GitRootFile(...)`.
+- `glazed/pkg/doc/topics/24-config-files.md:68-170` explains how `CobraParserConfig.AppName` and `ConfigPlanBuilder` fit together, and why config discovery should be explicit.
+- `glazed/pkg/doc/topics/27-declarative-config-plans.md:1-115` explains why plans are preferable to hidden helpers and how layered discovery remains readable and debuggable.
+- `glazed/cmd/examples/config-plan/main.go:37-69` shows a concrete layered plan with repo, cwd, and explicit files.
+
+This means loupedeck does not need to invent a bespoke repository-config story. It can use a sqleton-style repository list, but discover the app config itself through Glazed’s explicit config-plan layer model.
 
 ## Gap analysis
 
@@ -218,7 +268,7 @@ The only architectural caveat remains the same:
 
 So the recommended execution model is:
 
-1. scan configured roots before Cobra registration,
+1. discover configured repositories before Cobra registration,
 2. discover all annotated verbs,
 3. mount them as subcommands under `loupedeck verbs ...`,
 4. execute them through loupedeck’s live hardware/runtime session using `InvokeInRuntime(...)`.
@@ -268,7 +318,7 @@ to:
 
 - dynamic execution namespace for all annotated scene commands.
 
-## Discovery model
+## Configuration and repository model
 
 ### Core requirement
 
@@ -278,32 +328,146 @@ If users should be able to type:
 loupedeck verbs documented configure
 ```
 
-without `--script`, then loupedeck must know which roots to scan **before** it assembles the final Cobra command tree.
+without `--script`, then loupedeck must know which script repositories to scan **before** it assembles the final Cobra command tree.
 
-### Recommended first implementation
+### Recommended repository model
 
-Support one or more configured scan roots with deterministic precedence.
+Borrow the product model from sqleton, but apply it to jsverbs repositories instead of SQL query repositories:
 
-Recommended precedence order:
+1. always register one **embedded internal repository** shipped with loupedeck,
+2. allow users to add **filesystem repositories** through app config, environment, and explicit CLI bootstrap flags,
+3. scan all repositories into one combined `verbs` command tree,
+4. fail fast on duplicate full verb paths.
 
-1. explicit CLI bootstrap roots discovered by early raw-arg sniffing,
-2. environment/config-driven roots,
-3. documented conventional fallback roots if the product wants them.
+This is a better fit than a bare list of roots because it cleanly separates:
 
-The exact source of truth for roots is still a product decision, but the design should be explicit that dynamic verbs require **startup-time root discovery**.
+- built-in shipped content,
+- user-provided filesystem content,
+- app-level discovery policy,
+- per-command runtime execution.
 
-### Minimum viable product recommendation
+### Embedded internal repository
 
-For v1 of this ticket, implement one clear project-level mechanism for roots, for example:
+Because `jsverbs` already supports both `ScanDir(...)` and `ScanFS(...)`, the internal built-in scripts can be embedded and scanned directly from an `embed.FS` tree.
 
-- a persistent root-level `--verbs-root` / repeated roots parsed early from raw args, and/or
-- an environment/config-backed root list.
+That should be the loupedeck equivalent of sqleton’s embedded `queriesFS` repository in `sqleton/cmd/sqleton/main.go:231-258`.
 
-Even if later product work hides this behind defaults, the implementation should first establish a deterministic startup bootstrap path.
+Recommendation:
 
-## Multi-script exposure model
+- always include one internal repository in code,
+- give it a stable name such as `builtin` or `loupedeck`,
+- treat it as the lowest-precedence repository for discovery purposes.
 
-Scan all configured roots and expose every discovered explicit verb under `loupedeck verbs`.
+### User-provided repositories
+
+User repositories should be filesystem-backed directories that are scanned with `jsverbs.ScanDir(...)`.
+
+These should be configured through an app-level config file plus environment and explicit CLI overrides.
+
+### Recommended app config shape
+
+Unlike sqleton’s current flat `repositories: []string`, loupedeck should start with a slightly more structured repository spec because jsverbs repositories may eventually need metadata like display names or enable/disable controls.
+
+Recommended YAML shape:
+
+```yaml
+verbs:
+  repositories:
+    - name: team-scenes
+      path: ~/code/acme/loupedeck-scenes
+    - name: local-scenes
+      path: ~/.loupedeck/verbs
+```
+
+Suggested Go structs:
+
+```go
+type AppConfig struct {
+    Verbs VerbsConfig `yaml:"verbs"`
+}
+
+type VerbsConfig struct {
+    Repositories []RepositorySpec `yaml:"repositories"`
+}
+
+type RepositorySpec struct {
+    Name    string `yaml:"name,omitempty"`
+    Path    string `yaml:"path"`
+    Enabled *bool  `yaml:"enabled,omitempty"`
+}
+```
+
+A string-only shorthand could be added later if desired, but object form is a better starting point for a new feature.
+
+### App config discovery
+
+Use Glazed config plans rather than an ad hoc path helper.
+
+Recommended v1 discovery plan for the app config itself:
+
+```go
+plan := config.NewPlan(
+    config.WithLayerOrder(
+        config.LayerSystem,
+        config.LayerUser,
+        config.LayerExplicit,
+    ),
+    config.WithDedupePaths(),
+).Add(
+    config.SystemAppConfig("loupedeck").Named("system-app-config"),
+    config.XDGAppConfig("loupedeck").Named("xdg-app-config"),
+    config.HomeAppConfig("loupedeck").Named("home-app-config"),
+    config.ExplicitFile(explicitConfigPath).Named("explicit-app-config").InLayer(config.LayerExplicit),
+)
+```
+
+Why this shape is recommended for v1:
+
+- it matches Glazed’s explicit layered discovery model,
+- it is easier to explain than hidden path helpers,
+- it avoids surprising root-command changes based on arbitrary repository-local config in the current working directory.
+
+### Why not enable repo/cwd config discovery immediately?
+
+Glazed supports `GitRootFile(...)` and `WorkingDirFile(...)`, but I do **not** recommend enabling those for v1 of loupedeck’s dynamic `verbs` namespace.
+
+Reason: they make the available command tree change implicitly when the user changes directories or enters a git repository. That may be useful later, but it is more magic than we need for the first implementation.
+
+### Environment and CLI overrides
+
+Use a sqleton-style environment variable for temporary repositories:
+
+```bash
+export LOUPEDECK_VERB_REPOSITORIES=/path/to/repo-a:/path/to/repo-b
+```
+
+and repeated bootstrap flags for explicit CLI overrides, for example:
+
+```bash
+loupedeck --verbs-repository ./examples/js --verbs-repository ~/.loupedeck/verbs verbs documented configure
+```
+
+Recommended precedence for repository discovery:
+
+1. embedded internal repository (always included)
+2. app-config repositories from resolved config files
+3. env repositories from `LOUPEDECK_VERB_REPOSITORIES`
+4. explicit CLI repositories from repeated `--verbs-repository`
+
+Repository paths should be normalized, trimmed, deduped, and expanded consistently, just as sqleton does in `sqleton/cmd/sqleton/config.go:42-72`.
+
+### Separation of concerns
+
+Follow sqleton’s documented separation:
+
+- **app config** is for repository discovery only,
+- **command config/values** are still passed explicitly to the selected command.
+
+For loupedeck, that means the app config determines which annotated commands exist, while the generated jsverbs flags/config files still determine how a selected command is executed.
+
+## Multi-repository exposure model
+
+Scan all configured repositories and expose every discovered explicit verb under `loupedeck verbs`.
 
 ### Command path
 
@@ -318,7 +482,7 @@ This is the simplest mental model and aligns well with the current jsverbs metad
 
 ### Collision policy
 
-If two scanned scripts produce the same full verb path, registration should fail fast with a clear error that names both sources.
+If two repositories produce the same full verb path, registration should fail fast with a clear error that names both repositories and both source files.
 
 Do not silently shadow one command with another.
 
@@ -353,7 +517,7 @@ The new design should turn `verbs` into a bootstrapped command tree assembled in
 Recommended structure:
 
 - `loupedeck verbs` root command always exists
-- if scan roots resolve successfully, it gets dynamic child commands for discovered verbs
+- if configured repositories resolve successfully, it gets dynamic child commands for discovered verbs
 - optional debugging helpers like `list`/`help` can be retained only if they still add value
 
 ### B. Scan before final registration
@@ -391,9 +555,9 @@ Suggested command type:
 ```go
 type EmbeddedVerbCommand struct {
     *cmds.CommandDescription
-    Registry *jsverbs.Registry
-    Verb     *jsverbs.VerbSpec
-    Roots    []string
+    Registry   *jsverbs.Registry
+    Verb       *jsverbs.VerbSpec
+    Repository string
 }
 ```
 
@@ -432,12 +596,12 @@ func buildVerbsCommand(cfg VerbBootstrap) (*cobra.Command, error) {
         Short: "Run annotated loupedeck scene verbs",
     }
 
-    registries, err := scanConfiguredRoots(cfg.Roots)
+    repositories, err := discoverVerbRepositories(cfg)
     if err != nil {
         return nil, err
     }
 
-    discovered, err := collectAllVerbs(registries)
+    discovered, err := collectAllVerbs(repositories)
     if err != nil {
         return nil, err
     }
@@ -451,7 +615,7 @@ func buildVerbsCommand(cfg VerbBootstrap) (*cobra.Command, error) {
             CommandDescription: desc,
             Registry:           discoveredVerb.Registry,
             Verb:               discoveredVerb.Verb,
-            Roots:              cfg.Roots,
+            Repository:         discoveredVerb.RepositoryName,
         }
         cobraCmd, err := loupedeckcmdcommon.BuildCobraCommandDualMode(cmd)
         if err != nil {
@@ -509,7 +673,7 @@ func collectAllVerbs(registries []*jsverbs.Registry) ([]DiscoveredVerb, error) {
 
 **Why:** the user explicitly said backward compatibility is not needed for this follow-up direction. That frees the implementation to simplify product boundaries.
 
-### Decision 3: Scan all configured roots, not just one selected file
+### Decision 3: Scan all configured repositories, not just one selected file
 
 **Why:** the desired command shape implies global discovery of annotated scene commands rather than file-local execution.
 
@@ -598,7 +762,7 @@ Tasks:
 2. keep the helper independent from the current `run` flag-decoding layout
 3. simplify `run` toward plain-file execution responsibilities
 
-### Phase 2: verbs-root bootstrap and startup discovery
+### Phase 2: repository bootstrap and startup discovery
 
 Files to review first:
 
@@ -607,8 +771,8 @@ Files to review first:
 
 Tasks:
 
-1. implement early bootstrap discovery for scan roots
-2. build registries for all configured roots before final Cobra registration
+1. implement early bootstrap discovery for app config, env, and explicit repository flags
+2. build the embedded internal repository plus all configured filesystem repositories before final Cobra registration
 3. collect and collision-check all explicit verbs
 4. assemble the dynamic `verbs` command tree from the discovered full paths
 
@@ -679,17 +843,17 @@ Tasks:
 
 ### Risks
 
-1. startup scanning cost grows with the number of configured roots and scripts
-2. duplicate full paths may appear once multiple roots are loaded
-3. dynamic command registration may complicate help/testing if root discovery is not deterministic
+1. startup scanning cost grows with the number of configured repositories and scripts
+2. duplicate full paths may appear once multiple repositories are loaded
+3. dynamic command registration may complicate help/testing if repository discovery is not deterministic
 4. some current automation may rely on `run --verb` and would need migration if that path is reduced or removed
 
 ### Open questions
 
-1. What is the initial authoritative source of scan roots: raw flags, env, config file, or a combination?
+1. Should the app config schema accept only structured repository objects in v1, or also a string-list shorthand?
 2. Should `verbs list` survive as a debugging aid once `verbs` becomes the real execution namespace?
 3. Should the dynamic `verbs` namespace expose only explicit verbs, or also inferred public functions in some later phase?
-4. Should command registration happen strictly from configured roots, or should there be documented conventional fallback directories in v1?
+4. Should command registration happen strictly from configured repositories, or should there be documented conventional fallback directories in a later phase?
 
 ## References
 

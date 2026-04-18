@@ -22,9 +22,11 @@
 
 ## Phase 2: startup discovery and dynamic `verbs` bootstrap
 
-- [ ] Add an early bootstrap layer in `cmd/loupedeck/main.go` that discovers jsverbs scan roots before final Cobra registration
-- [ ] Decide and implement the initial authoritative source of scan roots (raw args, env, config, or a documented combination)
-- [ ] Scan all configured roots and collect all explicit verbs
+- [ ] Add an early bootstrap layer in `cmd/loupedeck/main.go` that discovers jsverbs repositories before final Cobra registration
+- [ ] Add app-level repository discovery using a Glazed config plan for `loupedeck` config files
+- [ ] Always register one embedded internal scripts repository and merge it with configured filesystem repositories
+- [ ] Add env + explicit CLI repository overrides (for example `LOUPEDECK_VERB_REPOSITORIES` and repeated `--verbs-repository` flags)
+- [ ] Scan all configured repositories and collect all explicit verbs
 - [ ] Detect duplicate full verb paths and fail fast with clear source references
 - [ ] Build the dynamic `loupedeck verbs ...` command tree from the discovered full paths
 
