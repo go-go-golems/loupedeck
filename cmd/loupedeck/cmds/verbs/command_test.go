@@ -9,8 +9,6 @@ import (
 	"github.com/go-go-golems/glazed/pkg/cmds"
 	"github.com/go-go-golems/glazed/pkg/cmds/runner"
 	"github.com/go-go-golems/glazed/pkg/cmds/values"
-	"github.com/go-go-golems/glazed/pkg/middlewares"
-	"github.com/go-go-golems/glazed/pkg/types"
 	"github.com/go-go-golems/go-go-goja/pkg/jsverbs"
 )
 
@@ -42,6 +40,12 @@ func TestNewCommandShowsEmbeddedVerbHelp(t *testing.T) {
 	if !strings.Contains(help, "--device") {
 		t.Fatalf("expected --device in help output, got %q", help)
 	}
+	if !strings.Contains(help, "0s") {
+		t.Fatalf("expected 0s default in help output, got %q", help)
+	}
+	if strings.Contains(help, "with-glaze-output") || strings.Contains(help, "print-schema") {
+		t.Fatalf("expected no structured-output toggles in help, got %q", help)
+	}
 	if strings.Contains(help, "verbs list") || strings.Contains(help, "verbs help") {
 		t.Fatalf("expected old inspection subcommands to be gone, got %q", help)
 	}
@@ -56,6 +60,7 @@ func TestNewCommandInvokesDynamicVerbThroughCustomInvoker(t *testing.T) {
 	if err != nil {
 		t.Fatalf("collect discovered verbs: %v", err)
 	}
+	captured := map[string]interface{}{}
 	commands, err := buildCommands(discovered, func(repo scannedRepository, verb *jsverbs.VerbSpec, _ *cmds.CommandDescription) jsverbs.VerbInvoker {
 		return func(ctx context.Context, _ *jsverbs.Registry, _ *jsverbs.VerbSpec, parsedValues *values.Values) (interface{}, error) {
 			defaultValues, _ := parsedValues.Get("default")
@@ -64,13 +69,14 @@ func TestNewCommandInvokesDynamicVerbThroughCustomInvoker(t *testing.T) {
 			title, _ := defaultValues.GetField("title")
 			theme, _ := displayValues.GetField("theme")
 			device, _ := sessionValues.GetField("device")
-			return map[string]interface{}{
-				"repository": repo.Repository.Name,
-				"verb":       verb.FullPath(),
-				"title":      title,
-				"theme":      theme,
-				"device":     device,
-			}, nil
+			duration, _ := sessionValues.GetField("duration")
+			captured["repository"] = repo.Repository.Name
+			captured["verb"] = verb.FullPath()
+			captured["title"] = title
+			captured["theme"] = theme
+			captured["device"] = device
+			captured["duration"] = duration
+			return nil, nil
 		}
 	})
 	if err != nil {
@@ -94,48 +100,21 @@ func TestNewCommandInvokesDynamicVerbThroughCustomInvoker(t *testing.T) {
 			"theme": "light",
 		},
 		"loupedeck": {
-			"device": "/dev/mock",
+			"device":   "/dev/mock",
+			"duration": "0s",
 		},
 	}))
 	if err != nil {
 		t.Fatalf("parse command values: %v", err)
 	}
-	gp := &captureProcessor{}
-	glazeCommand, ok := target.(cmds.GlazeCommand)
+	bareCommand, ok := target.(cmds.BareCommand)
 	if !ok {
-		t.Fatalf("expected glaze command, got %T", target)
+		t.Fatalf("expected bare command, got %T", target)
 	}
-	if err := glazeCommand.RunIntoGlazeProcessor(context.Background(), parsedValues, gp); err != nil {
+	if err := bareCommand.Run(context.Background(), parsedValues); err != nil {
 		t.Fatalf("run command: %v", err)
 	}
-	if len(gp.rows) != 1 {
-		t.Fatalf("expected one row, got %#v", gp.rows)
+	if captured["verb"] != "documented configure" || captured["title"] != "OPS" || captured["theme"] != "light" || captured["device"] != "/dev/mock" || captured["duration"] != "0s" {
+		t.Fatalf("unexpected capture %#v", captured)
 	}
-	row := rowToMap(gp.rows[0])
-	if row["verb"] != "documented configure" || row["title"] != "OPS" || row["theme"] != "light" || row["device"] != "/dev/mock" {
-		t.Fatalf("unexpected row %#v", row)
-	}
-}
-
-type captureProcessor struct {
-	rows []types.Row
-}
-
-func (c *captureProcessor) AddRow(_ context.Context, row types.Row) error {
-	c.rows = append(c.rows, row)
-	return nil
-}
-
-func (c *captureProcessor) Close(context.Context) error {
-	return nil
-}
-
-var _ middlewares.Processor = (*captureProcessor)(nil)
-
-func rowToMap(row types.Row) map[string]interface{} {
-	ret := map[string]interface{}{}
-	for pair := row.Oldest(); pair != nil; pair = pair.Next() {
-		ret[pair.Key] = pair.Value
-	}
-	return ret
 }

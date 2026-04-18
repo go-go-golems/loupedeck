@@ -559,7 +559,7 @@ go run ./cmd/loupedeck run ./examples/js/01-hello.js --duration 5s
 |---|---|---|
 | positional `script` argument | Path to the JS file | Required entry point |
 | `--device` | Optional serial device override | Use when auto-detect is wrong or unavailable |
-| `--duration` | How long to run | Use `0` for run-until-interrupted |
+| `--duration` | How long to run | Defaults to `0s` (run until interrupted) |
 | `--flush-interval` | Retained-render flush cadence | Useful when experimenting with update pacing |
 | `--queue-size` | Writer queue size | Useful for stress testing or animation experiments |
 | `--send-interval` | Writer pacing interval | Lets you tune device-facing traffic |

@@ -10,8 +10,6 @@ import (
 	"github.com/go-go-golems/glazed/pkg/cmds/fields"
 	"github.com/go-go-golems/glazed/pkg/cmds/schema"
 	"github.com/go-go-golems/glazed/pkg/cmds/values"
-	"github.com/go-go-golems/glazed/pkg/middlewares"
-	"github.com/go-go-golems/glazed/pkg/types"
 	"github.com/go-go-golems/go-go-goja/engine"
 	"github.com/go-go-golems/loupedeck/pkg/device"
 	"github.com/go-go-golems/loupedeck/pkg/scriptmeta"
@@ -31,24 +29,10 @@ type options struct {
 	Session    SessionOptions
 }
 
-type commandResult struct {
-	ScriptPath     string
-	DevicePath     string
-	Duration       time.Duration
-	SendInterval   time.Duration
-	FlushInterval  time.Duration
-	QueueSize      int
-	ExitOnCircle   bool
-	TraceLimit     int
-	RequestedStats bool
-	Status         string
-}
-
 var _ cmds.BareCommand = (*Command)(nil)
-var _ cmds.GlazeCommand = (*Command)(nil)
 
 func NewCommand() (*Command, error) {
-	commonSections, err := CommonSections()
+	runtimeSections, err := RuntimeSections()
 	if err != nil {
 		return nil, err
 	}
@@ -63,16 +47,16 @@ func NewCommand() (*Command, error) {
 		return nil, err
 	}
 
-	sections := append([]schema.Section{defaultSection}, commonSections...)
+	sections := append([]schema.Section{defaultSection}, runtimeSections...)
 	desc := cmds.NewCommandDescription(
 		"run",
 		cmds.WithShort("Run a plain Loupedeck Live JavaScript file on hardware"),
 		cmds.WithLong(`Execute a plain JavaScript scene file against a real Loupedeck device.
 
 Examples:
-  loupedeck run ./examples/js/01-hello.js --duration 5s
+  loupedeck run ./examples/js/01-hello.js
   loupedeck run ./examples/js/11-cyb-os-tiles.js --send-interval 0ms --flush-interval 20ms
-  loupedeck run ./examples/js/01-hello.js --with-glaze-output --output json`),
+  loupedeck run ./examples/js/01-hello.js --duration 5s`),
 		cmds.WithSections(sections...),
 	)
 
@@ -80,53 +64,11 @@ Examples:
 }
 
 func (c *Command) Run(ctx context.Context, vals *values.Values) error {
-	_, err := c.execute(ctx, vals)
-	return err
-}
-
-func (c *Command) RunIntoGlazeProcessor(ctx context.Context, vals *values.Values, gp middlewares.Processor) error {
-	result, err := c.execute(ctx, vals)
+	opts, err := decodeOptions(vals)
 	if err != nil {
 		return err
 	}
-	return gp.AddRow(ctx, types.NewRow(
-		types.MRP("script", result.ScriptPath),
-		types.MRP("device", result.DevicePath),
-		types.MRP("duration", result.Duration.String()),
-		types.MRP("send_interval", result.SendInterval.String()),
-		types.MRP("flush_interval", result.FlushInterval.String()),
-		types.MRP("queue_size", result.QueueSize),
-		types.MRP("exit_on_circle", result.ExitOnCircle),
-		types.MRP("trace_limit", result.TraceLimit),
-		types.MRP("requested_stats", result.RequestedStats),
-		types.MRP("status", result.Status),
-	))
-}
-
-func (c *Command) execute(ctx context.Context, vals *values.Values) (*commandResult, error) {
-	opts, err := decodeOptions(vals)
-	if err != nil {
-		return nil, err
-	}
-	if err := run(ctx, opts); err != nil {
-		return nil, err
-	}
-	devicePath := opts.Session.DevicePath
-	if devicePath == "" {
-		devicePath = "auto"
-	}
-	return &commandResult{
-		ScriptPath:     opts.ScriptPath,
-		DevicePath:     devicePath,
-		Duration:       opts.Session.Duration,
-		SendInterval:   opts.Session.SendInterval,
-		FlushInterval:  opts.Session.FlushInterval,
-		QueueSize:      opts.Session.QueueSize,
-		ExitOnCircle:   opts.Session.ExitOnCircle,
-		TraceLimit:     opts.Session.TraceLimit,
-		RequestedStats: opts.Session.LogRenderStats || opts.Session.LogWriterStats || opts.Session.LogJSStats || opts.Session.LogJSTrace || opts.Session.LogGoTrace,
-		Status:         "ok",
-	}, nil
+	return run(ctx, opts)
 }
 
 func decodeOptions(vals *values.Values) (options, error) {

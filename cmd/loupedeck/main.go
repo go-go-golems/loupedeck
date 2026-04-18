@@ -37,7 +37,7 @@ func main() {
 
 	runCommand, err := runcmd.NewCommand()
 	cobra.CheckErr(err)
-	runCobraCmd, err := loupedeckcmdcommon.BuildCobraCommandDualMode(runCommand)
+	runCobraCmd, err := loupedeckcmdcommon.BuildRuntimeCobraCommand(runCommand)
 	cobra.CheckErr(err)
 	rootCmd.PersistentFlags().StringArray(verbscmd.VerbRepositoryFlag, nil, "Additional JavaScript verb repositories to scan before command registration (repeatable)")
 	rootCmd.AddCommand(runCobraCmd)

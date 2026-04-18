@@ -163,7 +163,7 @@ Once a repository is loaded, explicit verbs appear as normal nested commands:
 loupedeck verbs documented configure OPS --theme light --refreshRate 60 --duration 5s
 ```
 
-The generated command help comes from jsverbs metadata, while the session/device flags come from loupedeck:
+The generated command help comes from jsverbs metadata, while the session/device flags come from loupedeck. Runtime commands now default to `--duration 0s`, meaning they keep running until interrupted unless you opt into a timeout:
 
 - verb fields such as `title`, `theme`, and `refreshRate`
 - session fields such as `--device`, `--duration`, `--flush-interval`, and `--queue-size`

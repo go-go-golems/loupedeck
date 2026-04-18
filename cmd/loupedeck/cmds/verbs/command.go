@@ -2,15 +2,17 @@ package verbs
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"io"
+	"os"
 	"path/filepath"
+	"strings"
 
 	glazedcli "github.com/go-go-golems/glazed/pkg/cli"
 	"github.com/go-go-golems/glazed/pkg/cmds"
 	"github.com/go-go-golems/glazed/pkg/cmds/schema"
 	"github.com/go-go-golems/glazed/pkg/cmds/values"
-	"github.com/go-go-golems/glazed/pkg/middlewares"
 	"github.com/go-go-golems/go-go-goja/pkg/jsverbs"
 	runcmd "github.com/go-go-golems/loupedeck/cmd/loupedeck/cmds/run"
 	"github.com/spf13/cobra"
@@ -18,39 +20,29 @@ import (
 
 type invokerFactory func(repo scannedRepository, verb *jsverbs.VerbSpec, verbDescription *cmds.CommandDescription) jsverbs.VerbInvoker
 
-type glazeCommandWrapper struct {
-	base cmds.GlazeCommand
-	desc *cmds.CommandDescription
+type runtimeCommandWrapper struct {
+	desc       *cmds.CommandDescription
+	outputMode string
+	execute    func(context.Context, *values.Values) (any, error)
 }
 
-func (c *glazeCommandWrapper) Description() *cmds.CommandDescription {
+func (c *runtimeCommandWrapper) Description() *cmds.CommandDescription {
 	return c.desc
 }
 
-func (c *glazeCommandWrapper) ToYAML(w io.Writer) error {
+func (c *runtimeCommandWrapper) ToYAML(w io.Writer) error {
 	return c.desc.ToYAML(w)
 }
 
-func (c *glazeCommandWrapper) RunIntoGlazeProcessor(ctx context.Context, parsedValues *values.Values, gp middlewares.Processor) error {
-	return c.base.RunIntoGlazeProcessor(ctx, parsedValues, gp)
+func (c *runtimeCommandWrapper) Run(ctx context.Context, parsedValues *values.Values) error {
+	result, err := c.execute(ctx, parsedValues)
+	if err != nil {
+		return err
+	}
+	return printRuntimeCommandResult(os.Stdout, c.outputMode, result)
 }
 
-type writerCommandWrapper struct {
-	base cmds.WriterCommand
-	desc *cmds.CommandDescription
-}
-
-func (c *writerCommandWrapper) Description() *cmds.CommandDescription {
-	return c.desc
-}
-
-func (c *writerCommandWrapper) ToYAML(w io.Writer) error {
-	return c.desc.ToYAML(w)
-}
-
-func (c *writerCommandWrapper) RunIntoWriter(ctx context.Context, parsedValues *values.Values, w io.Writer) error {
-	return c.base.RunIntoWriter(ctx, parsedValues, w)
-}
+var _ cmds.BareCommand = (*runtimeCommandWrapper)(nil)
 
 func NewCommand(bootstrap Bootstrap) (*cobra.Command, error) {
 	return newCommandWithInvokerFactory(bootstrap, liveSceneInvokerFactory)
@@ -75,11 +67,8 @@ func newCommandWithInvokerFactory(bootstrap Bootstrap, invokers invokerFactory) 
 		return nil, err
 	}
 	if err := glazedcli.AddCommandsToRootCommand(root, commands, nil,
-		glazedcli.WithDualMode(true),
-		glazedcli.WithGlazeToggleFlag("with-glaze-output"),
 		glazedcli.WithParserConfig(glazedcli.CobraParserConfig{
-			ShortHelpSections: []string{schema.DefaultSlug},
-			MiddlewaresFunc:   glazedcli.CobraCommandDefaultMiddlewares,
+			SkipCommandSettingsSection: true,
 		}),
 	); err != nil {
 		return nil, err
@@ -90,23 +79,24 @@ func newCommandWithInvokerFactory(bootstrap Bootstrap, invokers invokerFactory) 
 func buildCommands(discovered []discoveredVerb, invokers invokerFactory) ([]cmds.Command, error) {
 	commands := make([]cmds.Command, 0, len(discovered))
 	for _, discoveredVerb := range discovered {
-		verbDescription, err := discoveredVerb.Repository.Registry.CommandDescriptionForVerb(discoveredVerb.Verb)
+		repo := discoveredVerb.Repository
+		verb := discoveredVerb.Verb
+		verbDescription, err := repo.Registry.CommandDescriptionForVerb(verb)
 		if err != nil {
 			return nil, err
 		}
-		upstreamCommand, err := discoveredVerb.Repository.Registry.CommandForVerbWithInvoker(discoveredVerb.Verb, invokers(discoveredVerb.Repository, discoveredVerb.Verb, verbDescription))
+		augmentedDescription, err := augmentDescription(verbDescription)
 		if err != nil {
 			return nil, err
 		}
-		augmentedDescription, err := augmentDescription(upstreamCommand.Description())
-		if err != nil {
-			return nil, err
-		}
-		wrapped, err := wrapCommandWithDescription(upstreamCommand, augmentedDescription)
-		if err != nil {
-			return nil, err
-		}
-		commands = append(commands, wrapped)
+		invoker := invokers(repo, verb, verbDescription)
+		commands = append(commands, &runtimeCommandWrapper{
+			desc:       augmentedDescription,
+			outputMode: verb.OutputMode,
+			execute: func(ctx context.Context, parsedValues *values.Values) (any, error) {
+				return invoker(ctx, repo.Registry, verb, parsedValues)
+			},
+		})
 	}
 	return commands, nil
 }
@@ -116,23 +106,12 @@ func augmentDescription(description *cmds.CommandDescription) (*cmds.CommandDesc
 		return nil, fmt.Errorf("command description is nil")
 	}
 	ret := description.Clone(true)
-	commonSections, err := runcmd.CommonSections()
+	runtimeSections, err := runcmd.RuntimeSections()
 	if err != nil {
 		return nil, err
 	}
-	ret.SetSections(commonSections...)
+	ret.SetSections(runtimeSections...)
 	return ret, nil
-}
-
-func wrapCommandWithDescription(command cmds.Command, description *cmds.CommandDescription) (cmds.Command, error) {
-	switch c := command.(type) {
-	case cmds.GlazeCommand:
-		return &glazeCommandWrapper{base: c, desc: description}, nil
-	case cmds.WriterCommand:
-		return &writerCommandWrapper{base: c, desc: description}, nil
-	default:
-		return nil, fmt.Errorf("unsupported command type %T", command)
-	}
 }
 
 func liveSceneInvokerFactory(repo scannedRepository, verb *jsverbs.VerbSpec, verbDescription *cmds.CommandDescription) jsverbs.VerbInvoker {
@@ -159,6 +138,44 @@ func subsetValuesForDescription(parsedValues *values.Values, description *cmds.C
 		}
 	})
 	return ret
+}
+
+func printRuntimeCommandResult(w io.Writer, outputMode string, result any) error {
+	if w == nil || result == nil {
+		return nil
+	}
+	switch outputMode {
+	case jsverbs.OutputModeText:
+		switch v := result.(type) {
+		case nil:
+			return nil
+		case string:
+			_, err := io.WriteString(w, v)
+			if err != nil {
+				return err
+			}
+			if !strings.HasSuffix(v, "\n") {
+				_, err = io.WriteString(w, "\n")
+			}
+			return err
+		case []byte:
+			if _, err := w.Write(v); err != nil {
+				return err
+			}
+			if len(v) == 0 || v[len(v)-1] != '\n' {
+				_, err := io.WriteString(w, "\n")
+				return err
+			}
+			return nil
+		default:
+			_, err := fmt.Fprintf(w, "%v\n", result)
+			return err
+		}
+	default:
+		enc := json.NewEncoder(w)
+		enc.SetIndent("", "  ")
+		return enc.Encode(result)
+	}
 }
 
 func verbSourceLabel(repo scannedRepository, verb *jsverbs.VerbSpec) string {

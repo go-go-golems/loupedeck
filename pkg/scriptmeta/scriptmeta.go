@@ -119,13 +119,16 @@ func FindVerb(target *Target, registry *jsverbs.Registry, selector string) (*jsv
 	if registry == nil {
 		return nil, fmt.Errorf("registry is nil")
 	}
+	entryVerbs := EntryVerbs(target, registry)
 	if selector != "" {
-		if verb, ok := registry.Verb(selector); ok {
-			return verb, nil
+		if target == nil || target.EntryFile == "" {
+			if verb, ok := registry.Verb(selector); ok {
+				return verb, nil
+			}
 		}
 		matches := []*jsverbs.VerbSpec{}
-		for _, verb := range EntryVerbs(target, registry) {
-			if verb.Name == selector || verb.FunctionName == selector || strings.HasSuffix(verb.FullPath(), " "+selector) {
+		for _, verb := range entryVerbs {
+			if verb.FullPath() == selector || verb.Name == selector || verb.FunctionName == selector || strings.HasSuffix(verb.FullPath(), " "+selector) {
 				matches = append(matches, verb)
 			}
 		}
@@ -142,7 +145,6 @@ func FindVerb(target *Target, registry *jsverbs.Registry, selector string) (*jsv
 		}
 		return nil, fmt.Errorf("verb %q not found", selector)
 	}
-	entryVerbs := EntryVerbs(target, registry)
 	if len(entryVerbs) == 1 {
 		return entryVerbs[0], nil
 	}
@@ -218,26 +220,33 @@ func BuildDocStore(ctx context.Context, path string) (*Target, *jsdocmodel.DocSt
 		return nil, nil, err
 	}
 	inputs := []batch.InputFile{}
-	err = filepath.WalkDir(target.RootDir, func(filePath string, d fs.DirEntry, walkErr error) error {
-		if walkErr != nil {
-			return walkErr
-		}
-		if d.IsDir() {
-			if d.Name() == "node_modules" || strings.HasPrefix(d.Name(), ".") {
-				if filePath == target.RootDir {
-					return nil
-				}
-				return filepath.SkipDir
+	if target.EntryFile != "" {
+		inputs = append(inputs, batch.InputFile{Path: target.EntryFile})
+	} else {
+		err = filepath.WalkDir(target.RootDir, func(filePath string, d fs.DirEntry, walkErr error) error {
+			if walkErr != nil {
+				return walkErr
 			}
+			if d.IsDir() {
+				if d.Name() == "node_modules" || strings.HasPrefix(d.Name(), ".") {
+					if filePath == target.RootDir {
+						return nil
+					}
+					return filepath.SkipDir
+				}
+				return nil
+			}
+			ext := strings.ToLower(filepath.Ext(filePath))
+			if ext != ".js" && ext != ".cjs" {
+				return nil
+			}
+			inputs = append(inputs, batch.InputFile{Path: filePath})
 			return nil
+		})
+		if err != nil {
+			return nil, nil, err
 		}
-		ext := strings.ToLower(filepath.Ext(filePath))
-		if ext != ".js" && ext != ".cjs" {
-			return nil
-		}
-		inputs = append(inputs, batch.InputFile{Path: filePath})
-		return nil
-	})
+	}
 	if err != nil {
 		return nil, nil, err
 	}

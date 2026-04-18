@@ -15,11 +15,9 @@ import (
 	"syscall"
 	"time"
 
-	"github.com/go-go-golems/glazed/pkg/cli"
 	"github.com/go-go-golems/glazed/pkg/cmds/fields"
 	"github.com/go-go-golems/glazed/pkg/cmds/schema"
 	"github.com/go-go-golems/glazed/pkg/cmds/values"
-	"github.com/go-go-golems/glazed/pkg/settings"
 	"github.com/go-go-golems/go-go-goja/engine"
 	"github.com/go-go-golems/go-go-goja/pkg/jsverbs"
 	"github.com/go-go-golems/loupedeck/pkg/device"
@@ -81,7 +79,7 @@ func NewSessionSection() (schema.Section, error) {
 		schema.WithDescription("Hardware/session settings shared by plain scripts and annotated verbs"),
 		schema.WithFields(
 			fields.New("device", fields.TypeString, fields.WithDefault(""), fields.WithHelp("Optional serial device path (default: auto-detect)")),
-			fields.New("duration", fields.TypeString, fields.WithDefault("15s"), fields.WithHelp("How long to run before exiting; use 0 to run until interrupted")),
+			fields.New("duration", fields.TypeString, fields.WithDefault("0s"), fields.WithHelp("How long to run before exiting; use 0s to run until interrupted")),
 			fields.New("queue-size", fields.TypeInteger, fields.WithDefault(256), fields.WithHelp("Writer queue size")),
 			fields.New("send-interval", fields.TypeString, fields.WithDefault("35ms"), fields.WithHelp("Writer pacing interval")),
 			fields.New("flush-interval", fields.TypeString, fields.WithDefault(device.DefaultRenderOptions.FlushInterval.String()), fields.WithHelp("Retained render scheduler flush interval")),
@@ -99,20 +97,12 @@ func NewSessionSection() (schema.Section, error) {
 	)
 }
 
-func CommonSections() ([]schema.Section, error) {
-	glazedSection, err := settings.NewGlazedSchema()
-	if err != nil {
-		return nil, err
-	}
-	commandSettingsSection, err := cli.NewCommandSettingsSection()
-	if err != nil {
-		return nil, err
-	}
+func RuntimeSections() ([]schema.Section, error) {
 	sessionSection, err := NewSessionSection()
 	if err != nil {
 		return nil, err
 	}
-	return []schema.Section{glazedSection, commandSettingsSection, sessionSection}, nil
+	return []schema.Section{sessionSection}, nil
 }
 
 func DecodeSessionOptions(vals *values.Values) (SessionOptions, error) {
