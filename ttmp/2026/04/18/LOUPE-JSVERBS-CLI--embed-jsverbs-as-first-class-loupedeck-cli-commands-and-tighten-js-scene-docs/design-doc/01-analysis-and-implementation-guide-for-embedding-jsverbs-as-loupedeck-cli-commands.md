@@ -19,467 +19,573 @@ RelatedFiles:
     - Path: ../../../../../../../go-go-goja/pkg/jsverbs/runtime.go
       Note: Upstream runtime ownership split between invoke and InvokeInRuntime
     - Path: cmd/loupedeck/cmds/run/command.go
-      Note: Current live hardware scene execution path that must remain the runtime owner
+      Note: Current live hardware scene execution path and existing raw/verb split that will be simplified
     - Path: cmd/loupedeck/cmds/verbs/command.go
-      Note: Current inspection-only verbs list/help split that the new UX may partially supersede
+      Note: Current inspection-only verbs namespace that will become the dynamic execution namespace
     - Path: cmd/loupedeck/main.go
-      Note: Current static root command assembly that the new scene embedding will extend
+      Note: Current static root command assembly that the new verbs bootstrap will extend
     - Path: docs/help/topics/03-annotated-scene-scripts-and-jsverbs.md
       Note: Current public docs for annotated scenes that will need tightening
 ExternalSources: []
-Summary: Evidence-based analysis and intern-oriented implementation guide for exposing scanned jsverbs as first-class loupedeck CLI commands while preserving the long-lived hardware runtime model and tightening the related JS docs/examples.
+Summary: "Revised design for making `loupedeck verbs ...` the primary dynamic execution namespace for annotated jsverbs scene commands, scanning configured roots at startup and dropping the earlier compatibility-oriented `scene` parent plan."
 LastUpdated: 2026-04-18T11:30:09.66691294-04:00
-WhatFor: Use when implementing the follow-up CLI embedding work after LOUPE-JSVERBS, especially if the goal is to make annotated scene verbs feel like first-class commands rather than a run --verb submode.
-WhenToUse: Read before changing loupedeck root Cobra wiring, replacing verbs help/list flows, or adapting the go-go-goja jsverbs-example embedding pattern to the hardware-owned runtime path.
+WhatFor: "Use when implementing the revised product direction where `loupedeck verbs ...` directly executes annotated scene verbs discovered from configured roots and `run` returns to being the plain-file runner."
+WhenToUse: "Read before changing the root Cobra wiring, replacing the current static verbs list/help commands, or deciding how loupedeck discovers and registers annotated scripts across multiple roots."
 ---
-
 
 # Analysis and implementation guide for embedding jsverbs as loupedeck CLI commands
 
 ## Executive summary
 
-Yes: loupedeck can expose scanned jsverbs as CLI verbs in the style of `go-go-goja/cmd/jsverbs-example`, but it should not do so by directly reusing `registry.Commands()` for scene execution.
+Yes: loupedeck can expose annotated jsverbs as first-class CLI verbs in the style of `go-go-goja/cmd/jsverbs-example`, and the best user-facing shape is:
 
-The reason is architectural. The upstream `jsverbs-example` flow is designed for ephemeral command runtimes: it scans a directory, generates Glazed commands, and lets each generated command invoke JavaScript through `registry.invoke(...)`, which creates and closes its own runtime for each execution. Loupedeck scene execution is different. The `run` path opens a real device connection, attaches event listeners, starts a long-lived presenter loop, and invokes a selected verb inside that already-live runtime with `InvokeInRuntime(...)`.
+```bash
+loupedeck verbs documented configure --title OPS
+```
 
-So the correct direction is a loupedeck-specific embedding layer that reuses the upstream schema-generation APIs (`CommandDescriptionForVerb(...)`) and live-runtime invocation APIs (`InvokeInRuntime(...)`), but wraps them in hardware-aware Cobra commands. The recommended user-facing shape is a dedicated static parent command, for example `loupedeck scene ...`, under which dynamically scanned verb subcommands are registered after a shallow early scan of `os.Args`. This keeps the root command stable, avoids collisions with existing static commands (`run`, `verbs`, `doc`, `help`), and still gives users a jsverbs-example-style command experience.
+rather than a separate `scene` parent or continued reliance on `run --verb`.
 
-This ticket is intentionally narrow. It should cover:
+This is the right product direction if the goals are:
 
-1. first-class CLI embedding of annotated scene verbs,
-2. coexistence with the existing `run`, `verbs`, and `doc` commands,
-3. docs/example tightening related to the new flow.
+1. load and expose all annotated scripts from one or more configured roots,
+2. make annotated scene entrypoints feel like real CLI commands,
+3. avoid backward-compatibility baggage from the transitional `run --verb` UX,
+4. keep `run` focused on plain JavaScript file execution.
 
-It should explicitly defer broader JS follow-ups such as doc server mode, multi-script package registries, richer interactive verb value UX, and generic error-reporting polish.
+However, there is one architectural constraint that still matters: loupedeck should **not** execute these commands by directly reusing upstream `registry.Commands()` unchanged. The upstream generated commands still route through `registry.invoke(...)`, which creates and closes an ephemeral runtime per command invocation. Loupedeck scene commands must instead execute inside a live device/runtime/presenter session using `InvokeInRuntime(...)`.
+
+So the correct implementation is:
+
+- keep the **command-tree idea** from `jsverbs-example`,
+- keep the **schema/help generation** from `CommandDescriptionForVerb(...)`,
+- keep the **live-runtime invocation** path from `InvokeInRuntime(...)`,
+- change the product namespace so `verbs` becomes the dynamic execution tree,
+- stop designing around backward compatibility for `run --verb`.
+
+This ticket should therefore implement a new model where:
+
+- `loupedeck run <file.js>` is the plain-file runner,
+- `loupedeck verbs ...` is the annotated-scene command namespace,
+- the CLI boot process scans configured roots before Cobra registration and mounts all discovered annotated verbs under `verbs`.
 
 ## Problem statement and scope
 
 ### Problem
 
-LOUPE-JSVERBS added working jsverbs support to loupedeck, but the current UX is still split across three different static command surfaces:
+LOUPE-JSVERBS delivered working jsverbs/jsdoc integration, but the shipped UX is still transitional:
 
-- `loupedeck run --script ... --verb ...` for actual execution,
-- `loupedeck verbs list --script ...` for discovery,
-- `loupedeck verbs help --script ... --verb ...` for metadata-accurate help.
+- `loupedeck run --script ... --verb ...` executes annotated scene verbs,
+- `loupedeck verbs list --script ...` lists explicit verbs,
+- `loupedeck verbs help --script ... --verb ...` renders generated help,
+- `loupedeck doc --script ...` exports docs.
 
-That split was the right implementation choice for the first ticket because it preserved the hardware runtime model and avoided overcomplicating `run`. But it is not yet the most ergonomic final CLI shape for annotated scenes.
+That split was useful during the runtime-convergence phase, but it is not the best final user experience for annotated scene scripting.
+
+The user has now clarified the desired end state:
+
+- no special `scene` wrapper namespace,
+- no compatibility-oriented emphasis on `run --verb`,
+- `verbs` itself should be the real execution namespace,
+- the system should load and expose all annotated scripts, not just a single selected file.
 
 ### Requested outcome
 
-The new goal is to evaluate and plan a second-stage UX where annotated scene verbs appear as first-class CLI commands, similar to `go-go-goja/cmd/jsverbs-example`, while still honoring loupedeck’s long-lived device/runtime lifecycle.
+The new goal is to redesign the follow-up ticket around this command shape:
+
+```bash
+loupedeck verbs documented configure
+```
+
+with full generated help/flags and hardware-backed execution.
 
 ### In scope
 
-- analyze whether jsverbs can be embedded as CLI verbs in loupedeck,
-- explain the full context to a new intern,
-- propose the command-tree shape and implementation strategy,
-- produce ticket tasks for the implementation work,
-- include docs/example tightening as part of the same ticket.
+- redesign the CLI plan so `verbs` becomes the dynamic execution namespace,
+- explain how loupedeck can scan and expose multiple annotated scripts,
+- define the discovery/bootstrap model for script roots,
+- define how execution still uses loupedeck’s live hardware/runtime session,
+- fold the JS docs/example tightening work into the same ticket.
 
 ### Out of scope
 
-- generic JS runtime error-reporting polish,
-- doc server / `--serve` support,
-- advanced multi-script scene package registries,
-- richer interactive value prompts beyond existing config/JSON resolution,
-- revisiting shorthand script-path support as a product feature.
+- broad JS runtime error-reporting work,
+- doc server / `--serve`,
+- advanced multi-script package registry features beyond initial root scanning and collision handling,
+- richer interactive value-entry UX,
+- shorthand-path UX for raw script execution.
 
 ## Current-state architecture and evidence
 
 ### 1. Loupedeck currently has a static root command tree
 
-The current root command is assembled in `cmd/loupedeck/main.go` and only adds three static command families:
+`cmd/loupedeck/main.go:17-41` builds a static root command and adds:
 
 - `run`
 - `verbs`
 - `doc`
 
-Evidence:
+There is currently no dynamic scan-and-register step before `rootCmd.Execute()`.
 
-- `cmd/loupedeck/main.go:17-41` constructs the root, installs logging/help, builds the Glazed-backed `run` command, then adds `verbs` and `doc` as static Cobra commands.
+### 2. The current `verbs` namespace is inspection-only
 
-This means there is currently no dynamic registration step driven by script scanning before `rootCmd.Execute()`.
+`cmd/loupedeck/cmds/verbs/command.go:24-32` defines a static `verbs` parent.
 
-### 2. The current jsverbs UX is intentionally split
+Under it:
 
-The `verbs` command is inspection-only today:
+- `cmd/loupedeck/cmds/verbs/command.go:35-65` implements `list --script <path>`
+- `cmd/loupedeck/cmds/verbs/command.go:68-105` implements `help --script <path> --verb <name>`
 
-- `verbs list` scans a script or directory and prints discovered explicit verb paths
-- `verbs help` scans a script or directory, finds one verb, builds its `CommandDescription`, then renders help for that synthetic command
+So the `verbs` namespace already exists, but it is currently metadata inspection only. It is not the actual execution surface.
 
-Evidence:
+### 3. The actual execution path for annotated scenes currently lives under `run`
 
-- `cmd/loupedeck/cmds/verbs/command.go:24-32` defines a static `verbs` parent command.
-- `cmd/loupedeck/cmds/verbs/command.go:35-65` implements `list --script <path>`.
-- `cmd/loupedeck/cmds/verbs/command.go:68-105` implements `help --script <path> --verb <name>` by calling `registry.CommandDescriptionForVerb(...)` and rendering `--help` through a generated Cobra command.
+`cmd/loupedeck/cmds/run/command.go:259-264` branches between raw scripts and verb mode.
 
-The docs also describe the split explicitly:
+For annotated verbs:
 
-- `docs/help/topics/03-annotated-scene-scripts-and-jsverbs.md:79-117` shows `run --verb`, `verbs list`, and `verbs help` as separate workflows.
+- `cmd/loupedeck/cmds/run/command.go:300-328` scans the registry, finds a verb, parses values, and invokes it with `registry.InvokeInRuntime(...)`.
+- `cmd/loupedeck/cmds/run/command.go:339-360` begins the live hardware scene session.
 
-### 3. Actual scene execution happens in a caller-owned hardware/runtime session
+This means the loupedeck execution architecture we want already exists, but it is behind the wrong product-facing command shape.
 
-The `run` command does not hand control to `jsverbs.Commands()`. Instead, it decides between two boot paths:
+### 4. Raw script execution is file-oriented and should stay that way
 
-- raw script boot
-- jsverbs verb boot
+`cmd/loupedeck/cmds/run/command.go:266-289` requires an actual JavaScript file for raw execution and rejects directory-only raw execution.
 
-Evidence:
+That is compatible with the user clarification: raw execution should be filename-oriented, not shorthand/directory-oriented.
 
-- `cmd/loupedeck/cmds/run/command.go:259-264` switches between raw and verb execution.
-- `cmd/loupedeck/cmds/run/command.go:300-328` shows the verb bootstrap path: scan registry, find verb, build description, parse values, compose engine options, and invoke the verb with `registry.InvokeInRuntime(...)`.
-- `cmd/loupedeck/cmds/run/command.go:339-360` shows the hardware session beginning: connect device, hold the session open, and then continue into the long-lived scene loop.
+### 5. Upstream `jsverbs-example` proves dynamic embedding is feasible
 
-This is a key difference from the upstream example. Loupedeck verb execution is not just “call a JS function”; it is “call a JS function inside an already-live hardware/runtime/presenter session.”
+`go-go-goja/cmd/jsverbs-example/main.go:23-40` scans before command registration.
 
-### 4. Raw script execution is file-oriented, even though scene metadata scanning can work on directories
+`go-go-goja/cmd/jsverbs-example/main.go:74-85` adds generated commands to the Cobra root.
 
-The raw boot path resolves a target, but still requires an actual JavaScript file entrypoint.
+`go-go-goja/cmd/jsverbs-example/main.go:98-110` uses early raw-arg inspection to discover the scan target before final command registration.
 
-Evidence:
+So the core dynamic embedding pattern is already proven upstream.
 
-- `cmd/loupedeck/cmds/run/command.go:266-289` resolves the target and then rejects directory-only raw execution with `raw script execution requires a JavaScript file`.
-- `cmd/loupedeck/cmds/run/command.go:121` still describes `script` as “Path to the JavaScript file or scene directory to execute”, which is accurate for the combined feature set but not equally true for all submodes.
+### 6. Upstream generated commands are still runtime-owning
 
-This matters for docs tightening. The user explicitly clarified that raw script usage should really be treated as filename-oriented, not as a shorthand/directory-first UX goal.
+`go-go-goja/pkg/jsverbs/command.go:37-47` exposes `Registry.Commands()`.
 
-### 5. Upstream jsverbs-example does dynamic Cobra embedding at startup
+`go-go-goja/pkg/jsverbs/command.go:326-356` routes execution through `registry.invoke(...)`.
 
-The upstream example does almost exactly what the user is asking about conceptually:
+`go-go-goja/pkg/jsverbs/runtime.go:18-35` shows that `invoke(...)` opens and closes a fresh runtime.
 
-1. discover the target directory from raw `os.Args`,
-2. scan it before building the command tree,
-3. ask the registry for generated commands,
-4. add those commands to the Cobra root.
+This is the main reason we still cannot just mount upstream generated commands directly for loupedeck hardware scenes.
 
-Evidence:
+### 7. The upstream APIs needed for native loupedeck execution already exist
 
-- `go-go-goja/cmd/jsverbs-example/main.go:23-40` scans the directory and builds `registry.Commands()`.
-- `go-go-goja/cmd/jsverbs-example/main.go:74-85` adds those generated commands to the root with `cli.AddCommandsToRootCommand(...)`.
-- `go-go-goja/cmd/jsverbs-example/main.go:98-110` shows the early argument sniffing used to determine scan directory before command registration.
+- `go-go-goja/pkg/jsverbs/command.go:49-53` exports `CommandDescriptionForVerb(...)`
+- `go-go-goja/pkg/jsverbs/runtime.go:38-42` exports `RequireLoader()`
+- `go-go-goja/pkg/jsverbs/runtime.go:44-108` exports `InvokeInRuntime(...)`
 
-So the short answer to “can we do that?” is: yes, mechanically, because the same registry already knows how to generate Glazed/Cobra commands.
-
-### 6. But upstream generated commands currently own ephemeral runtimes
-
-The generated upstream commands are not suitable for loupedeck scene execution as-is.
-
-Evidence:
-
-- `go-go-goja/pkg/jsverbs/command.go:37-47` exposes `Registry.Commands()` by wrapping each verb in a generated Glazed/Writer command.
-- `go-go-goja/pkg/jsverbs/command.go:326-356` shows `RunIntoGlazeProcessor(...)` and `RunIntoWriter(...)` both delegating to `registry.invoke(...)`.
-- `go-go-goja/pkg/jsverbs/runtime.go:18-35` shows `invoke(...)` creating a new runtime through `engine.NewBuilder()`, then closing it after invocation.
-
-That behavior is correct for jsverbs-example and generic CLI scripting, but wrong for loupedeck hardware scenes because it would destroy the live runtime immediately after the verb returns.
-
-### 7. Loupedeck already has the upstream APIs needed for a host-owned adaptation
-
-The previous ticket added exactly the upstream APIs needed to solve this cleanly.
-
-Evidence:
-
-- `go-go-goja/pkg/jsverbs/command.go:49-53` exports `CommandDescriptionForVerb(...)`.
-- `go-go-goja/pkg/jsverbs/runtime.go:38-42` exports `RequireLoader()`.
-- `go-go-goja/pkg/jsverbs/runtime.go:44-108` exports `InvokeInRuntime(...)`.
-
-That means loupedeck does not need to copy or fork the jsverbs command builder. It can reuse the description/schema generation and the module-loader/runtime-invocation plumbing separately.
+So loupedeck already has the primitives it needs to build native dynamic commands under `verbs` without reintroducing runtime duplication.
 
 ## Gap analysis
 
 ### What exists today
 
-- annotated scenes can be executed on hardware via `run --verb`
-- discovered verbs can be listed
-- generated help can be rendered accurately
-- docs can be exported
-- raw scenes still work
+- annotated scenes execute correctly in a live loupedeck runtime
+- metadata-accurate command descriptions can be generated
+- docs can be extracted
+- raw plain-file scripts still work
 
-### What is missing relative to the requested UX
+### What is missing relative to the revised desired UX
 
-- annotated verbs are not first-class Cobra subcommands in the loupedeck CLI tree
-- command registration is static, not script-driven
-- there is no early scan/bootstrap phase in `cmd/loupedeck/main.go`
-- help/docs still present `run --verb` as the main execution path for annotated scenes
-- docs/examples do not yet explain the eventual “first-class command” model because it does not exist yet
+- `verbs` is not yet the actual execution namespace
+- no configured-root scan exists at startup
+- loupedeck cannot yet load and expose all annotated scripts automatically
+- the current docs still describe `run --verb` and `verbs list/help` as the main annotated-scene workflow
+- collision handling and discovery policy for multiple annotated scripts are not yet defined
 
-### Why direct reuse of `registry.Commands()` is insufficient
+## Answer to the product question
 
-Because `registry.Commands()` still routes through ephemeral runtime ownership. Loupedeck needs generated command descriptions without generated runtime ownership.
+## Would `loupedeck verbs documented configure` work?
 
-## Answer to the core product question
+Yes, that would work.
 
-## Can we embed jsverbs and expose them as CLI verbs like `cmd/jsverbs-example`?
+In fact, it is a cleaner final UX than the earlier `scene` proposal if the product direction is:
 
-Yes, with one important caveat:
+- load and expose all annotated scripts,
+- avoid backward-compatibility obligations for the transitional `run --verb` flow,
+- keep one stable namespace for annotated scene commands.
 
-- **Yes** for command discovery, schema generation, help rendering, and Cobra registration.
-- **No** if the plan is to reuse `registry.Commands()` unchanged for actual hardware scene execution.
+The only architectural caveat remains the same:
 
-For loupedeck, the right implementation is:
+- **yes** to dynamic command registration under `verbs`
+- **no** to directly reusing upstream runtime-owning generated commands for actual execution
 
-1. scan before Cobra registration,
-2. build a command description per verb,
-3. wrap each description in a loupedeck-specific execution command that opens the hardware scene session and then calls `InvokeInRuntime(...)` inside that live runtime.
+So the recommended execution model is:
 
-So the answer is “yes, but via a loupedeck-specific adapter layer, not by directly mounting upstream runtime-owning commands.”
+1. scan configured roots before Cobra registration,
+2. discover all annotated verbs,
+3. mount them as subcommands under `loupedeck verbs ...`,
+4. execute them through loupedeck’s live hardware/runtime session using `InvokeInRuntime(...)`.
 
 ## Proposed solution
 
-## High-level design
+## High-level product model
 
-Introduce a new static parent command in loupedeck, tentatively named `scene`, whose child commands are discovered dynamically from the selected script file.
-
-Recommended UX:
+### Plain scripts
 
 ```bash
-loupedeck scene --script ./examples/js/12-documented-scene.js documented configure --title OPS
+loupedeck run ./examples/js/02-counter-button.js
 ```
 
-This preserves the feel of jsverbs-example while avoiding top-level command collisions with:
+This is the plain-file, non-annotated runner.
 
-- `run`
-- `verbs`
-- `doc`
-- `help`
-
-### Why a static parent command is recommended
-
-A direct root-level embedding like:
+### Annotated scene commands
 
 ```bash
-loupedeck --script ./examples/js/12-documented-scene.js documented configure --title OPS
+loupedeck verbs documented configure --title OPS
 ```
 
-is technically possible, but it is less desirable for loupedeck because:
+This becomes the primary execution path for annotated scenes.
 
-1. the root already contains stable product commands,
-2. dynamic command names could collide with future static command names,
-3. the hardware workflow benefits from one obvious namespace for scene-entry commands.
+### Docs export
 
-The dedicated parent gives us the jsverbs-example mechanics without destabilizing the product root.
+```bash
+loupedeck doc --script ./examples/js/12-documented-scene.js --format markdown
+```
 
-## Proposed command tree
+This remains a separate extraction surface.
 
-### Keep
+## Namespace decision
 
-- `loupedeck run` for plain raw script execution and as the stable low-level hardware runner
-- `loupedeck doc` for docs export
-- `loupedeck verbs list` as a lightweight inspection/debug helper
+Use the existing `verbs` top-level namespace as the dynamic command tree.
 
-### Add
+This is better than:
 
-- `loupedeck scene --script <file> <dynamic-jsverb-path> [verb flags]`
+- direct root injection, because that risks collisions with `run`, `doc`, and future static commands,
+- a separate `scene` parent, because the user explicitly does not want that extra wrapper namespace.
 
-### Potential later cleanup
+So `verbs` should evolve from:
 
-Once dynamic embedded scene commands exist, `loupedeck verbs help` may become redundant for normal users, though it can remain as a debugging/introspection tool.
+- inspection-only namespace
+
+to:
+
+- dynamic execution namespace for all annotated scene commands.
+
+## Discovery model
+
+### Core requirement
+
+If users should be able to type:
+
+```bash
+loupedeck verbs documented configure
+```
+
+without `--script`, then loupedeck must know which roots to scan **before** it assembles the final Cobra command tree.
+
+### Recommended first implementation
+
+Support one or more configured scan roots with deterministic precedence.
+
+Recommended precedence order:
+
+1. explicit CLI bootstrap roots discovered by early raw-arg sniffing,
+2. environment/config-driven roots,
+3. documented conventional fallback roots if the product wants them.
+
+The exact source of truth for roots is still a product decision, but the design should be explicit that dynamic verbs require **startup-time root discovery**.
+
+### Minimum viable product recommendation
+
+For v1 of this ticket, implement one clear project-level mechanism for roots, for example:
+
+- a persistent root-level `--verbs-root` / repeated roots parsed early from raw args, and/or
+- an environment/config-backed root list.
+
+Even if later product work hides this behind defaults, the implementation should first establish a deterministic startup bootstrap path.
+
+## Multi-script exposure model
+
+Scan all configured roots and expose every discovered explicit verb under `loupedeck verbs`.
+
+### Command path
+
+The command path should be the verb’s full jsverbs path, including package/parents.
+
+Example:
+
+- JS metadata full path: `documented configure`
+- CLI path: `loupedeck verbs documented configure`
+
+This is the simplest mental model and aligns well with the current jsverbs metadata conventions.
+
+### Collision policy
+
+If two scanned scripts produce the same full verb path, registration should fail fast with a clear error that names both sources.
+
+Do not silently shadow one command with another.
+
+## Execution model
+
+### Important non-goal
+
+Do not execute loupedeck scene verbs through upstream `registry.Commands()`.
+
+That path still owns ephemeral runtimes.
+
+### Required execution model
+
+For each discovered verb:
+
+1. ask the registry for its `CommandDescription`,
+2. generate a loupedeck-native command from that description,
+3. when executed, open the live device/runtime scene session,
+4. invoke the selected verb inside that live runtime with `InvokeInRuntime(...)`,
+5. keep the runtime/session alive for callbacks, presenter flushes, and reactive updates.
+
+This preserves the correct scene semantics while still making the command look like a native CLI verb.
 
 ## Implementation architecture
 
-### A. Early scene-script discovery before dynamic registration
+### A. Replace the current static `verbs` implementation
 
-Add a small pre-parser in `cmd/loupedeck/main.go` that looks for the `scene` command plus a `--script` value in `os.Args` before final Cobra assembly.
+Today, `verbs` is a static parent with hand-written `list` and `help` subcommands.
 
-This should be modeled on `go-go-goja/cmd/jsverbs-example/main.go:23-40` and `:98-110`, but adapted to the loupedeck command layout.
+The new design should turn `verbs` into a bootstrapped command tree assembled in `cmd/loupedeck/main.go`.
 
-### B. Build a registry for the selected script
+Recommended structure:
 
-Use the existing `scriptmeta` helpers:
+- `loupedeck verbs` root command always exists
+- if scan roots resolve successfully, it gets dynamic child commands for discovered verbs
+- optional debugging helpers like `list`/`help` can be retained only if they still add value
 
-- resolve the script file,
-- scan the registry,
-- limit discovered commands to entry-file verbs rather than all verbs in the scanned root unless the product explicitly wants directory-wide exposure.
+### B. Scan before final registration
 
-Recommendation: start with **entry-file-only** command embedding so the dynamic scene tree matches the file the user selected.
+Model this on `jsverbs-example`, but under the existing `verbs` namespace.
 
-### C. Generate command descriptions, but not upstream runtime-owning commands
-
-For each selected verb:
-
-- call `registry.CommandDescriptionForVerb(verb)`
-- wrap that description in a new loupedeck-specific command type
-
-Proposed adapter shape:
-
-```go
-type SceneVerbCommand struct {
-    *cmds.CommandDescription
-    ScriptPath string
-    Verb       *jsverbs.VerbSpec
-    Registry   *jsverbs.Registry
-}
-```
-
-The command implementation should:
-
-1. decode Glazed values from Cobra,
-2. translate them into `*values.Values`,
-3. call the existing hardware session runner,
-4. reuse `runSceneSession(...)` with a verb bootstrap equivalent to today’s `prepareVerbBootstrap(...)`.
-
-### D. Reuse the existing hardware runner instead of duplicating it
-
-Refactor the existing `run` package slightly so the live hardware boot path is reusable from both:
-
-- static `run --verb`
-- dynamic embedded scene commands
-
-Recommendation: extract one reusable helper such as:
-
-```go
-func RunVerbSceneWithValues(ctx context.Context, opts SceneSessionOptions, scriptPath string, registry *jsverbs.Registry, verb *jsverbs.VerbSpec, parsed *values.Values) error
-```
-
-This helper should:
-
-- compose engine options via `scriptmeta.EngineOptionsForTarget(...)`
-- open the device session
-- open the loupedeck JS runtime
-- call `registry.InvokeInRuntime(...)`
-- keep the presenter/event loop alive afterward
-
-### E. Keep `run --verb` during the transition
-
-Do not remove `run --verb` in the first implementation.
-
-Why:
-
-- it is already shipped,
-- it is a useful low-level fallback,
-- it keeps a stable automation interface while the dynamic scene command UX settles.
-
-## Pseudocode and key flows
-
-### 1. Root assembly flow
+Pseudo-bootstrap flow:
 
 ```go
 func main() {
-    sceneBootstrap := discoverSceneBootstrap(os.Args[1:])
+    bootstrap := discoverVerbBootstrap(os.Args[1:])
 
     root := newStaticRoot()
     root.AddCommand(buildRunCmd())
     root.AddCommand(buildDocCmd())
-    root.AddCommand(buildVerbsCmd())
 
-    if sceneBootstrap.Enabled {
-        sceneCmd, err := buildEmbeddedSceneCommand(sceneBootstrap)
-        cobra.CheckErr(err)
-        root.AddCommand(sceneCmd)
-    } else {
-        root.AddCommand(buildSceneStubCommand()) // explains --script requirement
-    }
+    verbsCmd, err := buildVerbsCommand(bootstrap)
+    cobra.CheckErr(err)
+    root.AddCommand(verbsCmd)
 
     cobra.CheckErr(root.Execute())
 }
 ```
 
-### 2. Embedded scene command builder
+### C. Build loupedeck-native dynamic verb commands
+
+For each discovered verb:
+
+- call `registry.CommandDescriptionForVerb(verb)`
+- convert that description into a Cobra command using the normal Glazed/Cobra builder
+- attach a loupedeck-native execution implementation underneath
+
+Suggested command type:
 
 ```go
-func buildEmbeddedSceneCommand(cfg SceneBootstrap) (*cobra.Command, error) {
-    target, registry, err := scriptmeta.ScanVerbRegistry(cfg.ScriptPath)
-    if err != nil { ... }
-
-    verbs := scriptmeta.EntryVerbs(target, registry)
-    sceneRoot := &cobra.Command{Use: "scene", Short: "Run annotated scene verbs"}
-    sceneRoot.PersistentFlags().String("script", cfg.ScriptPath, "Scene script file")
-
-    for _, verb := range verbs {
-        desc, err := registry.CommandDescriptionForVerb(verb)
-        if err != nil { ... }
-        cmd := &SceneVerbCommand{CommandDescription: desc, ScriptPath: cfg.ScriptPath, Registry: registry, Verb: verb}
-        cobraCmd, err := loupedeckcmdcommon.BuildCobraCommandDualMode(cmd)
-        if err != nil { ... }
-        sceneRoot.AddCommand(cobraCmd)
-    }
-
-    return sceneRoot, nil
+type EmbeddedVerbCommand struct {
+    *cmds.CommandDescription
+    Registry *jsverbs.Registry
+    Verb     *jsverbs.VerbSpec
+    Roots    []string
 }
 ```
 
-### 3. Dynamic scene command execution
+This is not a user-facing wrapper namespace. It is just the internal execution type that binds a generated command description to the loupedeck runtime/session path.
+
+### D. Reuse the live hardware scene-session code from `run`
+
+Refactor `cmd/loupedeck/cmds/run/command.go` so the live-session logic is reusable from the new `verbs` dynamic commands.
+
+The reusable helper should:
+
+- open the device
+- attach the environment
+- open the JS runtime with the right module roots/loaders
+- invoke the selected verb with parsed values
+- leave the session alive afterward
+
+### E. Simplify product responsibility boundaries
+
+After this redesign:
+
+- `run` should be treated as the plain-file runner
+- `verbs` should be treated as the annotated-scene runner
+- `doc` should remain the doc-export surface
+
+The implementation does not need to preserve `run --verb` as a compatibility commitment if the product no longer wants it.
+
+## Pseudocode and key flows
+
+### 1. Build the `verbs` namespace
 
 ```go
-func (c *SceneVerbCommand) Run(ctx context.Context, parsed *values.Values) error {
-    opts := DefaultSceneSessionOptionsFromRootFlags(...)
-    return RunVerbSceneWithValues(ctx, opts, c.ScriptPath, c.Registry, c.Verb, parsed)
+func buildVerbsCommand(cfg VerbBootstrap) (*cobra.Command, error) {
+    verbsRoot := &cobra.Command{
+        Use:   "verbs",
+        Short: "Run annotated loupedeck scene verbs",
+    }
+
+    registries, err := scanConfiguredRoots(cfg.Roots)
+    if err != nil {
+        return nil, err
+    }
+
+    discovered, err := collectAllVerbs(registries)
+    if err != nil {
+        return nil, err
+    }
+
+    for _, discoveredVerb := range discovered {
+        desc, err := discoveredVerb.Registry.CommandDescriptionForVerb(discoveredVerb.Verb)
+        if err != nil {
+            return nil, err
+        }
+        cmd := &EmbeddedVerbCommand{
+            CommandDescription: desc,
+            Registry:           discoveredVerb.Registry,
+            Verb:               discoveredVerb.Verb,
+            Roots:              cfg.Roots,
+        }
+        cobraCmd, err := loupedeckcmdcommon.BuildCobraCommandDualMode(cmd)
+        if err != nil {
+            return nil, err
+        }
+        verbsRoot.AddCommand(cobraCmd)
+    }
+
+    return verbsRoot, nil
+}
+```
+
+### 2. Execute one dynamic embedded verb
+
+```go
+func (c *EmbeddedVerbCommand) Run(ctx context.Context, parsed *values.Values) error {
+    return runpkg.RunEmbeddedVerb(ctx, runpkg.EmbeddedVerbOptions{
+        Registry: c.Registry,
+        Verb:     c.Verb,
+        Values:   parsed,
+    })
+}
+```
+
+### 3. Collision check
+
+```go
+func collectAllVerbs(registries []*jsverbs.Registry) ([]DiscoveredVerb, error) {
+    seen := map[string]DiscoveredVerb{}
+    for _, registry := range registries {
+        for _, verb := range registry.Verbs() {
+            path := verb.FullPath()
+            if prev, ok := seen[path]; ok {
+                return nil, fmt.Errorf(
+                    "duplicate jsverb path %q from %s and %s",
+                    path,
+                    prev.Verb.SourceRef(),
+                    verb.SourceRef(),
+                )
+            }
+            seen[path] = DiscoveredVerb{Registry: registry, Verb: verb}
+        }
+    }
+    return stableSorted(seen), nil
 }
 ```
 
 ## Design decisions
 
-### Decision 1: Use a dedicated static parent (`scene`) instead of direct root injection
+### Decision 1: Use `verbs` itself as the dynamic execution namespace
 
-**Why:** safer coexistence with loupedeck’s existing root command family.
+**Why:** this matches the desired product UX and avoids the extra `scene` wrapper namespace.
 
-### Decision 2: Reuse upstream description/invocation APIs, not upstream generated runtime-owning commands
+### Decision 2: Stop designing around compatibility for `run --verb`
 
-**Why:** keeps runtime ownership correct for hardware scenes and avoids a fork of jsverbs command-generation logic.
+**Why:** the user explicitly said backward compatibility is not needed for this follow-up direction. That frees the implementation to simplify product boundaries.
 
-### Decision 3: Keep `run --verb` during the first migration phase
+### Decision 3: Scan all configured roots, not just one selected file
 
-**Why:** stable fallback, easier validation, lower rollout risk.
+**Why:** the desired command shape implies global discovery of annotated scene commands rather than file-local execution.
 
-### Decision 4: Limit embedded commands to the selected file’s entry verbs initially
+### Decision 4: Fail fast on duplicate full verb paths
 
-**Why:** predictable UX and fewer surprises than exposing every verb from an entire scanned tree on day one.
+**Why:** ambiguous command registration is worse than a loud startup error.
 
-### Decision 5: Include docs/example tightening in this ticket
+### Decision 5: Keep execution loupedeck-native even though command discovery is jsverbs-native
 
-**Why:** once the CLI shape changes, docs need to explain the new primary path, the continuing role of `run`, and the filename-oriented expectation for raw script usage.
+**Why:** command discovery and command execution are different layers; only the discovery layer should mirror `jsverbs-example` directly.
 
 ## Alternatives considered
 
-### Alternative A: Keep the current split forever
+### Alternative A: Keep the earlier `scene --script ...` proposal
 
 Pros:
 
-- lowest code churn
-- already works
+- easier to parameterize per file
+- avoids multi-root discovery immediately
 
 Cons:
 
-- not the ergonomic CLI the user asked for
-- keeps annotated scenes feeling like a special submode rather than first-class commands
-
-### Alternative B: Directly mount `registry.Commands()` under loupedeck
-
-Pros:
-
-- minimal code
-- very close to jsverbs-example
-
-Cons:
-
-- wrong runtime ownership model for hardware scenes
-- would create/close a runtime per command invocation
-- would bypass the device-attached scene session that loupedeck needs
+- not the desired product UX
+- adds an extra namespace layer the user does not want
+- still keeps annotated scenes feeling semi-transitional
 
 Rejected.
 
-### Alternative C: Inject dynamic verbs at the absolute root
+### Alternative B: Continue using `run --verb` as the main UX
 
 Pros:
 
-- most similar to jsverbs-example
+- minimal additional code
 
 Cons:
 
-- command-name collision risk
-- less clear product surface
-- root help becomes more volatile depending on scan target
+- not first-class command embedding
+- keeps annotated scenes as a submode rather than a true command tree
 
-Not recommended for the first implementation.
+Rejected as the primary end state.
+
+### Alternative C: Inject dynamic commands directly at the root
+
+Pros:
+
+- closest to raw jsverbs-example behavior
+
+Cons:
+
+- higher collision risk with static product commands
+- less clear mental model than `loupedeck verbs ...`
+
+Rejected.
+
+### Alternative D: Mount upstream `registry.Commands()` directly under `verbs`
+
+Pros:
+
+- smallest code change
+
+Cons:
+
+- wrong runtime ownership for hardware scenes
+- would close the runtime immediately after invocation
+
+Rejected.
 
 ## Phased implementation plan
 
-### Phase 0: Ticket prep and documentation
+### Phase 0: revise docs/ticket scope
 
-- land this design doc and the investigation diary
-- define explicit ticket scope and out-of-scope items
-- capture the docs/example tightening work as part of the same ticket
+- update this design doc to the `verbs`-as-execution-namespace model
+- update tasks to remove the old `scene`-parent assumptions
+- capture the docs/example tightening work in the same ticket
 
-### Phase 1: Reusable scene-verb execution adapter
+### Phase 1: reusable live-scene execution helper
 
 Files to review first:
 
@@ -488,11 +594,11 @@ Files to review first:
 
 Tasks:
 
-1. extract a reusable helper for executing one parsed verb in the live hardware session
-2. ensure the helper does not depend on `run`-specific flag parsing internals
-3. keep `run --verb` behavior unchanged by reusing the new helper from the old path
+1. extract a reusable helper for executing one parsed jsverb in the live device/runtime session
+2. keep the helper independent from the current `run` flag-decoding layout
+3. simplify `run` toward plain-file execution responsibilities
 
-### Phase 2: Dynamic command bootstrap under `scene`
+### Phase 2: verbs-root bootstrap and startup discovery
 
 Files to review first:
 
@@ -501,89 +607,89 @@ Files to review first:
 
 Tasks:
 
-1. implement early `os.Args` sniffing for `scene --script <file>`
-2. scan the selected script before full Cobra registration
-3. build a static `scene` parent command plus dynamic child commands
-4. add a useful stub/usage message when `scene` is invoked without enough information to scan
+1. implement early bootstrap discovery for scan roots
+2. build registries for all configured roots before final Cobra registration
+3. collect and collision-check all explicit verbs
+4. assemble the dynamic `verbs` command tree from the discovered full paths
 
-### Phase 3: Loupedeck-specific jsverb command wrapper
+### Phase 3: dynamic verbs execution tree
 
 Files to review first:
 
+- `cmd/loupedeck/cmds/verbs/command.go`
 - `go-go-goja/pkg/jsverbs/command.go`
 - `go-go-goja/pkg/jsverbs/runtime.go`
-- `cmd/loupedeck/cmds/common/build.go`
 
 Tasks:
 
-1. define `SceneVerbCommand`
-2. wrap `CommandDescriptionForVerb(...)` outputs in loupedeck execution commands
-3. convert parsed Cobra/Glazed values into the live runtime invocation path
-4. confirm both Glaze and bare/writer output modes are either supported or explicitly constrained for scene commands
+1. replace or deeply refactor the current static inspection-only `verbs` command
+2. generate native loupedeck execution commands from `CommandDescriptionForVerb(...)`
+3. execute each command through the live loupedeck runtime/session using `InvokeInRuntime(...)`
+4. decide whether any debugging helpers remain under `verbs`
 
-### Phase 4: Docs and examples tightening
+### Phase 4: docs and example tightening
 
 Files to update:
 
 - `docs/help/topics/03-annotated-scene-scripts-and-jsverbs.md`
 - `docs/help/topics/01-loupedeck-js-api-reference.md`
-- any JS tutorial that references the old flow as the primary annotated-scene UX
+- any tutorial that presents the old split as the preferred annotated-scene UX
 
 Tasks:
 
-1. document the new embedded scene command path
-2. keep `run --verb` documented as fallback/compatibility mode
-3. use filename-oriented examples for raw script execution
-4. tighten examples so they do not imply that shorthand or directory-style raw invocation is the intended public UX
+1. document `loupedeck verbs documented configure` as the primary annotated-scene UX
+2. position `run` as the plain-file runner
+3. use filename-oriented raw execution examples consistently
+4. remove or demote wording that treats shorthand/directory-first raw execution as intended product UX
 
-### Phase 5: Validation and cleanup
+### Phase 5: tests and validation
 
 Tasks:
 
-1. add tests for early scene bootstrap and command registration
-2. add tests for one embedded scene command executing into the live runtime/session
-3. add tests for coexistence with `run`, `verbs`, `doc`, and `help`
-4. verify help output remains sane when dynamic scene commands are present
-5. keep `verbs list` and `verbs help` only if they still provide debugging value after embedding
+1. add tests for bootstrap root discovery and multi-registry command assembly
+2. add tests for duplicate full-path collision detection
+3. add tests for executing one embedded `verbs ...` command in a live runtime/session
+4. verify coexistence with `run`, `doc`, and root help
+5. verify `loupedeck verbs --help` and nested help output quality
 
 ## Testing and validation strategy
 
 ### Unit tests
 
-- command bootstrap argument parsing
-- dynamic command tree assembly for one annotated scene file
-- description generation and command naming for nested verb paths
-- stable behavior when no verbs are present
+- bootstrap root discovery from raw args/config sources
+- full-path command tree construction
+- duplicate path rejection
+- stable ordering of dynamic command registration
 
 ### Integration tests
 
-- execute an embedded command against the existing annotated example
-- verify the command invokes the verb inside the live runtime and leaves callbacks/presenter active
-- verify raw `run --script file.js` still works unchanged
-- verify `run --script file.js --verb ...` still works unchanged
+- execute one annotated command through `loupedeck verbs ...`
+- verify callbacks/presenter remain alive after the verb returns
+- verify plain `run <file.js>` still works for non-annotated scripts
+- verify `doc` remains unaffected
 
 ### Docs validation
 
 - check `loupedeck --help`
-- check `loupedeck scene --help`
-- check one embedded verb `--help`
-- update examples/help topics to use filename-oriented raw examples
+- check `loupedeck verbs --help`
+- check one nested command help such as `loupedeck verbs documented configure --help`
+- ensure raw examples remain filename-oriented
 
 ## Risks, alternatives, and open questions
 
 ### Risks
 
-1. dynamic command registration can make root help harder to reason about if the scan target is missing or invalid
-2. nested verb parents may create command paths that are awkward in the presence of a static `scene` parent
-3. Glazed dual-mode command generation may expose output-oriented flags that do not add much value for hardware scene commands
-4. keeping both `run --verb` and embedded commands may temporarily duplicate user-facing pathways
+1. startup scanning cost grows with the number of configured roots and scripts
+2. duplicate full paths may appear once multiple roots are loaded
+3. dynamic command registration may complicate help/testing if root discovery is not deterministic
+4. some current automation may rely on `run --verb` and would need migration if that path is reduced or removed
 
 ### Open questions
 
-1. Should the embedded parent be named `scene`, `scenes`, or something else?
-2. Should embedded commands only support Glazed/bare execution, or should some output modes be hidden for hardware scene commands?
-3. After this lands, should `verbs help` remain a public command or become mostly an internal/debugging surface?
-4. Should the first implementation require `--script <file>` explicitly, or support a configurable default scene file later?
+1. What is the initial authoritative source of scan roots: raw flags, env, config file, or a combination?
+2. Should `verbs list` survive as a debugging aid once `verbs` becomes the real execution namespace?
+3. Should the dynamic `verbs` namespace expose only explicit verbs, or also inferred public functions in some later phase?
+4. Should command registration happen strictly from configured roots, or should there be documented conventional fallback directories in v1?
 
 ## References
 

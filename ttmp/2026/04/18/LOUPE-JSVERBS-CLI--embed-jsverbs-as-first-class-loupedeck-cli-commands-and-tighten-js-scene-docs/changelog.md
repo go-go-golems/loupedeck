@@ -3,9 +3,10 @@
 ## 2026-04-18
 
 - Initial workspace created.
-- Added an intern-oriented design doc explaining why loupedeck can embed jsverbs as CLI commands, but should do so through a loupedeck-specific hardware/runtime adapter rather than upstream runtime-owning generated commands.
+- Added an intern-oriented design doc explaining why loupedeck can embed jsverbs as CLI commands, and later revised that plan so `loupedeck verbs ...` becomes the primary execution namespace instead of the earlier `scene`-parent proposal.
 - Added an investigation diary recording the evidence from the current `loupedeck` root command, the current `run`/`verbs` split, and the upstream `jsverbs-example` embedding pattern.
 - Recorded the implementation phases and docs/example tightening tasks for the follow-up ticket.
+- Updated the ticket scope to drop the earlier backward-compatibility-oriented `run --verb` emphasis and instead scan configured roots to expose annotated commands directly under `loupedeck verbs ...`.
 
 ## 2026-04-18
 

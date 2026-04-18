@@ -146,6 +146,91 @@ cd /home/manuel/workspaces/2026-04-13/js-loupedeck/go-go-goja && nl -ba pkg/jsve
 cd /home/manuel/workspaces/2026-04-13/js-loupedeck/go-go-goja && nl -ba pkg/jsverbs/runtime.go | sed -n '1,240p'
 ```
 
+## Step 2: Revise the design from `scene` to dynamic execution under `verbs`
+
+After the first version of the follow-up design was written, the product direction was clarified further. The user explicitly said the extra wrapper namespace was unnecessary and that backward compatibility was not a design constraint for this ticket. That changed the recommended command shape from `loupedeck scene --script ... documented configure` to `loupedeck verbs documented configure`.
+
+That clarification also changed the discovery model. The earlier design was file-selected and therefore naturally centered on one script. The revised design is root-scanned and therefore centered on exposing all annotated scripts discovered from configured roots under one stable namespace.
+
+### Prompt Context
+
+**User prompt (verbatim):** "we don't need backwards compatibility or wrapping, I think the above should be `loupedeck verbs documented configure` that way we can load and expos eall scripts. Would that work?"
+
+**Assistant interpretation:** Re-evaluate the earlier `scene`-namespace proposal under the stronger constraint that dynamic execution should live directly under `verbs` and not preserve the earlier compatibility assumptions.
+
+**Inferred user intent:** Simplify the product surface to two clear modes: plain files under `run` and annotated commands under `verbs`, with discovery happening across all configured annotated script roots.
+
+### What I did
+
+- Rewrote the design doc so `verbs` becomes the dynamic execution namespace.
+- Updated the task plan to remove the old `scene`-parent assumptions.
+- Updated the index/changelog so the ticket summary matches the revised direction.
+- Kept the core architectural caution intact: do not directly mount upstream runtime-owning generated commands for actual hardware scene execution.
+
+### Why
+
+This direction is cleaner for users and lines up better with the mental model already implied by the command name `verbs`. It also makes it easier to expose all annotated scripts at once rather than requiring a file-selected wrapper namespace.
+
+### What worked
+
+- The architectural core did not need to change; only the product-facing command tree changed.
+- The existing evidence from `jsverbs-example`, `cmd/loupedeck/main.go`, and the current `run` path still supports the revised conclusion.
+- The revised task plan is simpler because it no longer needs to preserve the old transitional command split as a product requirement.
+
+### What didn't work
+
+The first version of the design over-optimized for safety around root stability and backward compatibility, which produced the `scene` proposal. That was a reasonable intermediate design, but it was not the desired final product shape once the user clarified the requirements.
+
+### What I learned
+
+- The most important distinction here is not `scene` vs `verbs`; it is whether command discovery and command execution are designed separately.
+- Once runtime ownership stays with loupedeck, the command namespace can be chosen much more freely.
+- Product simplicity improved once backward compatibility stopped being a hard constraint.
+
+### What was tricky to build
+
+The tricky part was separating product-shape decisions from runtime-shape decisions. The earlier `scene` proposal bundled two kinds of caution together:
+
+1. caution about root command stability,
+2. caution about runtime ownership.
+
+Only the second caution was truly architectural. The first was just a product tradeoff. Once the user removed the compatibility/wrapper requirement, it became clearer that `verbs` itself can be the stable namespace without reintroducing the dangerous runtime-ownership mistake.
+
+### What warrants a second pair of eyes
+
+- The final root-discovery mechanism for configured scan roots
+- Whether `verbs list` remains useful after `verbs` becomes the execution tree
+- Whether any transitional support for `run --verb` should survive internally even if it is no longer emphasized publicly
+
+### What should be done in the future
+
+- Implement the dynamic `verbs` bootstrap exactly as revised in the design doc.
+- Make a deliberate product decision about the authoritative source of configured scan roots.
+
+### Code review instructions
+
+Read the updated design doc first, then compare it against:
+
+- `/home/manuel/workspaces/2026-04-13/js-loupedeck/loupedeck/cmd/loupedeck/main.go`
+- `/home/manuel/workspaces/2026-04-13/js-loupedeck/loupedeck/cmd/loupedeck/cmds/verbs/command.go`
+- `/home/manuel/workspaces/2026-04-13/js-loupedeck/loupedeck/cmd/loupedeck/cmds/run/command.go`
+- `/home/manuel/workspaces/2026-04-13/js-loupedeck/go-go-goja/cmd/jsverbs-example/main.go`
+- `/home/manuel/workspaces/2026-04-13/js-loupedeck/go-go-goja/pkg/jsverbs/runtime.go`
+
+### Technical details
+
+Key revised target shape:
+
+```bash
+loupedeck verbs documented configure --title OPS
+```
+
+with:
+
+- startup root discovery,
+- dynamic command registration under `verbs`,
+- live-runtime execution through `InvokeInRuntime(...)`.
+
 ## Related
 
 - Design doc: `../design-doc/01-analysis-and-implementation-guide-for-embedding-jsverbs-as-loupedeck-cli-commands.md`
