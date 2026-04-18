@@ -90,13 +90,10 @@ func (d *Display) Width() int {
 // screen on the Loupedeck CT, which is big-endian.  This does not
 // deal with this case correctly yet.
 func (d *Display) Draw(im image.Image, xoff, yoff int) {
-	slog.Info("Draw called", "Display", d.Name, "xoff", xoff, "yoff", yoff, "width", im.Bounds().Dx(), "height", im.Bounds().Dy())
-
 	x := xoff + d.offsetx
 	y := yoff + d.offsety
 	width := im.Bounds().Dx()
 	height := im.Bounds().Dy()
-	slog.Info("Draw parameters", "x", x, "y", y, "width", width, "height", height)
 
 	// Call 'WriteFramebuff'
 	data := make([]byte, 10)
@@ -149,13 +146,13 @@ func (d *Display) Draw(im image.Image, xoff, yoff int) {
 	if d.loupedeck.renderer != nil {
 		key := fmt.Sprintf("%s:%d:%d:%d:%d", d.Name, x, y, width, height)
 		if err := d.loupedeck.renderer.Invalidate(key, cmd); err != nil {
-			slog.Warn("Render invalidate failed", "err", err)
+			slog.Warn("render invalidate failed", "err", err)
 		}
 		return
 	}
 
 	err := d.loupedeck.EnqueueCommand(cmd)
 	if err != nil {
-		slog.Warn("Send failed", "err", err)
+		slog.Warn("send failed", "err", err)
 	}
 }

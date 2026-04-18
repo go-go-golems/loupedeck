@@ -155,6 +155,56 @@ func TestButtonCallbackCanMutateSignalFromJS(t *testing.T) {
 	waitForText(t, tile, "ARMED")
 }
 
+func TestPresenterAutoFlushesForPlainReactiveScripts(t *testing.T) {
+	source := newFakeSource()
+	env := envpkg.Ensure(nil)
+	env.Host.Attach(source)
+	rt := NewRuntime(env)
+	defer func() { _ = rt.Close(context.Background()) }()
+	env = rt.Env
+
+	flushes := make(chan struct{}, 4)
+	env.Present.SetFlushFunc(func() (int, error) {
+		env.UI.ClearDirty()
+		flushes <- struct{}{}
+		return 1, nil
+	})
+	env.Present.Start(rt.Context())
+	defer env.Present.Close()
+
+	_, err := rt.RunString(context.Background(), `
+		const state = require("loupedeck/state");
+		const ui = require("loupedeck/ui");
+		const count = state.signal(0);
+		ui.page("counter", page => {
+		  page.tile(0, 0, tile => {
+		    tile.text(() => String(count.get()));
+		  });
+		});
+		ui.onButton("Circle", () => {
+		  count.update(v => v + 1);
+		});
+		ui.show("counter");
+	`)
+	if err != nil {
+		t.Fatalf("run script: %v", err)
+	}
+
+	select {
+	case <-flushes:
+	case <-time.After(2 * time.Second):
+		t.Fatal("timed out waiting for initial auto flush")
+	}
+
+	source.emitButton(device.Circle, device.ButtonDown)
+
+	select {
+	case <-flushes:
+	case <-time.After(2 * time.Second):
+		t.Fatal("timed out waiting for button-triggered auto flush")
+	}
+}
+
 func TestAnimModuleCanDriveSignalTweenFromButtonEvent(t *testing.T) {
 	source := newFakeSource()
 	env := envpkg.Ensure(nil)

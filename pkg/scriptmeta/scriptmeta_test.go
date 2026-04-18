@@ -11,6 +11,16 @@ func examplePath(t *testing.T) string {
 	return filepath.Join("..", "..", "examples", "js", "12-documented-scene.js")
 }
 
+func TestResolveTargetAcceptsScriptShorthand(t *testing.T) {
+	target, err := ResolveTarget(filepath.Join("..", "..", "examples", "js", "02"))
+	if err != nil {
+		t.Fatalf("resolve target shorthand: %v", err)
+	}
+	if got := filepath.Base(target.EntryFile); got != "02-counter-button.js" {
+		t.Fatalf("entry file = %q", got)
+	}
+}
+
 func TestScanVerbRegistryFindsDocumentedVerb(t *testing.T) {
 	target, registry, err := ScanVerbRegistry(examplePath(t))
 	if err != nil {

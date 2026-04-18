@@ -56,6 +56,11 @@ func Ensure(e *LoupeDeckEnvironment) *LoupeDeckEnvironment {
 	if e.Present == nil {
 		e.Present = present.New()
 	}
+	e.UI.SetDirtyHandler(func() {
+		if e.Present != nil {
+			e.Present.Invalidate("ui-dirty")
+		}
+	})
 	if e.Metrics == nil {
 		e.Metrics = metrics.New()
 	}

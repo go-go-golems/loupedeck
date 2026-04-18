@@ -38,12 +38,50 @@ func ResolveTarget(path string) (*Target, error) {
 	}
 	info, err := os.Stat(absPath)
 	if err != nil {
-		return nil, fmt.Errorf("stat %s: %w", absPath, err)
+		if !os.IsNotExist(err) {
+			return nil, fmt.Errorf("stat %s: %w", absPath, err)
+		}
+		absPath, err = resolveScriptShorthand(absPath)
+		if err != nil {
+			return nil, err
+		}
+		info, err = os.Stat(absPath)
+		if err != nil {
+			return nil, fmt.Errorf("stat %s: %w", absPath, err)
+		}
 	}
 	if info.IsDir() {
 		return &Target{Path: absPath, RootDir: absPath, IsDir: true}, nil
 	}
 	return &Target{Path: absPath, RootDir: filepath.Dir(absPath), EntryFile: absPath}, nil
+}
+
+func resolveScriptShorthand(absPath string) (string, error) {
+	if filepath.Ext(absPath) != "" {
+		return "", fmt.Errorf("stat %s: %w", absPath, os.ErrNotExist)
+	}
+	matches := []string{}
+	for _, pattern := range []string{absPath + "*.js", absPath + "*.cjs"} {
+		found, err := filepath.Glob(pattern)
+		if err != nil {
+			return "", fmt.Errorf("glob %s: %w", pattern, err)
+		}
+		for _, match := range found {
+			info, err := os.Stat(match)
+			if err == nil && !info.IsDir() {
+				matches = append(matches, match)
+			}
+		}
+	}
+	sort.Strings(matches)
+	switch len(matches) {
+	case 0:
+		return "", fmt.Errorf("stat %s: %w", absPath, os.ErrNotExist)
+	case 1:
+		return matches[0], nil
+	default:
+		return "", fmt.Errorf("script path %q is ambiguous: %s", absPath, strings.Join(matches, ", "))
+	}
 }
 
 func ScanVerbRegistry(path string) (*Target, *jsverbs.Registry, error) {

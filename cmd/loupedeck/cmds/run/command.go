@@ -264,13 +264,16 @@ func run(ctx context.Context, opts options) error {
 }
 
 func prepareRawScriptBootstrap(scriptPath string) ([]engine.Option, runtimeBootstrap, error) {
-	script, err := os.ReadFile(scriptPath)
-	if err != nil {
-		return nil, nil, fmt.Errorf("read script: %w", err)
-	}
 	target, err := scriptmeta.ResolveTarget(scriptPath)
 	if err != nil {
 		return nil, nil, err
+	}
+	if target.EntryFile == "" {
+		return nil, nil, fmt.Errorf("raw script execution requires a JavaScript file, got directory %s", target.Path)
+	}
+	script, err := os.ReadFile(target.EntryFile)
+	if err != nil {
+		return nil, nil, fmt.Errorf("read script: %w", err)
 	}
 	runtimeOptions, err := scriptmeta.EngineOptionsForTarget(target, nil)
 	if err != nil {
@@ -349,7 +352,7 @@ func runSceneSession(ctx context.Context, opts options, runtimeOptions []engine.
 		return fmt.Errorf("connect: %w", err)
 	}
 	defer func() {
-		slog.Info("closing loupedeck connection")
+		slog.Debug("closing loupedeck connection")
 		if err := deckConn.Close(); err != nil {
 			slog.Warn("close failed", "error", err)
 		}
