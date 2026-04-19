@@ -357,12 +357,22 @@ func layerOptionsFromValue(value goja.Value, runtime *goja.Runtime) ui.LayerOpti
 	}
 	a := uint8(255)
 	if av := obj.Get("a"); av != nil && !goja.IsUndefined(av) && !goja.IsNull(av) {
-		a = uint8(av.ToInteger())
+		a = clampInt64ToUint8(av.ToInteger())
 	}
 	return ui.LayerOptions{Foreground: color.RGBA{
-		R: uint8(rValue.ToInteger()),
-		G: uint8(gValue.ToInteger()),
-		B: uint8(bValue.ToInteger()),
+		R: clampInt64ToUint8(rValue.ToInteger()),
+		G: clampInt64ToUint8(gValue.ToInteger()),
+		B: clampInt64ToUint8(bValue.ToInteger()),
 		A: a,
 	}}
+}
+
+func clampInt64ToUint8(v int64) uint8 {
+	if v <= 0 {
+		return 0
+	}
+	if v >= 255 {
+		return 255
+	}
+	return uint8(v)
 }

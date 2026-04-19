@@ -51,6 +51,14 @@ func TestNewCommandShowsEmbeddedVerbHelp(t *testing.T) {
 	}
 }
 
+func TestNewLazyCommandDoesNotBootstrapDuringConstruction(t *testing.T) {
+	t.Setenv(VerbRepositoriesEnvVar, "/definitely/missing/repository")
+	cmd := NewLazyCommand()
+	if cmd == nil {
+		t.Fatal("expected lazy command")
+	}
+}
+
 func TestNewCommandInvokesDynamicVerbThroughCustomInvoker(t *testing.T) {
 	repositories, err := scanRepositories(mustBootstrap(t))
 	if err != nil {
@@ -116,5 +124,30 @@ func TestNewCommandInvokesDynamicVerbThroughCustomInvoker(t *testing.T) {
 	}
 	if captured["verb"] != "documented configure" || captured["title"] != "OPS" || captured["theme"] != "light" || captured["device"] != "/dev/mock" || captured["duration"] != "0s" {
 		t.Fatalf("unexpected capture %#v", captured)
+	}
+}
+
+func TestNewCommandRoutesVerbResultsToConfiguredOutputWriter(t *testing.T) {
+	root, err := newCommandWithInvokerFactory(mustBootstrap(t), func(_ scannedRepository, _ *jsverbs.VerbSpec, _ *cmds.CommandDescription) jsverbs.VerbInvoker {
+		return func(ctx context.Context, _ *jsverbs.Registry, _ *jsverbs.VerbSpec, _ *values.Values) (interface{}, error) {
+			return map[string]interface{}{"ok": true, "target": "captured"}, nil
+		}
+	})
+	if err != nil {
+		t.Fatalf("new command with custom invoker: %v", err)
+	}
+	var out bytes.Buffer
+	root.SetOut(&out)
+	root.SetErr(&out)
+	root.SetArgs([]string{"documented", "configure", "OPS"})
+	if err := root.Execute(); err != nil {
+		t.Fatalf("execute command: %v", err)
+	}
+	output := out.String()
+	if !strings.Contains(output, `"target": "captured"`) {
+		t.Fatalf("expected custom output in configured writer, got %q", output)
+	}
+	if !strings.Contains(output, `"ok": true`) {
+		t.Fatalf("expected JSON output in configured writer, got %q", output)
 	}
 }

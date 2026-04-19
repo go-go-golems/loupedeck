@@ -106,8 +106,12 @@ func (l *Loupedeck) RenderStats() RenderStats {
 
 // SetBrightness sets the overall brightness of the Loupedeck display.
 func (l *Loupedeck) SetBrightness(b int) error {
+	brightness, err := checkedIntToByte("brightness", b)
+	if err != nil {
+		return err
+	}
 	data := make([]byte, 1)
-	data[0] = byte(b)
+	data[0] = brightness
 	m := l.NewMessage(SetBrightness, data)
 	return l.Send(m)
 }
@@ -118,8 +122,12 @@ func (l *Loupedeck) SetBrightness(b int) error {
 // overridden to show the status of the Loupedeck Live's connection to
 // the host.
 func (l *Loupedeck) SetButtonColor(b Button, c color.RGBA) error {
+	button, err := checkedButtonToByte("button", b)
+	if err != nil {
+		return err
+	}
 	data := make([]byte, 4)
-	data[0] = byte(b)
+	data[0] = button
 	data[1] = c.R
 	data[2] = c.G
 	data[3] = c.B

@@ -14,6 +14,7 @@ import (
 	"github.com/go-go-golems/go-go-goja/engine"
 	"github.com/go-go-golems/go-go-goja/pkg/jsverbs"
 	"github.com/go-go-golems/loupedeck/examples"
+	"github.com/spf13/cobra"
 	"gopkg.in/yaml.v3"
 )
 
@@ -61,13 +62,32 @@ type repositorySpec struct {
 }
 
 func DiscoverBootstrap(args []string) (Bootstrap, error) {
-	repositories := []Repository{builtinRepository()}
-	seen := map[string]struct{}{repositoryIdentity(builtinRepository()): {}}
-
 	cwd, err := os.Getwd()
 	if err != nil {
 		return Bootstrap{}, fmt.Errorf("resolve cwd: %w", err)
 	}
+	cliRepos, err := repositoriesFromArgs(args, cwd)
+	if err != nil {
+		return Bootstrap{}, err
+	}
+	return discoverBootstrap(cwd, cliRepos)
+}
+
+func DiscoverBootstrapFromCommand(cmd *cobra.Command) (Bootstrap, error) {
+	cwd, err := os.Getwd()
+	if err != nil {
+		return Bootstrap{}, fmt.Errorf("resolve cwd: %w", err)
+	}
+	cliRepos, err := repositoriesFromCommand(cmd, cwd)
+	if err != nil {
+		return Bootstrap{}, err
+	}
+	return discoverBootstrap(cwd, cliRepos)
+}
+
+func discoverBootstrap(cwd string, cliRepos []Repository) (Bootstrap, error) {
+	repositories := []Repository{builtinRepository()}
+	seen := map[string]struct{}{repositoryIdentity(builtinRepository()): {}}
 
 	configRepos, err := loadConfigRepositories(context.Background())
 	if err != nil {
@@ -89,10 +109,6 @@ func DiscoverBootstrap(args []string) (Bootstrap, error) {
 		}
 	}
 
-	cliRepos, err := repositoriesFromArgs(args, cwd)
-	if err != nil {
-		return Bootstrap{}, err
-	}
 	for _, repo := range cliRepos {
 		if err := appendRepository(&repositories, seen, repo); err != nil {
 			return Bootstrap{}, err
@@ -224,6 +240,32 @@ func repositoriesFromArgs(args []string, cwd string) ([]Repository, error) {
 			paths = append(paths, strings.TrimPrefix(arg, "--"+VerbRepositoryFlag+"="))
 		}
 	}
+	return repositoriesFromCLIPaths(paths, cwd)
+}
+
+func repositoriesFromCommand(cmd *cobra.Command, cwd string) ([]Repository, error) {
+	if cmd == nil {
+		return nil, nil
+	}
+	paths := []string{}
+	if cmd.Flags().Lookup(VerbRepositoryFlag) != nil {
+		flagPaths, err := cmd.Flags().GetStringArray(VerbRepositoryFlag)
+		if err != nil {
+			return nil, err
+		}
+		paths = append(paths, flagPaths...)
+	}
+	if len(paths) == 0 && cmd.InheritedFlags().Lookup(VerbRepositoryFlag) != nil {
+		flagPaths, err := cmd.InheritedFlags().GetStringArray(VerbRepositoryFlag)
+		if err != nil {
+			return nil, err
+		}
+		paths = append(paths, flagPaths...)
+	}
+	return repositoriesFromCLIPaths(paths, cwd)
+}
+
+func repositoriesFromCLIPaths(paths []string, cwd string) ([]Repository, error) {
 	ret := []Repository{}
 	for _, raw := range paths {
 		normalized, err := normalizeFilesystemRepositoryPath(raw, cwd)

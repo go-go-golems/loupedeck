@@ -266,9 +266,9 @@ func (s *Surface) ToRGBA(fg, bg color.Color) *image.RGBA {
 			g := (uint32(fgc>>8)*v + uint32(bgc>>8)*inv) / 255
 			b := (uint32(fb>>8)*v + uint32(bb>>8)*inv) / 255
 			im.SetRGBA(x, y, color.RGBA{
-				R: uint8(r),
-				G: uint8(g),
-				B: uint8(b),
+				R: clampUint32ToUint8(r),
+				G: clampUint32ToUint8(g),
+				B: clampUint32ToUint8(b),
 				A: 0xff,
 			})
 		}
@@ -371,10 +371,7 @@ func notifyListeners(listeners []func()) {
 
 func saturatingAdd(a, b uint8) uint8 {
 	sum := int(a) + int(b)
-	if sum > 255 {
-		return 255
-	}
-	return uint8(sum)
+	return clampIntToUint8(sum)
 }
 
 func abs(v int) int {

@@ -1,8 +1,6 @@
 package main
 
 import (
-	"os"
-
 	"github.com/go-go-golems/glazed/pkg/cmds/logging"
 	"github.com/go-go-golems/glazed/pkg/help"
 	helpcmd "github.com/go-go-golems/glazed/pkg/help/cmd"
@@ -17,9 +15,6 @@ import (
 var version = "dev"
 
 func main() {
-	bootstrap, err := verbscmd.DiscoverBootstrap(os.Args[1:])
-	cobra.CheckErr(err)
-
 	rootCmd := &cobra.Command{
 		Use:     "loupedeck",
 		Short:   "Run Loupedeck Live JavaScript scenes and hardware workflows",
@@ -41,9 +36,7 @@ func main() {
 	cobra.CheckErr(err)
 	rootCmd.PersistentFlags().StringArray(verbscmd.VerbRepositoryFlag, nil, "Additional JavaScript verb repositories to scan before command registration (repeatable)")
 	rootCmd.AddCommand(runCobraCmd)
-	verbsCommand, err := verbscmd.NewCommand(bootstrap)
-	cobra.CheckErr(err)
-	rootCmd.AddCommand(verbsCommand)
+	rootCmd.AddCommand(verbscmd.NewLazyCommand())
 	rootCmd.AddCommand(doccmd.NewCommand())
 
 	cobra.CheckErr(rootCmd.Execute())

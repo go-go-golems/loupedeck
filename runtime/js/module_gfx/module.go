@@ -90,7 +90,7 @@ func surfaceObject(runtime *goja.Runtime, surface *gfx.Surface) goja.Value {
 		return runtime.ToValue(surface.Height())
 	})
 	_ = obj.Set("clear", func(call goja.FunctionCall) goja.Value {
-		surface.Clear(uint8(call.Argument(0).ToInteger()))
+		surface.Clear(clampInt64ToUint8(call.Argument(0).ToInteger()))
 		return goja.Undefined()
 	})
 	_ = obj.Set("batch", func(call goja.FunctionCall) goja.Value {
@@ -111,7 +111,7 @@ func surfaceObject(runtime *goja.Runtime, surface *gfx.Surface) goja.Value {
 		surface.Set(
 			int(call.Argument(0).ToInteger()),
 			int(call.Argument(1).ToInteger()),
-			uint8(call.Argument(2).ToInteger()),
+			clampInt64ToUint8(call.Argument(2).ToInteger()),
 		)
 		return goja.Undefined()
 	})
@@ -119,7 +119,7 @@ func surfaceObject(runtime *goja.Runtime, surface *gfx.Surface) goja.Value {
 		surface.Add(
 			int(call.Argument(0).ToInteger()),
 			int(call.Argument(1).ToInteger()),
-			uint8(call.Argument(2).ToInteger()),
+			clampInt64ToUint8(call.Argument(2).ToInteger()),
 		)
 		return goja.Undefined()
 	})
@@ -129,7 +129,7 @@ func surfaceObject(runtime *goja.Runtime, surface *gfx.Surface) goja.Value {
 			int(call.Argument(1).ToInteger()),
 			int(call.Argument(2).ToInteger()),
 			int(call.Argument(3).ToInteger()),
-			uint8(call.Argument(4).ToInteger()),
+			clampInt64ToUint8(call.Argument(4).ToInteger()),
 		)
 		return goja.Undefined()
 	})
@@ -139,7 +139,7 @@ func surfaceObject(runtime *goja.Runtime, surface *gfx.Surface) goja.Value {
 			int(call.Argument(1).ToInteger()),
 			int(call.Argument(2).ToInteger()),
 			int(call.Argument(3).ToInteger()),
-			uint8(call.Argument(4).ToInteger()),
+			clampInt64ToUint8(call.Argument(4).ToInteger()),
 		)
 		return goja.Undefined()
 	})
@@ -150,7 +150,7 @@ func surfaceObject(runtime *goja.Runtime, surface *gfx.Surface) goja.Value {
 			int(call.Argument(2).ToInteger()),
 			int(call.Argument(3).ToInteger()),
 			int(call.Argument(4).ToInteger()),
-			uint8(call.Argument(5).ToInteger()),
+			clampInt64ToUint8(call.Argument(5).ToInteger()),
 		)
 		return goja.Undefined()
 	})
@@ -193,10 +193,30 @@ func textOptionsFromValue(runtime *goja.Runtime, value goja.Value) gfx.TextOptio
 		Y:          intProp(obj, "y"),
 		Width:      intProp(obj, "width"),
 		Height:     intProp(obj, "height"),
-		Brightness: uint8(intProp(obj, "brightness")),
+		Brightness: clampIntToUint8(intProp(obj, "brightness")),
 		Center:     boolProp(obj, "center"),
 		Face:       base.Face,
 	}
+}
+
+func clampInt64ToUint8(v int64) uint8 {
+	if v <= 0 {
+		return 0
+	}
+	if v >= 255 {
+		return 255
+	}
+	return uint8(v)
+}
+
+func clampIntToUint8(v int) uint8 {
+	if v <= 0 {
+		return 0
+	}
+	if v >= 255 {
+		return 255
+	}
+	return uint8(v)
 }
 
 func intProp(obj *goja.Object, name string) int {

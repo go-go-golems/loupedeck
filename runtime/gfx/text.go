@@ -81,7 +81,7 @@ func (s *Surface) Text(text string, opts TextOptions) {
 			if !s.inBounds(px, py) {
 				continue
 			}
-			v := uint8((uint16(a) * uint16(brightness)) / 255)
+			v := scaleUint8(a, brightness)
 			s.addLocked(px, py, v)
 		}
 	}

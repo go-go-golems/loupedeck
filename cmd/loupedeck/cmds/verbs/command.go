@@ -6,8 +6,10 @@ import (
 	"fmt"
 	"io"
 	"os"
+	"os/signal"
 	"path/filepath"
 	"strings"
+	"syscall"
 
 	glazedcli "github.com/go-go-golems/glazed/pkg/cli"
 	"github.com/go-go-golems/glazed/pkg/cmds"
@@ -35,17 +37,48 @@ func (c *runtimeCommandWrapper) ToYAML(w io.Writer) error {
 }
 
 func (c *runtimeCommandWrapper) Run(ctx context.Context, parsedValues *values.Values) error {
+	return c.RunIntoWriter(ctx, parsedValues, os.Stdout)
+}
+
+func (c *runtimeCommandWrapper) RunIntoWriter(ctx context.Context, parsedValues *values.Values, w io.Writer) error {
 	result, err := c.execute(ctx, parsedValues)
 	if err != nil {
 		return err
 	}
-	return printRuntimeCommandResult(os.Stdout, c.outputMode, result)
+	return printRuntimeCommandResult(w, c.outputMode, result)
 }
 
 var _ cmds.BareCommand = (*runtimeCommandWrapper)(nil)
 
+type writerRunnable interface {
+	RunIntoWriter(ctx context.Context, parsedValues *values.Values, w io.Writer) error
+}
+
 func NewCommand(bootstrap Bootstrap) (*cobra.Command, error) {
 	return newCommandWithInvokerFactory(bootstrap, liveSceneInvokerFactory)
+}
+
+func NewLazyCommand() *cobra.Command {
+	return &cobra.Command{
+		Use:                "verbs",
+		Short:              "Run annotated loupedeck scene verbs",
+		DisableFlagParsing: true,
+		Args:               cobra.ArbitraryArgs,
+		RunE: func(cmd *cobra.Command, args []string) error {
+			bootstrap, err := DiscoverBootstrapFromCommand(cmd)
+			if err != nil {
+				return err
+			}
+			resolvedCmd, err := NewCommand(bootstrap)
+			if err != nil {
+				return err
+			}
+			resolvedCmd.SetOut(cmd.OutOrStdout())
+			resolvedCmd.SetErr(cmd.ErrOrStderr())
+			resolvedCmd.SetArgs(args)
+			return resolvedCmd.ExecuteContext(cmd.Context())
+		},
+	}
 }
 
 func newCommandWithInvokerFactory(bootstrap Bootstrap, invokers invokerFactory) (*cobra.Command, error) {
@@ -66,11 +99,7 @@ func newCommandWithInvokerFactory(bootstrap Bootstrap, invokers invokerFactory) 
 	if err != nil {
 		return nil, err
 	}
-	if err := glazedcli.AddCommandsToRootCommand(root, commands, nil,
-		glazedcli.WithParserConfig(glazedcli.CobraParserConfig{
-			SkipCommandSettingsSection: true,
-		}),
-	); err != nil {
+	if err := addRuntimeCommandsToRootCommand(root, commands); err != nil {
 		return nil, err
 	}
 	return root, nil
@@ -99,6 +128,68 @@ func buildCommands(discovered []discoveredVerb, invokers invokerFactory) ([]cmds
 		})
 	}
 	return commands, nil
+}
+
+func addRuntimeCommandsToRootCommand(root *cobra.Command, commands []cmds.Command) error {
+	for _, command := range commands {
+		description := command.Description()
+		parentCmd := findOrCreateParentCommand(root, description.Parents)
+		cobraCommand, err := buildRuntimeCobraCommand(command)
+		if err != nil {
+			return err
+		}
+		parentCmd.AddCommand(cobraCommand)
+	}
+	return nil
+}
+
+func buildRuntimeCobraCommand(command cmds.Command) (*cobra.Command, error) {
+	description := command.Description()
+	parser, err := glazedcli.NewCobraParserFromSections(description.Schema, &glazedcli.CobraParserConfig{
+		SkipCommandSettingsSection: true,
+	})
+	if err != nil {
+		return nil, err
+	}
+	cobraCommand := glazedcli.NewCobraCommandFromCommandDescription(description)
+	if err := parser.AddToCobraCommand(cobraCommand); err != nil {
+		return nil, err
+	}
+	cobraCommand.RunE = func(cmd *cobra.Command, args []string) error {
+		parsedValues, err := parser.Parse(cmd, args)
+		if err != nil {
+			return err
+		}
+		ctx, cancel := context.WithCancel(cmd.Context())
+		defer cancel()
+		ctx, stop := signal.NotifyContext(ctx, os.Interrupt, syscall.SIGTERM)
+		defer stop()
+		if runnable, ok := command.(writerRunnable); ok {
+			err = runnable.RunIntoWriter(ctx, parsedValues, cmd.OutOrStdout())
+		} else if bare, ok := command.(cmds.BareCommand); ok {
+			err = bare.Run(ctx, parsedValues)
+		} else {
+			return fmt.Errorf("unsupported runtime command %T", command)
+		}
+		if err == context.Canceled {
+			return nil
+		}
+		return err
+	}
+	return cobraCommand, nil
+}
+
+func findOrCreateParentCommand(root *cobra.Command, parents []string) *cobra.Command {
+	parent := root
+	for _, name := range parents {
+		subCmd, _, _ := parent.Find([]string{name})
+		if subCmd == nil || subCmd == parent {
+			subCmd = &cobra.Command{Use: name, Short: fmt.Sprintf("All commands for %s", name)}
+			parent.AddCommand(subCmd)
+		}
+		parent = subCmd
+	}
+	return parent
 }
 
 func augmentDescription(description *cmds.CommandDescription) (*cmds.CommandDescription, error) {

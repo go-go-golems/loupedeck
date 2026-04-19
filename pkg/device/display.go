@@ -97,11 +97,12 @@ func (d *Display) Draw(im image.Image, xoff, yoff int) {
 
 	// Call 'WriteFramebuff'
 	data := make([]byte, 10)
-	binary.BigEndian.PutUint16(data[0:], uint16(d.id))
-	binary.BigEndian.PutUint16(data[2:], uint16(x))
-	binary.BigEndian.PutUint16(data[4:], uint16(y))
-	binary.BigEndian.PutUint16(data[6:], uint16(width))
-	binary.BigEndian.PutUint16(data[8:], uint16(height))
+	data[0] = 0
+	data[1] = d.id
+	binary.BigEndian.PutUint16(data[2:], clampIntToUint16(x))
+	binary.BigEndian.PutUint16(data[4:], clampIntToUint16(y))
+	binary.BigEndian.PutUint16(data[6:], clampIntToUint16(width))
+	binary.BigEndian.PutUint16(data[8:], clampIntToUint16(height))
 
 	b := im.Bounds()
 
@@ -140,7 +141,8 @@ func (d *Display) Draw(im image.Image, xoff, yoff int) {
 	// Ideally, we'd batch these and only call Draw when we're
 	// doing with multiple FB updates.
 	data2 := make([]byte, 2)
-	binary.BigEndian.PutUint16(data2[0:], uint16(d.id))
+	data2[0] = 0
+	data2[1] = d.id
 	m2 := d.loupedeck.NewMessage(Draw, data2)
 	cmd := displayDrawCommand{framebuffer: m, draw: m2}
 	if d.loupedeck.renderer != nil {
