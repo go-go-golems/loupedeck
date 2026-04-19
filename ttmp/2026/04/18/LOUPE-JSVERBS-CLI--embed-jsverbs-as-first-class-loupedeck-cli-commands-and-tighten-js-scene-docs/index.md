@@ -48,6 +48,7 @@ The same ticket also includes the postponed docs/example tightening work related
 - Design doc: `design-doc/01-analysis-and-implementation-guide-for-embedding-jsverbs-as-loupedeck-cli-commands.md`
 - Investigation diary: `reference/01-investigation-diary-for-jsverbs-cli-embedding-follow-up.md`
 - Implementation diary: `reference/02-implementation-diary-for-jsverbs-cli-cutover.md`
+- Lazy command pattern note: `reference/03-lazy-command-pattern-for-dynamic-verbs-loading.md`
 - Tasks: `tasks.md`
 - Changelog: `changelog.md`
 

@@ -22,6 +22,11 @@
   - replaced the static `verbs list/help` implementation with a dynamic command tree under `loupedeck verbs ...`
   - wired generated verbs through the upstream pluggable invoker API back into the live hardware-owned loupedeck runtime/session
   - updated public help/docs to reflect the clean cutover
+- Added a reusable reference note documenting the lazy command pattern behind dynamic verb loading:
+  - why the `verbs` namespace should bootstrap on demand instead of during root startup
+  - how the placeholder-to-resolved-command handoff works
+  - why help/output adoption is required to preserve rich CLI UX
+  - where the same pattern is applicable to other dynamic namespaces, plugin trees, or repository-backed verb systems
 - Validated the implementation with:
   - `go test ./cmd/loupedeck/cmds/run ./cmd/loupedeck/cmds/verbs ./pkg/scriptmeta`
   - `go test ./...`
