@@ -1,39 +1,55 @@
-const ui = require("loupedeck/ui");
-
-ui.page("home", page => {
-  page.tile(0, 0, tile => tile.text("HOME"));
-  page.tile(1, 0, tile => tile.text("B1 -> ALT"));
-  page.tile(2, 0, tile => tile.text("B2 -> INFO"));
-  page.tile(3, 0, tile => tile.text("CIRCLE EXIT"));
+__package__({
+  name: 'page-switcher',
+  short: 'Page switcher example scene'
 });
 
-ui.page("alt", page => {
-  page.tile(0, 0, tile => tile.text("ALT"));
-  page.tile(1, 0, tile => tile.text("B1 -> HOME"));
-  page.tile(2, 0, tile => tile.text("B2 -> INFO"));
-  page.tile(3, 0, tile => tile.text("PAGE 2"));
+function runScene() {
+  const ui = require("loupedeck/ui");
+
+  ui.page("home", page => {
+    page.tile(0, 0, tile => tile.text("HOME"));
+    page.tile(1, 0, tile => tile.text("B1 -> ALT"));
+    page.tile(2, 0, tile => tile.text("B2 -> INFO"));
+    page.tile(3, 0, tile => tile.text("CIRCLE EXIT"));
+  });
+
+  ui.page("alt", page => {
+    page.tile(0, 0, tile => tile.text("ALT"));
+    page.tile(1, 0, tile => tile.text("B1 -> HOME"));
+    page.tile(2, 0, tile => tile.text("B2 -> INFO"));
+    page.tile(3, 0, tile => tile.text("PAGE 2"));
+  });
+
+  ui.page("info", page => {
+    page.tile(0, 0, tile => tile.text("INFO"));
+    page.tile(1, 0, tile => tile.text("B1 -> HOME"));
+    page.tile(2, 0, tile => tile.text("B2 -> ALT"));
+    page.tile(3, 0, tile => tile.text("PAGE 3"));
+  });
+
+  ui.onButton("Button1", () => {
+    const current = globalThis.__page || "home";
+    const next = current === "home" ? "alt" : "home";
+    globalThis.__page = next;
+    ui.show(next);
+  });
+
+  ui.onButton("Button2", () => {
+    const current = globalThis.__page || "home";
+    const next = current === "info" ? "alt" : "info";
+    globalThis.__page = next;
+    ui.show(next);
+  });
+
+  globalThis.__page = "home";
+  ui.show("home");
+}
+
+__verb__("runScene", {
+  name: "run",
+  short: 'Run the page switcher example scene'
 });
 
-ui.page("info", page => {
-  page.tile(0, 0, tile => tile.text("INFO"));
-  page.tile(1, 0, tile => tile.text("B1 -> HOME"));
-  page.tile(2, 0, tile => tile.text("B2 -> ALT"));
-  page.tile(3, 0, tile => tile.text("PAGE 3"));
-});
-
-ui.onButton("Button1", () => {
-  const current = globalThis.__page || "home";
-  const next = current === "home" ? "alt" : "home";
-  globalThis.__page = next;
-  ui.show(next);
-});
-
-ui.onButton("Button2", () => {
-  const current = globalThis.__page || "home";
-  const next = current === "info" ? "alt" : "info";
-  globalThis.__page = next;
-  ui.show(next);
-});
-
-globalThis.__page = "home";
-ui.show("home");
+if (typeof globalThis.__glazedVerbRegistry === "undefined") {
+  runScene();
+}

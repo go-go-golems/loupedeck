@@ -1,32 +1,48 @@
-const state = require("loupedeck/state");
-const ui = require("loupedeck/ui");
+__package__({
+  name: 'knob-meter',
+  short: 'Knob meter example scene'
+});
 
-const level = state.signal(50);
+function runScene() {
+  const state = require("loupedeck/state");
+  const ui = require("loupedeck/ui");
 
-function clamp(v, min, max) {
-  return Math.max(min, Math.min(max, v));
+  const level = state.signal(50);
+
+  function clamp(v, min, max) {
+    return Math.max(min, Math.min(max, v));
+  }
+
+  ui.page("knob-meter", page => {
+    page.tile(0, 0, tile => {
+      tile.text("KNOB1");
+    });
+
+    page.tile(1, 0, tile => {
+      tile.text(() => `LVL ${Math.round(level.get())}`);
+    });
+
+    page.tile(2, 0, tile => {
+      tile.text(() => `${Math.round(level.get())}%`);
+    });
+
+    page.tile(3, 0, tile => {
+      tile.text("TURN");
+    });
+  });
+
+  ui.onKnob("Knob1", event => {
+    level.update(v => clamp(v + event.value, 0, 100));
+  });
+
+  ui.show("knob-meter");
 }
 
-ui.page("knob-meter", page => {
-  page.tile(0, 0, tile => {
-    tile.text("KNOB1");
-  });
-
-  page.tile(1, 0, tile => {
-    tile.text(() => `LVL ${Math.round(level.get())}`);
-  });
-
-  page.tile(2, 0, tile => {
-    tile.text(() => `${Math.round(level.get())}%`);
-  });
-
-  page.tile(3, 0, tile => {
-    tile.text("TURN");
-  });
+__verb__("runScene", {
+  name: "run",
+  short: 'Run the knob meter example scene'
 });
 
-ui.onKnob("Knob1", event => {
-  level.update(v => clamp(v + event.value, 0, 100));
-});
-
-ui.show("knob-meter");
+if (typeof globalThis.__glazedVerbRegistry === "undefined") {
+  runScene();
+}

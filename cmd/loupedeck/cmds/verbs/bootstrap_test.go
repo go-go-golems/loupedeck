@@ -2,10 +2,14 @@ package verbs
 
 import (
 	"context"
+	"io/fs"
 	"os"
 	"path/filepath"
 	"strings"
 	"testing"
+
+	"github.com/go-go-golems/go-go-goja/pkg/jsverbs"
+	"github.com/go-go-golems/loupedeck/examples"
 )
 
 func TestRepositoriesFromArgsParsesRepeatedFlag(t *testing.T) {
@@ -94,6 +98,34 @@ func TestLoadConfigRepositoriesFromXDGConfig(t *testing.T) {
 	}
 	if repos[0].Name != "team" || repos[0].RootDir != repoPath {
 		t.Fatalf("unexpected repository %#v", repos[0])
+	}
+}
+
+func TestBuiltinRepositoryIncludesExplicitVerbForEveryExampleScript(t *testing.T) {
+	opts := jsverbs.DefaultScanOptions()
+	opts.IncludePublicFunctions = false
+
+	registry, err := jsverbs.ScanFS(examples.ScriptsFS, "js", opts)
+	if err != nil {
+		t.Fatalf("scan builtin examples: %v", err)
+	}
+
+	files, err := fs.Glob(examples.ScriptsFS, "js/*.js")
+	if err != nil {
+		t.Fatalf("glob builtin examples: %v", err)
+	}
+	verbsByFile := map[string]int{}
+	for _, verb := range registry.Verbs() {
+		if verb.File == nil {
+			continue
+		}
+		verbsByFile[verb.File.RelPath]++
+	}
+	for _, path := range files {
+		rel := strings.TrimPrefix(path, "js/")
+		if verbsByFile[rel] == 0 {
+			t.Fatalf("expected explicit jsverb for %s", rel)
+		}
 	}
 }
 
