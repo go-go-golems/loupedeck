@@ -3,6 +3,7 @@ package verbs
 import (
 	"bytes"
 	"context"
+	"io"
 	"strings"
 	"testing"
 
@@ -10,6 +11,7 @@ import (
 	"github.com/go-go-golems/glazed/pkg/cmds/runner"
 	"github.com/go-go-golems/glazed/pkg/cmds/values"
 	"github.com/go-go-golems/go-go-goja/pkg/jsverbs"
+	"github.com/spf13/cobra"
 )
 
 func mustBootstrap(t *testing.T) Bootstrap {
@@ -56,6 +58,29 @@ func TestNewLazyCommandDoesNotBootstrapDuringConstruction(t *testing.T) {
 	cmd := NewLazyCommand()
 	if cmd == nil {
 		t.Fatal("expected lazy command")
+	}
+}
+
+func TestAdoptHelpAndOutputCopiesRichHelpFormatting(t *testing.T) {
+	sourceRoot := &cobra.Command{Use: "loupedeck"}
+	sourceRoot.SetHelpFunc(func(c *cobra.Command, _ []string) {
+		_, _ = io.WriteString(c.OutOrStdout(), "RICH HELP\n")
+	})
+	sourceRoot.SetHelpTemplate("IGNORED")
+	sourceRoot.SetUsageTemplate("IGNORED")
+	source := &cobra.Command{Use: "verbs"}
+	sourceRoot.AddCommand(source)
+	target := &cobra.Command{Use: "verbs", RunE: func(cmd *cobra.Command, _ []string) error { return nil }}
+	var out bytes.Buffer
+	source.SetOut(&out)
+	source.SetErr(&out)
+	adoptHelpAndOutput(source, target)
+	target.SetArgs([]string{"--help"})
+	if err := target.Execute(); err != nil {
+		t.Fatalf("execute target help: %v", err)
+	}
+	if !strings.Contains(out.String(), "RICH HELP") {
+		t.Fatalf("expected adopted rich help output, got %q", out.String())
 	}
 }
 

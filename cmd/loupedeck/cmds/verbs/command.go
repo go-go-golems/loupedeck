@@ -73,12 +73,25 @@ func NewLazyCommand() *cobra.Command {
 			if err != nil {
 				return err
 			}
-			resolvedCmd.SetOut(cmd.OutOrStdout())
-			resolvedCmd.SetErr(cmd.ErrOrStderr())
+			adoptHelpAndOutput(cmd, resolvedCmd)
 			resolvedCmd.SetArgs(args)
 			return resolvedCmd.ExecuteContext(cmd.Context())
 		},
 	}
+}
+
+func adoptHelpAndOutput(source *cobra.Command, target *cobra.Command) {
+	if source == nil || target == nil {
+		return
+	}
+	target.SetOut(source.OutOrStdout())
+	target.SetErr(source.ErrOrStderr())
+	target.SetHelpFunc(source.Root().HelpFunc())
+	if usageFunc := source.Root().UsageFunc(); usageFunc != nil {
+		target.SetUsageFunc(usageFunc)
+	}
+	target.SetHelpTemplate(source.Root().HelpTemplate())
+	target.SetUsageTemplate(source.Root().UsageTemplate())
 }
 
 func newCommandWithInvokerFactory(bootstrap Bootstrap, invokers invokerFactory) (*cobra.Command, error) {
