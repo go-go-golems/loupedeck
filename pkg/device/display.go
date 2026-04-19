@@ -90,21 +90,19 @@ func (d *Display) Width() int {
 // screen on the Loupedeck CT, which is big-endian.  This does not
 // deal with this case correctly yet.
 func (d *Display) Draw(im image.Image, xoff, yoff int) {
-	slog.Info("Draw called", "Display", d.Name, "xoff", xoff, "yoff", yoff, "width", im.Bounds().Dx(), "height", im.Bounds().Dy())
-
 	x := xoff + d.offsetx
 	y := yoff + d.offsety
 	width := im.Bounds().Dx()
 	height := im.Bounds().Dy()
-	slog.Info("Draw parameters", "x", x, "y", y, "width", width, "height", height)
 
 	// Call 'WriteFramebuff'
 	data := make([]byte, 10)
-	binary.BigEndian.PutUint16(data[0:], uint16(d.id))
-	binary.BigEndian.PutUint16(data[2:], uint16(x))
-	binary.BigEndian.PutUint16(data[4:], uint16(y))
-	binary.BigEndian.PutUint16(data[6:], uint16(width))
-	binary.BigEndian.PutUint16(data[8:], uint16(height))
+	data[0] = 0
+	data[1] = d.id
+	binary.BigEndian.PutUint16(data[2:], clampIntToUint16(x))
+	binary.BigEndian.PutUint16(data[4:], clampIntToUint16(y))
+	binary.BigEndian.PutUint16(data[6:], clampIntToUint16(width))
+	binary.BigEndian.PutUint16(data[8:], clampIntToUint16(height))
 
 	b := im.Bounds()
 
@@ -143,19 +141,20 @@ func (d *Display) Draw(im image.Image, xoff, yoff int) {
 	// Ideally, we'd batch these and only call Draw when we're
 	// doing with multiple FB updates.
 	data2 := make([]byte, 2)
-	binary.BigEndian.PutUint16(data2[0:], uint16(d.id))
+	data2[0] = 0
+	data2[1] = d.id
 	m2 := d.loupedeck.NewMessage(Draw, data2)
 	cmd := displayDrawCommand{framebuffer: m, draw: m2}
 	if d.loupedeck.renderer != nil {
 		key := fmt.Sprintf("%s:%d:%d:%d:%d", d.Name, x, y, width, height)
 		if err := d.loupedeck.renderer.Invalidate(key, cmd); err != nil {
-			slog.Warn("Render invalidate failed", "err", err)
+			slog.Warn("render invalidate failed", "err", err)
 		}
 		return
 	}
 
 	err := d.loupedeck.EnqueueCommand(cmd)
 	if err != nil {
-		slog.Warn("Send failed", "err", err)
+		slog.Warn("send failed", "err", err)
 	}
 }

@@ -11,7 +11,6 @@ import (
 // Listen waits for events from the Loupedeck and calls
 // callbacks as configured. It returns when the read loop exits.
 func (l *Loupedeck) Listen() error {
-	slog.Info("Listening")
 	for {
 		websocketMsgType, message, err := l.conn.ReadMessage()
 
@@ -30,11 +29,11 @@ func (l *Loupedeck) Listen() error {
 		}
 
 		m, _ := l.ParseMessage(message)
-		slog.Info("Read", "message", m.String())
+		slog.Debug("read", "message", m.String())
 
 		if m.transactionID != 0 {
 			if c := l.takeTransactionCallback(m.transactionID); c != nil {
-				slog.Info("Callback found, calling")
+				slog.Debug("dispatching transaction callback", "transaction_id", m.transactionID)
 				c(m)
 			}
 			continue
@@ -46,7 +45,7 @@ func (l *Loupedeck) Listen() error {
 			button := Button(binary.BigEndian.Uint16(message[2:]))
 			upDown := ButtonStatus(message[4])
 			if !l.dispatchButton(button, upDown) {
-				slog.Info("Received uncaught button press message", "button", button, "upDown", upDown, "message", message)
+				slog.Debug("received uncaught button press message", "button", button, "upDown", upDown, "message", message)
 			}
 		case KnobRotate:
 			knob := Knob(binary.BigEndian.Uint16(message[2:]))
@@ -85,7 +84,7 @@ func (l *Loupedeck) Listen() error {
 			id := message[8]
 			slog.Debug("Received CT touch end message (unhandled)", "x", x, "y", y, "id", id, "message", message)
 		default:
-			slog.Info("Received unknown message", "message", m.String())
+			slog.Debug("received unknown message", "message", m.String())
 		}
 	}
 }

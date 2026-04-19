@@ -6,8 +6,8 @@ import (
 
 	"github.com/dop251/goja"
 	"github.com/dop251/goja_nodejs/require"
-	"github.com/go-go-golems/loupedeck/pkg/runtimebridge"
-	"github.com/go-go-golems/loupedeck/pkg/runtimeowner"
+	"github.com/go-go-golems/go-go-goja/pkg/runtimebridge"
+	"github.com/go-go-golems/go-go-goja/pkg/runtimeowner"
 	envpkg "github.com/go-go-golems/loupedeck/runtime/js/env"
 	"github.com/go-go-golems/loupedeck/runtime/reactive"
 )

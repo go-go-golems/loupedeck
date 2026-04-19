@@ -11,8 +11,8 @@ import (
 	"time"
 
 	"github.com/dop251/goja"
+	"github.com/go-go-golems/go-go-goja/pkg/runtimebridge"
 	"github.com/go-go-golems/loupedeck/pkg/device"
-	"github.com/go-go-golems/loupedeck/pkg/runtimebridge"
 	"github.com/go-go-golems/loupedeck/runtime/gfx"
 	envpkg "github.com/go-go-golems/loupedeck/runtime/js/env"
 	"golang.org/x/image/font/gofont/goregular"
@@ -80,8 +80,9 @@ func TestRequireStateAndUIBuildReactivePage(t *testing.T) {
 	if bindings.Owner == nil || bindings.Context == nil || bindings.Loop == nil {
 		t.Fatal("expected owner/context/loop bindings to be populated")
 	}
-	if bindings.Values["environment"] != env {
-		t.Fatal("expected environment to be available through runtime bindings")
+	lookupEnv, ok := envpkg.Lookup(rt.VM)
+	if !ok || lookupEnv != env {
+		t.Fatal("expected environment to be available through env lookup")
 	}
 
 	_, err := rt.RunString(context.Background(), `
@@ -154,6 +155,56 @@ func TestButtonCallbackCanMutateSignalFromJS(t *testing.T) {
 	waitForText(t, tile, "ARMED")
 }
 
+func TestPresenterAutoFlushesForPlainReactiveScripts(t *testing.T) {
+	source := newFakeSource()
+	env := envpkg.Ensure(nil)
+	env.Host.Attach(source)
+	rt := NewRuntime(env)
+	defer func() { _ = rt.Close(context.Background()) }()
+	env = rt.Env
+
+	flushes := make(chan struct{}, 4)
+	env.Present.SetFlushFunc(func() (int, error) {
+		env.UI.ClearDirty()
+		flushes <- struct{}{}
+		return 1, nil
+	})
+	env.Present.Start(rt.Context())
+	defer env.Present.Close()
+
+	_, err := rt.RunString(context.Background(), `
+		const state = require("loupedeck/state");
+		const ui = require("loupedeck/ui");
+		const count = state.signal(0);
+		ui.page("counter", page => {
+		  page.tile(0, 0, tile => {
+		    tile.text(() => String(count.get()));
+		  });
+		});
+		ui.onButton("Circle", () => {
+		  count.update(v => v + 1);
+		});
+		ui.show("counter");
+	`)
+	if err != nil {
+		t.Fatalf("run script: %v", err)
+	}
+
+	select {
+	case <-flushes:
+	case <-time.After(2 * time.Second):
+		t.Fatal("timed out waiting for initial auto flush")
+	}
+
+	source.emitButton(device.Circle, device.ButtonDown)
+
+	select {
+	case <-flushes:
+	case <-time.After(2 * time.Second):
+		t.Fatal("timed out waiting for button-triggered auto flush")
+	}
+}
+
 func TestAnimModuleCanDriveSignalTweenFromButtonEvent(t *testing.T) {
 	source := newFakeSource()
 	env := envpkg.Ensure(nil)
@@ -217,7 +268,16 @@ func TestAnimModuleLoopCanDriveReactiveUpdates(t *testing.T) {
 		t.Fatalf("run script: %v", err)
 	}
 
-	time.Sleep(40 * time.Millisecond)
+	deadline := time.Now().Add(200 * time.Millisecond)
+	for {
+		if got := env.UI.Page("home").Tile(0, 0).Text(); got != "0" && got != "" {
+			break
+		}
+		if time.Now().After(deadline) {
+			break
+		}
+		time.Sleep(10 * time.Millisecond)
+	}
 	loopHandle := rt.VM.Get("__loopHandle").ToObject(rt.VM)
 	stop, ok := goja.AssertFunction(loopHandle.Get("stop"))
 	if !ok {

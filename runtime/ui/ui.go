@@ -20,6 +20,7 @@ type UI struct {
 	activePage    *Page
 	dirtyTiles    map[*Tile]struct{}
 	dirtyDisplays map[*Display]struct{}
+	onDirty       func()
 }
 
 func New(rt *reactive.Runtime) *UI {
@@ -158,24 +159,42 @@ func (u *UI) ClearDirtyDisplays(displays []*Display) {
 	}
 }
 
-func (u *UI) markDirtyTile(tile *Tile) {
+func (u *UI) SetDirtyHandler(fn func()) {
 	u.mu.Lock()
 	defer u.mu.Unlock()
+	u.onDirty = fn
+}
+
+func (u *UI) markDirtyTile(tile *Tile) {
+	var onDirty func()
+	u.mu.Lock()
 	if tile == nil || tile.dirty {
+		u.mu.Unlock()
 		return
 	}
 	tile.dirty = true
 	u.dirtyTiles[tile] = struct{}{}
+	onDirty = u.onDirty
+	u.mu.Unlock()
+	if onDirty != nil {
+		onDirty()
+	}
 }
 
 func (u *UI) markDirtyDisplay(display *Display) {
+	var onDirty func()
 	u.mu.Lock()
-	defer u.mu.Unlock()
 	if display == nil || display.dirty {
+		u.mu.Unlock()
 		return
 	}
 	display.dirty = true
 	u.dirtyDisplays[display] = struct{}{}
+	onDirty = u.onDirty
+	u.mu.Unlock()
+	if onDirty != nil {
+		onDirty()
+	}
 }
 
 func (u *UI) invalidatePage(page *Page) {

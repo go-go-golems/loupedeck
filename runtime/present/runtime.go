@@ -25,6 +25,7 @@ type Runtime struct {
 
 func New() *Runtime {
 	return &Runtime{
+		render:  func(string) error { return nil },
 		wakeCh:  make(chan struct{}, 1),
 		closeCh: make(chan struct{}),
 		doneCh:  make(chan struct{}),

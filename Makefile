@@ -61,6 +61,7 @@ release:
 bump-glazed:
 	GOWORK=off go get github.com/go-go-golems/glazed@latest
 	GOWORK=off go get github.com/go-go-golems/clay@latest
+	GOWORK=off go get github.com/go-go-golems/go-go-goja@latest
 	GOWORK=off go mod tidy
 
 LOUPEDECK_BINARY=$(shell which loupedeck)

@@ -5,7 +5,9 @@ import (
 	"github.com/go-go-golems/glazed/pkg/help"
 	helpcmd "github.com/go-go-golems/glazed/pkg/help/cmd"
 	loupedeckcmdcommon "github.com/go-go-golems/loupedeck/cmd/loupedeck/cmds/common"
+	doccmd "github.com/go-go-golems/loupedeck/cmd/loupedeck/cmds/doc"
 	runcmd "github.com/go-go-golems/loupedeck/cmd/loupedeck/cmds/run"
+	verbscmd "github.com/go-go-golems/loupedeck/cmd/loupedeck/cmds/verbs"
 	doc "github.com/go-go-golems/loupedeck/docs/help"
 	"github.com/spf13/cobra"
 )
@@ -30,9 +32,12 @@ func main() {
 
 	runCommand, err := runcmd.NewCommand()
 	cobra.CheckErr(err)
-	runCobraCmd, err := loupedeckcmdcommon.BuildCobraCommandDualMode(runCommand)
+	runCobraCmd, err := loupedeckcmdcommon.BuildRuntimeCobraCommand(runCommand)
 	cobra.CheckErr(err)
+	rootCmd.PersistentFlags().StringArray(verbscmd.VerbRepositoryFlag, nil, "Additional JavaScript verb repositories to scan before command registration (repeatable)")
 	rootCmd.AddCommand(runCobraCmd)
+	rootCmd.AddCommand(verbscmd.NewLazyCommand())
+	rootCmd.AddCommand(doccmd.NewCommand())
 
 	cobra.CheckErr(rootCmd.Execute())
 }

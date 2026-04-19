@@ -7,9 +7,9 @@ import (
 
 	"github.com/dop251/goja"
 	"github.com/dop251/goja_nodejs/require"
+	"github.com/go-go-golems/go-go-goja/pkg/runtimebridge"
+	"github.com/go-go-golems/go-go-goja/pkg/runtimeowner"
 	deck "github.com/go-go-golems/loupedeck/pkg/device"
-	"github.com/go-go-golems/loupedeck/pkg/runtimebridge"
-	"github.com/go-go-golems/loupedeck/pkg/runtimeowner"
 	envpkg "github.com/go-go-golems/loupedeck/runtime/js/env"
 	"github.com/go-go-golems/loupedeck/runtime/js/module_gfx"
 	"github.com/go-go-golems/loupedeck/runtime/ui"
@@ -120,7 +120,7 @@ func Register(registry *require.Registry) {
 	})
 }
 
-func pageObject(bindings runtimebridge.Bindings, ownerCtx context.Context, runtime *goja.Runtime, env *envpkg.Environment, page *ui.Page) *goja.Object {
+func pageObject(bindings runtimebridge.Bindings, ownerCtx context.Context, runtime *goja.Runtime, env *envpkg.LoupeDeckEnvironment, page *ui.Page) *goja.Object {
 	obj := runtime.NewObject()
 	_ = obj.Set("tile", func(call goja.FunctionCall) goja.Value {
 		col := int(call.Argument(0).ToInteger())
@@ -148,7 +148,7 @@ func pageObject(bindings runtimebridge.Bindings, ownerCtx context.Context, runti
 	return obj
 }
 
-func displayObject(bindings runtimebridge.Bindings, ownerCtx context.Context, runtime *goja.Runtime, env *envpkg.Environment, display *ui.Display) *goja.Object {
+func displayObject(bindings runtimebridge.Bindings, ownerCtx context.Context, runtime *goja.Runtime, env *envpkg.LoupeDeckEnvironment, display *ui.Display) *goja.Object {
 	obj := runtime.NewObject()
 	_ = obj.Set("text", func(call goja.FunctionCall) goja.Value {
 		if fn, ok := goja.AssertFunction(call.Argument(0)); ok {
@@ -245,7 +245,7 @@ func displayObject(bindings runtimebridge.Bindings, ownerCtx context.Context, ru
 	return obj
 }
 
-func tileObject(bindings runtimebridge.Bindings, ownerCtx context.Context, runtime *goja.Runtime, _ *envpkg.Environment, tile *ui.Tile) *goja.Object {
+func tileObject(bindings runtimebridge.Bindings, ownerCtx context.Context, runtime *goja.Runtime, _ *envpkg.LoupeDeckEnvironment, tile *ui.Tile) *goja.Object {
 	obj := runtime.NewObject()
 	_ = obj.Set("text", func(call goja.FunctionCall) goja.Value {
 		if fn, ok := goja.AssertFunction(call.Argument(0)); ok {
@@ -357,12 +357,22 @@ func layerOptionsFromValue(value goja.Value, runtime *goja.Runtime) ui.LayerOpti
 	}
 	a := uint8(255)
 	if av := obj.Get("a"); av != nil && !goja.IsUndefined(av) && !goja.IsNull(av) {
-		a = uint8(av.ToInteger())
+		a = clampInt64ToUint8(av.ToInteger())
 	}
 	return ui.LayerOptions{Foreground: color.RGBA{
-		R: uint8(rValue.ToInteger()),
-		G: uint8(gValue.ToInteger()),
-		B: uint8(bValue.ToInteger()),
+		R: clampInt64ToUint8(rValue.ToInteger()),
+		G: clampInt64ToUint8(gValue.ToInteger()),
+		B: clampInt64ToUint8(bValue.ToInteger()),
 		A: a,
 	}}
+}
+
+func clampInt64ToUint8(v int64) uint8 {
+	if v <= 0 {
+		return 0
+	}
+	if v >= 255 {
+		return 255
+	}
+	return uint8(v)
 }
