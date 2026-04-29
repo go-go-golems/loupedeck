@@ -7,8 +7,8 @@ toolchain go1.26.2
 require (
 	github.com/dop251/goja v0.0.0-20260311135729-065cd970411c
 	github.com/dop251/goja_nodejs v0.0.0-20260212111938-1f56ff5bcf14
-	github.com/go-go-golems/glazed v1.2.2
-	github.com/go-go-golems/go-go-goja v0.4.8
+	github.com/go-go-golems/glazed v1.2.5
+	github.com/go-go-golems/go-go-goja v0.4.14
 	github.com/gorilla/websocket v1.5.3
 	github.com/spf13/cobra v1.10.2
 	github.com/srwiley/oksvg v0.0.0-20221011165216-be6e8873101c
@@ -49,6 +49,7 @@ require (
 	github.com/clipperhouse/uax29/v2 v2.5.0 // indirect
 	github.com/creack/goselect v0.1.2 // indirect
 	github.com/dlclark/regexp2 v1.11.5 // indirect
+	github.com/dop251/base64dec v0.0.0-20231022112746-c6c9f9a96217 // indirect
 	github.com/erikgeiser/coninput v0.0.0-20211004153227-1c3628e74d0f // indirect
 	github.com/go-jose/go-jose/v4 v4.1.4 // indirect
 	github.com/go-openapi/errors v0.22.0 // indirect
