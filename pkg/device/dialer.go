@@ -99,6 +99,13 @@ func ConnectSerialAuto() (*SerialWebSockConn, error) {
 			if err != nil {
 				return nil, fmt.Errorf("unable to open port %q", port.Name)
 			}
+			// Purge any stale data from previous sessions. The Loupedeck
+			// device does not detect serial disconnects, so its write
+			// buffer may contain websocket frames from an earlier
+			// connection that would confuse the HTTP handshake.
+			if err := p.ResetInputBuffer(); err != nil {
+				slog.Warn("Unable to reset serial input buffer", "port", port.Name, "err", err)
+			}
 			conn := &SerialWebSockConn{
 				Name:    port.Name,
 				Port:    p,
@@ -159,6 +166,13 @@ func ConnectSerialPath(serialPath string) (*SerialWebSockConn, error) {
 	p, err := serial.Open(serialPath, &serial.Mode{})
 	if err != nil {
 		return nil, fmt.Errorf("unable to open serial device %q", serialPath)
+	}
+	// Purge any stale data from previous sessions. The Loupedeck
+	// device does not detect serial disconnects, so its write
+	// buffer may contain websocket frames from an earlier
+	// connection that would confuse the HTTP handshake.
+	if err := p.ResetInputBuffer(); err != nil {
+		slog.Warn("Unable to reset serial input buffer", "path", serialPath, "err", err)
 	}
 	conn := &SerialWebSockConn{
 		Name:    serialPath,
