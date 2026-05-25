@@ -29,7 +29,7 @@ func (r Registrar) ID() string {
 	return "loupedeck-runtime"
 }
 
-func (r Registrar) RegisterRuntimeModules(ctx *engine.RuntimeModuleContext, reg *require.Registry) error {
+func (r Registrar) RegisterRuntimeModule(ctx *engine.RuntimeModuleContext, reg *require.Registry) error {
 	if ctx == nil {
 		return fmt.Errorf("runtime module context is nil")
 	}
@@ -57,6 +57,12 @@ func (r Registrar) RegisterRuntimeModules(ctx *engine.RuntimeModuleContext, reg 
 	module_present.Register(reg)
 	jsmetrics.RegisterModules(reg, "loupedeck")
 	return nil
+}
+
+// RegisterRuntimeModules preserves compatibility with older loupedeck call
+// sites that used the pre-xgoja plural registrar name.
+func (r Registrar) RegisterRuntimeModules(ctx *engine.RuntimeModuleContext, reg *require.Registry) error {
+	return r.RegisterRuntimeModule(ctx, reg)
 }
 
 func installMetadataSentinels(vm *goja.Runtime) error {

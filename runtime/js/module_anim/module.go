@@ -28,7 +28,7 @@ func Register(registry *require.Registry) {
 		}
 		exports := module.Get("exports").(*goja.Object)
 		_ = exports.Set("to", func(call goja.FunctionCall) goja.Value {
-			ownerCtx := runtimeowner.OwnerContext(bindings.Owner, bindings.Context)
+			ownerCtx := bindings.Context
 			get, set := numericTarget(bindings, ownerCtx, runtime, call.Argument(0))
 			to := call.Argument(1).ToFloat()
 			duration := time.Duration(call.Argument(2).ToInteger()) * time.Millisecond
@@ -56,7 +56,7 @@ func Register(registry *require.Registry) {
 			timeline := env.Anim.Timeline()
 			obj := runtime.NewObject()
 			_ = obj.Set("to", func(call goja.FunctionCall) goja.Value {
-				ownerCtx := runtimeowner.OwnerContext(bindings.Owner, bindings.Context)
+				ownerCtx := bindings.Context
 				get, set := numericTarget(bindings, ownerCtx, runtime, call.Argument(0))
 				to := call.Argument(1).ToFloat()
 				duration := time.Duration(call.Argument(2).ToInteger()) * time.Millisecond

@@ -35,7 +35,7 @@ func Register(registry *require.Registry) {
 			if !ok {
 				panic(runtime.NewTypeError("present.onFrame requires a function"))
 			}
-			ownerCtx := runtimeowner.OwnerContext(bindings.Owner, bindings.Context)
+			ownerCtx := bindings.Context
 			env.Present.SetRenderFunc(func(reason string) error {
 				_, err := bindings.Owner.Call(ownerCtx, "present.onFrame", func(_ context.Context, vm *goja.Runtime) (any, error) {
 					_, err := fn(goja.Undefined(), vm.ToValue(reason))

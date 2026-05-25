@@ -7,7 +7,6 @@ import (
 	"github.com/dop251/goja"
 	"github.com/dop251/goja_nodejs/require"
 	"github.com/go-go-golems/go-go-goja/pkg/runtimebridge"
-	"github.com/go-go-golems/go-go-goja/pkg/runtimeowner"
 	envpkg "github.com/go-go-golems/loupedeck/runtime/js/env"
 	"github.com/go-go-golems/loupedeck/runtime/reactive"
 )
@@ -24,7 +23,7 @@ func Register(registry *require.Registry) {
 		if !ok || env == nil {
 			panic(runtime.NewGoError(fmt.Errorf("state module requires environment bindings")))
 		}
-		ownerCtx := runtimeowner.OwnerContext(bindings.Owner, bindings.Context)
+		ownerCtx := bindings.Context
 		exports := module.Get("exports").(*goja.Object)
 		_ = exports.Set("signal", func(call goja.FunctionCall) goja.Value {
 			initial := exportValue(call.Argument(0))

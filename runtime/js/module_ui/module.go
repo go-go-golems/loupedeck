@@ -8,7 +8,6 @@ import (
 	"github.com/dop251/goja"
 	"github.com/dop251/goja_nodejs/require"
 	"github.com/go-go-golems/go-go-goja/pkg/runtimebridge"
-	"github.com/go-go-golems/go-go-goja/pkg/runtimeowner"
 	deck "github.com/go-go-golems/loupedeck/pkg/device"
 	envpkg "github.com/go-go-golems/loupedeck/runtime/js/env"
 	"github.com/go-go-golems/loupedeck/runtime/js/module_gfx"
@@ -27,7 +26,7 @@ func Register(registry *require.Registry) {
 		if !ok || env == nil {
 			panic(runtime.NewGoError(fmt.Errorf("ui module requires environment bindings")))
 		}
-		ownerCtx := runtimeowner.OwnerContext(bindings.Owner, bindings.Context)
+		ownerCtx := bindings.Context
 		exports := module.Get("exports").(*goja.Object)
 		_ = exports.Set("page", func(call goja.FunctionCall) goja.Value {
 			name := call.Argument(0).String()
