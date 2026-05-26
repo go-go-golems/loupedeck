@@ -94,7 +94,7 @@ func TestNewCommandInvokesDynamicVerbThroughCustomInvoker(t *testing.T) {
 		t.Fatalf("collect discovered verbs: %v", err)
 	}
 	captured := map[string]interface{}{}
-	commands, err := buildCommands(discovered, func(repo scannedRepository, verb *jsverbs.VerbSpec, _ *cmds.CommandDescription) jsverbs.VerbInvoker {
+	commands, err := buildCommands(discovered, func(repo ScannedRepository, verb *jsverbs.VerbSpec, _ *cmds.CommandDescription) jsverbs.VerbInvoker {
 		return func(ctx context.Context, _ *jsverbs.Registry, _ *jsverbs.VerbSpec, parsedValues *values.Values) (interface{}, error) {
 			defaultValues, _ := parsedValues.Get("default")
 			displayValues, _ := parsedValues.Get("display")
@@ -153,7 +153,7 @@ func TestNewCommandInvokesDynamicVerbThroughCustomInvoker(t *testing.T) {
 }
 
 func TestNewCommandRoutesVerbResultsToConfiguredOutputWriter(t *testing.T) {
-	root, err := newCommandWithInvokerFactory(mustBootstrap(t), func(_ scannedRepository, _ *jsverbs.VerbSpec, _ *cmds.CommandDescription) jsverbs.VerbInvoker {
+	root, err := newCommandWithInvokerFactory(mustBootstrap(t), func(_ ScannedRepository, _ *jsverbs.VerbSpec, _ *cmds.CommandDescription) jsverbs.VerbInvoker {
 		return func(ctx context.Context, _ *jsverbs.Registry, _ *jsverbs.VerbSpec, _ *values.Values) (interface{}, error) {
 			return map[string]interface{}{"ok": true, "target": "captured"}, nil
 		}

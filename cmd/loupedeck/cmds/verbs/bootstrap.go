@@ -37,13 +37,13 @@ type Repository struct {
 	EmbeddedAt string
 }
 
-type scannedRepository struct {
+type ScannedRepository struct {
 	Repository Repository
 	Registry   *jsverbs.Registry
 }
 
-type discoveredVerb struct {
-	Repository scannedRepository
+type DiscoveredVerb struct {
+	Repository ScannedRepository
 	Verb       *jsverbs.VerbSpec
 }
 
@@ -308,11 +308,11 @@ func normalizeFilesystemRepositoryPath(path string, baseDir string) (string, err
 	return path, nil
 }
 
-func scanRepositories(bootstrap Bootstrap) ([]scannedRepository, error) {
+func scanRepositories(bootstrap Bootstrap) ([]ScannedRepository, error) {
 	opts := jsverbs.DefaultScanOptions()
 	opts.IncludePublicFunctions = false
 
-	ret := make([]scannedRepository, 0, len(bootstrap.Repositories))
+	ret := make([]ScannedRepository, 0, len(bootstrap.Repositories))
 	for _, repo := range bootstrap.Repositories {
 		var (
 			registry *jsverbs.Registry
@@ -326,20 +326,20 @@ func scanRepositories(bootstrap Bootstrap) ([]scannedRepository, error) {
 		if err != nil {
 			return nil, fmt.Errorf("scan repository %s: %w", repo.Name, err)
 		}
-		ret = append(ret, scannedRepository{Repository: repo, Registry: registry})
+		ret = append(ret, ScannedRepository{Repository: repo, Registry: registry})
 	}
 	return ret, nil
 }
 
-func collectDiscoveredVerbs(repositories []scannedRepository) ([]discoveredVerb, error) {
-	seen := map[string]discoveredVerb{}
-	ret := []discoveredVerb{}
+func collectDiscoveredVerbs(repositories []ScannedRepository) ([]DiscoveredVerb, error) {
+	seen := map[string]DiscoveredVerb{}
+	ret := []DiscoveredVerb{}
 	for _, repo := range repositories {
 		for _, verb := range repo.Registry.Verbs() {
 			key := verb.FullPath()
-			candidate := discoveredVerb{Repository: repo, Verb: verb}
+			candidate := DiscoveredVerb{Repository: repo, Verb: verb}
 			if prev, ok := seen[key]; ok {
-				return nil, fmt.Errorf("duplicate jsverb path %q from %s and %s", key, discoveredVerbSource(prev), discoveredVerbSource(candidate))
+				return nil, fmt.Errorf("duplicate jsverb path %q from %s and %s", key, DiscoveredVerbSource(prev), DiscoveredVerbSource(candidate))
 			}
 			seen[key] = candidate
 			ret = append(ret, candidate)
@@ -351,7 +351,7 @@ func collectDiscoveredVerbs(repositories []scannedRepository) ([]discoveredVerb,
 	return ret, nil
 }
 
-func discoveredVerbSource(verb discoveredVerb) string {
+func DiscoveredVerbSource(verb DiscoveredVerb) string {
 	if verb.Verb == nil || verb.Verb.File == nil {
 		return verb.Repository.Repository.Name
 	}
@@ -361,7 +361,7 @@ func discoveredVerbSource(verb discoveredVerb) string {
 	return fmt.Sprintf("%s (%s)", verb.Repository.Repository.Name, verb.Verb.File.RelPath)
 }
 
-func (r scannedRepository) runtimeOptions() []engine.Option {
+func (r ScannedRepository) runtimeOptions() []engine.Option {
 	opts := []engine.Option{engine.WithRequireOptions(require.WithLoader(r.Registry.RequireLoader()))}
 	if r.Repository.Embedded {
 		return opts
