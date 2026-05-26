@@ -100,6 +100,21 @@ func newCommandWithInvokerFactory(bootstrap Bootstrap, invokers invokerFactory) 
 		Short: "Run annotated loupedeck scene verbs",
 	}
 
+	commands, err := NewCommandsWithInvokerFactory(bootstrap, invokers)
+	if err != nil {
+		return nil, err
+	}
+	if err := addRuntimeCommandsToRootCommand(root, commands); err != nil {
+		return nil, err
+	}
+	return root, nil
+}
+
+func NewCommands(bootstrap Bootstrap) ([]cmds.Command, error) {
+	return NewCommandsWithInvokerFactory(bootstrap, liveSceneInvokerFactory)
+}
+
+func NewCommandsWithInvokerFactory(bootstrap Bootstrap, invokers invokerFactory) ([]cmds.Command, error) {
 	repositories, err := scanRepositories(bootstrap)
 	if err != nil {
 		return nil, err
@@ -108,14 +123,7 @@ func newCommandWithInvokerFactory(bootstrap Bootstrap, invokers invokerFactory) 
 	if err != nil {
 		return nil, err
 	}
-	commands, err := buildCommands(discovered, invokers)
-	if err != nil {
-		return nil, err
-	}
-	if err := addRuntimeCommandsToRootCommand(root, commands); err != nil {
-		return nil, err
-	}
-	return root, nil
+	return buildCommands(discovered, invokers)
 }
 
 func buildCommands(discovered []discoveredVerb, invokers invokerFactory) ([]cmds.Command, error) {

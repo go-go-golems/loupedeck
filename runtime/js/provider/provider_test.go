@@ -1,6 +1,8 @@
 package provider
 
 import (
+	"context"
+	"encoding/json"
 	"testing"
 
 	"github.com/dop251/goja"
@@ -52,6 +54,65 @@ func TestGfxLoaderInstallsExports(t *testing.T) {
 	}
 }
 
+func TestRegisterScenesCommandProvider(t *testing.T) {
+	registry := providerapi.NewRegistry()
+	if err := Register(registry); err != nil {
+		t.Fatalf("register provider: %v", err)
+	}
+	provider, ok := registry.ResolveCommandSetProvider(PackageID, "scenes")
+	if !ok {
+		t.Fatalf("missing command provider %s.scenes", PackageID)
+	}
+	if provider.DefaultMount != "loupedeck" {
+		t.Fatalf("default mount = %q, want loupedeck", provider.DefaultMount)
+	}
+}
+
+func TestScenesCommandProviderBuildsRunCommand(t *testing.T) {
+	provider := resolveCommandProvider(t, "scenes")
+	set, err := provider.New(providerapi.CommandSetContext{
+		Context:        context.Background(),
+		PackageID:      PackageID,
+		Name:           "scenes",
+		Mount:          "loupe",
+		RuntimeProfile: "main",
+	})
+	if err != nil {
+		t.Fatalf("create command set: %v", err)
+	}
+	if set == nil || len(set.Commands) == 0 {
+		t.Fatalf("expected commands")
+	}
+	if !hasTopLevelCommand(set, "run") {
+		t.Fatalf("expected top-level run command in default scenes command set")
+	}
+}
+
+func TestScenesCommandProviderCanDisableRunCommand(t *testing.T) {
+	provider := resolveCommandProvider(t, "scenes")
+	config, err := json.Marshal(map[string]any{"includeRun": false})
+	if err != nil {
+		t.Fatalf("marshal config: %v", err)
+	}
+	set, err := provider.New(providerapi.CommandSetContext{
+		Context:        context.Background(),
+		PackageID:      PackageID,
+		Name:           "scenes",
+		Mount:          "loupe",
+		RuntimeProfile: "main",
+		Config:         config,
+	})
+	if err != nil {
+		t.Fatalf("create command set: %v", err)
+	}
+	if set == nil {
+		t.Fatalf("expected command set")
+	}
+	if hasTopLevelCommand(set, "run") {
+		t.Fatalf("did not expect top-level run command when includeRun=false")
+	}
+}
+
 func resolveModule(t *testing.T, name string) providerapi.Module {
 	t.Helper()
 	registry := providerapi.NewRegistry()
@@ -63,6 +124,35 @@ func resolveModule(t *testing.T, name string) providerapi.Module {
 		t.Fatalf("missing module %s.%s", PackageID, name)
 	}
 	return mod
+}
+
+func resolveCommandProvider(t *testing.T, name string) providerapi.CommandSetProvider {
+	t.Helper()
+	registry := providerapi.NewRegistry()
+	if err := Register(registry); err != nil {
+		t.Fatalf("register provider: %v", err)
+	}
+	provider, ok := registry.ResolveCommandSetProvider(PackageID, name)
+	if !ok {
+		t.Fatalf("missing command provider %s.%s", PackageID, name)
+	}
+	return provider
+}
+
+func hasTopLevelCommand(set *providerapi.CommandSet, name string) bool {
+	if set == nil {
+		return false
+	}
+	for _, command := range set.Commands {
+		if command == nil || command.Description() == nil {
+			continue
+		}
+		desc := command.Description()
+		if desc.Name == name && len(desc.Parents) == 0 {
+			return true
+		}
+	}
+	return false
 }
 
 func loadModule(t *testing.T, mod providerapi.Module) *goja.Object {
