@@ -7,6 +7,7 @@ import (
 	"image"
 	"image/color"
 	"image/draw"
+	"os"
 	"path/filepath"
 	"strings"
 	"time"
@@ -268,7 +269,7 @@ func (c *hardwareCapability) InitRuntimeFromSections(ctx context.Context, vals *
 		go func() { listenErrCh <- deckConn.Listen() }()
 		go func() {
 			if err := <-listenErrCh; err != nil {
-				fmt.Printf("loupedeck listen failed: %v\n", err)
+				_, _ = fmt.Fprintf(os.Stderr, "loupedeck listen failed: %v\n", err)
 			}
 		}()
 
