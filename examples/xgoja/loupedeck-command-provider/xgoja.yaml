@@ -17,11 +17,17 @@ runtimes:
   scene:
     modules:
       - package: loupedeck
+        name: loupedeck/anim
+        as: loupedeck/anim
+      - package: loupedeck
         name: loupedeck/easing
         as: loupedeck/easing
       - package: loupedeck
         name: loupedeck/gfx
         as: loupedeck/gfx
+      - package: loupedeck
+        name: loupedeck/present
+        as: loupedeck/present
       - package: loupedeck
         name: loupedeck/state
         as: loupedeck/state
@@ -55,8 +61,10 @@ commandProviders:
     mount: loupe
     runtimeProfile: scene
     modules:
+      - loupedeck/anim
       - loupedeck/easing
       - loupedeck/gfx
+      - loupedeck/present
       - loupedeck/state
       - loupedeck/ui
       - timer
