@@ -15,7 +15,11 @@ import (
 const ModuleName = "loupedeck/present"
 
 func Register(registry *require.Registry) {
-	registry.RegisterNativeModule(ModuleName, func(runtime *goja.Runtime, module *goja.Object) {
+	registry.RegisterNativeModule(ModuleName, Loader())
+}
+
+func Loader() require.ModuleLoader {
+	return func(runtime *goja.Runtime, module *goja.Object) {
 		runtimeServices, ok := runtimebridge.Lookup(runtime)
 		if !ok || runtimeServices.Owner == nil {
 			panic(runtime.NewGoError(fmt.Errorf("present module requires runtime services")))
@@ -50,5 +54,5 @@ func Register(registry *require.Registry) {
 			})
 			return goja.Undefined()
 		})
-	})
+	}
 }

@@ -17,7 +17,11 @@ import (
 const ModuleName = "loupedeck/anim"
 
 func Register(registry *require.Registry) {
-	registry.RegisterNativeModule(ModuleName, func(runtime *goja.Runtime, module *goja.Object) {
+	registry.RegisterNativeModule(ModuleName, Loader())
+}
+
+func Loader() require.ModuleLoader {
+	return func(runtime *goja.Runtime, module *goja.Object) {
 		runtimeServices, ok := runtimebridge.Lookup(runtime)
 		if !ok || runtimeServices.Owner == nil {
 			panic(runtime.NewGoError(fmt.Errorf("anim module requires runtime services")))
@@ -67,7 +71,7 @@ func Register(registry *require.Registry) {
 			})
 			return obj
 		})
-	})
+	}
 }
 
 func numericTarget(runtimeServices runtimebridge.RuntimeServices, runtime *goja.Runtime, value goja.Value) (func() float64, func(float64)) {
