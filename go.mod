@@ -8,7 +8,7 @@ require (
 	github.com/dop251/goja v0.0.0-20260311135729-065cd970411c
 	github.com/dop251/goja_nodejs v0.0.0-20260212111938-1f56ff5bcf14
 	github.com/go-go-golems/glazed v1.2.5
-	github.com/go-go-golems/go-go-goja v0.5.0
+	github.com/go-go-golems/go-go-goja v0.6.0
 	github.com/gorilla/websocket v1.5.3
 	github.com/spf13/cobra v1.10.2
 	github.com/srwiley/oksvg v0.0.0-20221011165216-be6e8873101c
