@@ -39,6 +39,12 @@ async function webSceneSwitcher(switcher) {
   const pulse = state.signal(0);
   const surface = gfx.surface(24, 24);
 
+  function repaint(reason) {
+    if (typeof ui.invalidate === "function") {
+      ui.invalidate(reason || "scene-state-change");
+    }
+  }
+
   function setScene(next, event) {
     log("setScene", { next, event });
     scene.set(next);
@@ -51,12 +57,14 @@ async function webSceneSwitcher(switcher) {
     dealCount.update(v => v + 1);
     setScene("dealt", `${source} dealt page`);
     fs.writeFileSync(markerPath, `dealt by ${source}\n`, "utf8");
+    repaint("deal");
   }
 
   function reset(source) {
     log("reset", { source });
     dealt.set(false);
     setScene("waiting", `${source} reset scene`);
+    repaint("reset");
   }
 
   log("creating hardware UI page");
@@ -75,7 +83,7 @@ async function webSceneSwitcher(switcher) {
     });
     log("configuring tile 3,0");
     page.tile(3, 0, tile => {
-      tile.text(() => `${Math.round(easing.inOutQuad(pulse.get()) * 100)}%`);
+      tile.text(() => `PULSE ${Math.round(easing.inOutQuad(pulse.get()) * 100)}%`);
     });
     log("configuring tile 0,1");
     page.tile(0, 1, tile => {
@@ -87,7 +95,7 @@ async function webSceneSwitcher(switcher) {
     });
     log("configuring tile 2,1");
     page.tile(2, 1, tile => {
-      tile.text("TOUCH1");
+      tile.text("TOUCH DEAL");
     });
     log("configuring tile 3,1");
     page.tile(3, 1, tile => {
@@ -136,8 +144,8 @@ async function webSceneSwitcher(switcher) {
     <p><strong>Dealt:</strong> <span id="dealt">${dealt.get()}</span></p>
     <p><strong>Deal count:</strong> <span id="count">${dealCount.get()}</span></p>
     <p><strong>Last event:</strong> <span id="event">${lastEvent.get()}</span></p>
-    <form method="post" action="/deal" style="display:inline"><button class="deal">Deal with this page</button></form>
-    <form method="post" action="/reset" style="display:inline"><button class="reset">Reset</button></form>
+    <button class="deal" id="deal-button" type="button">Deal with this page</button>
+    <button class="reset" id="reset-button" type="button">Reset</button>
     <p>Hardware shortcuts: <code>Button1</code> deals, <code>Button2</code> resets, <code>Touch1</code> deals.</p>
   </div>
   <script>
@@ -148,6 +156,12 @@ async function webSceneSwitcher(switcher) {
       document.getElementById('count').textContent = s.dealCount;
       document.getElementById('event').textContent = s.lastEvent;
     }
+    async function postAction(path) {
+      await fetch(path, { method: 'POST' });
+      await refresh();
+    }
+    document.getElementById('deal-button').addEventListener('click', () => postAction('/deal'));
+    document.getElementById('reset-button').addEventListener('click', () => postAction('/reset'));
     setInterval(refresh, 500);
   </script>
 </body>
@@ -174,6 +188,7 @@ async function webSceneSwitcher(switcher) {
   const start = Date.now();
   while (true) {
     pulse.set(((Date.now() - start) % 2000) / 2000);
+    repaint("pulse");
     if (dealt.get() && exitOnDeal) {
       break;
     }

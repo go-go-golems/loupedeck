@@ -44,6 +44,16 @@ func Loader() require.ModuleLoader {
 			}
 			return goja.Undefined()
 		})
+		_ = exports.Set("invalidate", func(call goja.FunctionCall) goja.Value {
+			reason := call.Argument(0).String()
+			if !env.Host.ReplayActivePage() && env.Present != nil {
+				if reason == "" {
+					reason = "ui.invalidate"
+				}
+				env.Present.Invalidate(reason)
+			}
+			return goja.Undefined()
+		})
 		_ = exports.Set("onButton", func(call goja.FunctionCall) goja.Value {
 			name := call.Argument(0).String()
 			button, err := deck.ParseButton(name)
