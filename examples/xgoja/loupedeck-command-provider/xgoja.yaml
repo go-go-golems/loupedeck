@@ -22,6 +22,12 @@ runtimes:
       - package: loupedeck
         name: loupedeck/gfx
         as: loupedeck/gfx
+      - package: loupedeck
+        name: loupedeck/state
+        as: loupedeck/state
+      - package: loupedeck
+        name: loupedeck/ui
+        as: loupedeck/ui
       - package: go-go-goja-core
         name: timer
         as: timer
@@ -51,6 +57,8 @@ commandProviders:
     modules:
       - loupedeck/easing
       - loupedeck/gfx
+      - loupedeck/state
+      - loupedeck/ui
       - timer
       - fs
       - express

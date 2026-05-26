@@ -22,7 +22,7 @@ func OpenRuntime(ctx context.Context, env *envpkg.LoupeDeckEnvironment, opts ...
 	if err != nil {
 		return nil, fmt.Errorf("build loupedeck runtime factory: %w", err)
 	}
-	rt, err := factory.NewRuntime(ctx)
+	rt, err := factory.NewRuntime(engine.WithStartupContext(ctx), engine.WithLifetimeContext(ctx))
 	if err != nil {
 		return nil, fmt.Errorf("create loupedeck runtime: %w", err)
 	}

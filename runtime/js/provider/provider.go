@@ -4,13 +4,18 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"image"
+	"image/color"
+	"image/draw"
 	"path/filepath"
 	"strings"
+	"time"
 
 	"github.com/dop251/goja"
 	"github.com/dop251/goja_nodejs/require"
-	glazedcli "github.com/go-go-golems/glazed/pkg/cli"
+	"github.com/go-go-golems/glazed/pkg/cli"
 	"github.com/go-go-golems/glazed/pkg/cmds"
+	"github.com/go-go-golems/glazed/pkg/cmds/fields"
 	"github.com/go-go-golems/glazed/pkg/cmds/schema"
 	"github.com/go-go-golems/glazed/pkg/cmds/values"
 	"github.com/go-go-golems/go-go-goja/engine"
@@ -19,8 +24,14 @@ import (
 	"github.com/go-go-golems/go-go-goja/pkg/xgoja/providerutil"
 	runcmd "github.com/go-go-golems/loupedeck/cmd/loupedeck/cmds/run"
 	verbscmd "github.com/go-go-golems/loupedeck/cmd/loupedeck/cmds/verbs"
+	"github.com/go-go-golems/loupedeck/pkg/device"
+	"github.com/go-go-golems/loupedeck/runtime/js/env"
 	"github.com/go-go-golems/loupedeck/runtime/js/module_easing"
 	"github.com/go-go-golems/loupedeck/runtime/js/module_gfx"
+	"github.com/go-go-golems/loupedeck/runtime/js/module_state"
+	"github.com/go-go-golems/loupedeck/runtime/js/module_ui"
+	"github.com/go-go-golems/loupedeck/runtime/metrics"
+	"github.com/go-go-golems/loupedeck/runtime/render"
 )
 
 const PackageID = "loupedeck"
@@ -31,9 +42,13 @@ type scenesCommandProviderConfig struct {
 }
 
 func Register(registry *providerapi.Registry) error {
+	hardware := newHardwareCapability()
 	return registry.Package(PackageID,
 		moduleEntry(module_easing.ModuleName, "Easing functions for loupedeck animation curves.", module_easing.Loader),
 		moduleEntry(module_gfx.ModuleName, "Offscreen drawing surfaces, colors, text, and font helpers.", module_gfx.Loader),
+		moduleEntry(module_state.ModuleName, "Reactive state primitives for Loupedeck scenes.", module_state.Loader),
+		moduleEntry(module_ui.ModuleName, "Retained Loupedeck UI pages, tiles, displays, and hardware events.", module_ui.Loader),
+		providerapi.WithPackageCapability(hardware),
 		providerapi.CommandSetProvider{
 			Name:         "scenes",
 			DefaultMount: "loupedeck",
@@ -87,7 +102,7 @@ func newScenesCommandSet(ctx providerapi.CommandSetContext) (*providerapi.Comman
 	appendSections(commands, sections)
 	return &providerapi.CommandSet{
 		Commands: commands,
-		ParserConfig: &glazedcli.CobraParserConfig{
+		ParserConfig: &cli.CobraParserConfig{
 			ShortHelpSections: []string{schema.DefaultSlug, schema.GlobalDefaultSlug},
 		},
 	}, nil
@@ -181,4 +196,165 @@ func moduleEntry(name, description string, loader func() require.ModuleLoader) p
 	}
 }
 
+type hardwareCapability struct{}
+
+type hardwareSettings struct {
+	Enabled       bool   `glazed:"enabled"`
+	DevicePath    string `glazed:"device"`
+	QueueSize     int    `glazed:"queue-size"`
+	SendInterval  string `glazed:"send-interval"`
+	FlushInterval string `glazed:"flush-interval"`
+}
+
+func newHardwareCapability() *hardwareCapability { return &hardwareCapability{} }
+
+func (c *hardwareCapability) CapabilityID() string { return "loupedeck.hardware" }
+
+func (c *hardwareCapability) ConfigSections(providerapi.SectionContext) ([]schema.Section, error) {
+	section, err := schema.NewSection(
+		"loupedeck-hardware",
+		"Loupedeck hardware",
+		schema.WithDescription("Real hardware/session settings for xgoja Loupedeck UI modules"),
+		schema.WithPrefix("deck-"),
+		schema.WithFields(
+			fields.New("enabled", fields.TypeBool, fields.WithDefault(true), fields.WithHelp("Connect to real Loupedeck hardware and render UI pages")),
+			fields.New("device", fields.TypeString, fields.WithDefault(""), fields.WithHelp("Optional serial device path (default: auto-detect)")),
+			fields.New("queue-size", fields.TypeInteger, fields.WithDefault(256), fields.WithHelp("Writer queue size")),
+			fields.New("send-interval", fields.TypeString, fields.WithDefault("35ms"), fields.WithHelp("Writer pacing interval")),
+			fields.New("flush-interval", fields.TypeString, fields.WithDefault(device.DefaultRenderOptions.FlushInterval.String()), fields.WithHelp("Retained render scheduler flush interval")),
+		),
+	)
+	if err != nil {
+		return nil, err
+	}
+	return []schema.Section{section}, nil
+}
+
+func (c *hardwareCapability) InitRuntimeFromSections(ctx context.Context, vals *values.Values, handle providerapi.RuntimeHandle) error {
+	if handle == nil || handle.Runtime() == nil {
+		return fmt.Errorf("loupedeck hardware runtime handle is nil")
+	}
+	settings := hardwareSettings{Enabled: true, QueueSize: 256, SendInterval: "35ms", FlushInterval: device.DefaultRenderOptions.FlushInterval.String()}
+	if vals != nil {
+		if err := vals.DecodeSectionInto("loupedeck-hardware", &settings); err != nil {
+			return err
+		}
+	}
+
+	environment := env.Ensure(&env.LoupeDeckEnvironment{Metrics: metrics.New()})
+	env.Store(handle.Runtime(), environment)
+
+	closers := []func(context.Context) error{
+		func(context.Context) error {
+			env.Delete(handle.Runtime())
+			return nil
+		},
+	}
+
+	if settings.Enabled {
+		deckConn, displays, err := connectHardware(settings)
+		if err != nil {
+			for _, closer := range closers {
+				_ = closer(ctx)
+			}
+			return err
+		}
+		environment.Host.Attach(deckConn)
+		listenErrCh := make(chan error, 1)
+		go func() { listenErrCh <- deckConn.Listen() }()
+		go func() {
+			if err := <-listenErrCh; err != nil {
+				fmt.Printf("loupedeck listen failed: %v\n", err)
+			}
+		}()
+
+		renderer := render.NewWithDisplays(environment.UI, map[string]render.DrawTarget{
+			"left":  displays["left"],
+			"main":  displays["main"],
+			"right": displays["right"],
+		})
+		renderer.Theme = render.Theme{Background: color.Black, Foreground: color.White, Accent: color.White}
+		environment.Present.SetFlushFunc(func() (int, error) {
+			return renderer.Flush(), nil
+		})
+		environment.Present.Start(ctx)
+
+		closers = append([]func(context.Context) error{
+			func(context.Context) error {
+				environment.Present.Close()
+				clearDisplays(displays)
+				return deckConn.Close()
+			},
+		}, closers...)
+	}
+
+	if closerRegistry, ok := handle.(providerapi.RuntimeCloserRegistry); ok {
+		return closerRegistry.AddCloser(func(ctx context.Context) error {
+			var ret error
+			for _, closer := range closers {
+				if err := closer(ctx); err != nil && ret == nil {
+					ret = err
+				}
+			}
+			return ret
+		})
+	}
+	return nil
+}
+
+func connectHardware(settings hardwareSettings) (*device.Loupedeck, map[string]*device.Display, error) {
+	sendInterval, err := time.ParseDuration(settings.SendInterval)
+	if err != nil {
+		return nil, nil, fmt.Errorf("parse --deck-send-interval: %w", err)
+	}
+	flushInterval, err := time.ParseDuration(settings.FlushInterval)
+	if err != nil {
+		return nil, nil, fmt.Errorf("parse --deck-flush-interval: %w", err)
+	}
+	if flushInterval <= 0 {
+		return nil, nil, fmt.Errorf("--deck-flush-interval must be > 0, got %s", flushInterval)
+	}
+	writerOptions := device.WriterOptions{QueueSize: settings.QueueSize, SendInterval: sendInterval}
+	renderOptions := device.DefaultRenderOptions
+	renderOptions.FlushInterval = flushInterval
+	var deckConn *device.Loupedeck
+	if strings.TrimSpace(settings.DevicePath) == "" {
+		var err error
+		deckConn, err = device.ConnectAutoWithWriterAndRenderOptions(writerOptions, &renderOptions)
+		if err != nil {
+			return nil, nil, fmt.Errorf("connect loupedeck: %w", err)
+		}
+	} else {
+		var err error
+		deckConn, err = device.ConnectPathWithWriterAndRenderOptions(settings.DevicePath, writerOptions, &renderOptions)
+		if err != nil {
+			return nil, nil, fmt.Errorf("connect loupedeck %s: %w", settings.DevicePath, err)
+		}
+	}
+	displays := map[string]*device.Display{
+		"left":  deckConn.GetDisplay("left"),
+		"main":  deckConn.GetDisplay("main"),
+		"right": deckConn.GetDisplay("right"),
+	}
+	if displays["main"] == nil {
+		_ = deckConn.Close()
+		return nil, nil, fmt.Errorf("missing main display")
+	}
+	return deckConn, displays, nil
+}
+
+func clearDisplays(displays map[string]*device.Display) {
+	for _, display := range displays {
+		if display == nil {
+			continue
+		}
+		im := image.NewRGBA(image.Rect(0, 0, display.Width(), display.Height()))
+		draw.Draw(im, im.Bounds(), &image.Uniform{color.Black}, image.Point{}, draw.Src)
+		display.Draw(im, 0, 0)
+	}
+	time.Sleep(100 * time.Millisecond)
+}
+
 var _ providerapi.RuntimeHandle = runtimeHandle{}
+var _ providerapi.ConfigSectionCapability = (*hardwareCapability)(nil)
+var _ providerapi.RuntimeInitializerCapability = (*hardwareCapability)(nil)

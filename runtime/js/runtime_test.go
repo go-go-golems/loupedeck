@@ -73,12 +73,12 @@ func TestRequireStateAndUIBuildReactivePage(t *testing.T) {
 	defer func() { _ = rt.Close(context.Background()) }()
 	env := rt.Env
 
-	bindings, ok := runtimebridge.Lookup(rt.VM)
+	runtimeServices, ok := runtimebridge.Lookup(rt.VM)
 	if !ok {
-		t.Fatal("expected runtime bridge bindings to be registered")
+		t.Fatal("expected runtime bridge services to be registered")
 	}
-	if bindings.Owner == nil || bindings.Context == nil || bindings.Loop == nil {
-		t.Fatal("expected owner/context/loop bindings to be populated")
+	if runtimeServices.Owner == nil || runtimeServices.Lifetime() == nil || runtimeServices.Loop == nil {
+		t.Fatal("expected owner/lifetime/loop services to be populated")
 	}
 	lookupEnv, ok := envpkg.Lookup(rt.VM)
 	if !ok || lookupEnv != env {
@@ -745,13 +745,13 @@ func TestPresentModuleCoalescesInvalidationsToLatestReason(t *testing.T) {
 func TestCloseRemovesRuntimeBridgeBindings(t *testing.T) {
 	rt := NewRuntime(nil)
 	if _, ok := runtimebridge.Lookup(rt.VM); !ok {
-		t.Fatal("expected bindings before close")
+		t.Fatal("expected runtimeServices before close")
 	}
 	if err := rt.Close(context.Background()); err != nil {
 		t.Fatalf("close runtime: %v", err)
 	}
 	if _, ok := runtimebridge.Lookup(rt.VM); ok {
-		t.Fatal("expected bindings to be removed on close")
+		t.Fatal("expected runtimeServices to be removed on close")
 	}
 }
 
