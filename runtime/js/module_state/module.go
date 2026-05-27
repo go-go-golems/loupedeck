@@ -7,29 +7,27 @@ import (
 	"github.com/dop251/goja"
 	"github.com/dop251/goja_nodejs/require"
 	"github.com/go-go-golems/go-go-goja/pkg/runtimebridge"
-	"github.com/go-go-golems/go-go-goja/pkg/runtimeowner"
 	envpkg "github.com/go-go-golems/loupedeck/runtime/js/env"
 	"github.com/go-go-golems/loupedeck/runtime/reactive"
 )
 
 const ModuleName = "loupedeck/state"
 
-func Register(registry *require.Registry) {
-	registry.RegisterNativeModule(ModuleName, func(runtime *goja.Runtime, module *goja.Object) {
-		bindings, ok := runtimebridge.Lookup(runtime)
-		if !ok || bindings.Owner == nil {
-			panic(runtime.NewGoError(fmt.Errorf("state module requires runtime owner bindings")))
+func Loader() require.ModuleLoader {
+	return func(runtime *goja.Runtime, module *goja.Object) {
+		runtimeServices, ok := runtimebridge.Lookup(runtime)
+		if !ok || runtimeServices.Owner == nil {
+			panic(runtime.NewGoError(fmt.Errorf("state module requires runtime services")))
 		}
 		env, ok := envpkg.Lookup(runtime)
 		if !ok || env == nil {
-			panic(runtime.NewGoError(fmt.Errorf("state module requires environment bindings")))
+			panic(runtime.NewGoError(fmt.Errorf("state module requires environment services")))
 		}
-		ownerCtx := runtimeowner.OwnerContext(bindings.Owner, bindings.Context)
 		exports := module.Get("exports").(*goja.Object)
 		_ = exports.Set("signal", func(call goja.FunctionCall) goja.Value {
 			initial := exportValue(call.Argument(0))
 			sig := reactive.NewSignal(env.Reactive, initial)
-			return signalObject(bindings, ownerCtx, runtime, sig)
+			return signalObject(runtimeServices, runtime, sig)
 		})
 		_ = exports.Set("computed", func(call goja.FunctionCall) goja.Value {
 			fn, ok := goja.AssertFunction(call.Argument(0))
@@ -37,7 +35,7 @@ func Register(registry *require.Registry) {
 				panic(runtime.NewTypeError("state.computed requires a function"))
 			}
 			cmp := reactive.NewComputed(env.Reactive, func() any {
-				result, err := bindings.Owner.Call(ownerCtx, "state.computed", func(_ context.Context, vm *goja.Runtime) (any, error) {
+				result, err := runtimeServices.CallWithCurrentContext(runtime, "state.computed", func(_ context.Context, vm *goja.Runtime) (any, error) {
 					value, err := fn(goja.Undefined())
 					if err != nil {
 						return nil, err
@@ -61,7 +59,7 @@ func Register(registry *require.Registry) {
 				panic(runtime.NewTypeError("state.batch requires a function"))
 			}
 			env.Reactive.Batch(func() {
-				_, err := bindings.Owner.Call(ownerCtx, "state.batch", func(_ context.Context, vm *goja.Runtime) (any, error) {
+				_, err := runtimeServices.CallWithCurrentContext(runtime, "state.batch", func(_ context.Context, vm *goja.Runtime) (any, error) {
 					_, err := fn(goja.Undefined())
 					return nil, err
 				})
@@ -77,7 +75,7 @@ func Register(registry *require.Registry) {
 				panic(runtime.NewTypeError("state.watch requires a function"))
 			}
 			sub := env.Reactive.Watch(func() {
-				_, err := bindings.Owner.Call(ownerCtx, "state.watch", func(_ context.Context, vm *goja.Runtime) (any, error) {
+				_, err := runtimeServices.CallWithCurrentContext(runtime, "state.watch", func(_ context.Context, vm *goja.Runtime) (any, error) {
 					_, err := fn(goja.Undefined())
 					return nil, err
 				})
@@ -92,10 +90,14 @@ func Register(registry *require.Registry) {
 			})
 			return obj
 		})
-	})
+	}
 }
 
-func signalObject(bindings runtimebridge.Bindings, ownerCtx context.Context, runtime *goja.Runtime, sig *reactive.Signal[any]) goja.Value {
+func Register(registry *require.Registry) {
+	registry.RegisterNativeModule(ModuleName, Loader())
+}
+
+func signalObject(runtimeServices runtimebridge.RuntimeServices, runtime *goja.Runtime, sig *reactive.Signal[any]) goja.Value {
 	obj := runtime.NewObject()
 	_ = obj.Set("get", func(goja.FunctionCall) goja.Value {
 		return runtime.ToValue(sig.Get())
@@ -110,7 +112,7 @@ func signalObject(bindings runtimebridge.Bindings, ownerCtx context.Context, run
 			panic(runtime.NewTypeError("signal.update requires a function"))
 		}
 		sig.Update(func(current any) any {
-			result, err := bindings.Owner.Call(ownerCtx, "signal.update", func(_ context.Context, vm *goja.Runtime) (any, error) {
+			result, err := runtimeServices.CallWithCurrentContext(runtime, "signal.update", func(_ context.Context, vm *goja.Runtime) (any, error) {
 				value, err := fn(goja.Undefined(), vm.ToValue(current))
 				if err != nil {
 					return nil, err

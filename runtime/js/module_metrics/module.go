@@ -8,5 +8,9 @@ import (
 const ModuleName = "loupedeck/metrics"
 
 func Register(registry *require.Registry) {
-	jsmetrics.RegisterLowLevelModuleAs(registry, ModuleName)
+	registry.RegisterNativeModule(ModuleName, Loader())
+}
+
+func Loader() require.ModuleLoader {
+	return jsmetrics.LowLevelModuleLoader()
 }

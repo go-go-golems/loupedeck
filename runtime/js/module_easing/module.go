@@ -8,8 +8,8 @@ import (
 
 const ModuleName = "loupedeck/easing"
 
-func Register(registry *require.Registry) {
-	registry.RegisterNativeModule(ModuleName, func(runtime *goja.Runtime, module *goja.Object) {
+func Loader() require.ModuleLoader {
+	return func(runtime *goja.Runtime, module *goja.Object) {
 		exports := module.Get("exports").(*goja.Object)
 		_ = exports.Set("linear", easingFunc(runtime, easing.Linear))
 		_ = exports.Set("inOutQuad", easingFunc(runtime, easing.InOutQuad))
@@ -18,7 +18,11 @@ func Register(registry *require.Registry) {
 		_ = exports.Set("steps", func(call goja.FunctionCall) goja.Value {
 			return runtime.ToValue(easingFunc(runtime, easing.Steps(int(call.Argument(0).ToInteger()))))
 		})
-	})
+	}
+}
+
+func Register(registry *require.Registry) {
+	registry.RegisterNativeModule(ModuleName, Loader())
 }
 
 func easingFunc(runtime *goja.Runtime, fn easing.Func) func(goja.FunctionCall) goja.Value {

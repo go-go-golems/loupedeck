@@ -17,22 +17,25 @@ import (
 const ModuleName = "loupedeck/anim"
 
 func Register(registry *require.Registry) {
-	registry.RegisterNativeModule(ModuleName, func(runtime *goja.Runtime, module *goja.Object) {
-		bindings, ok := runtimebridge.Lookup(runtime)
-		if !ok || bindings.Owner == nil {
-			panic(runtime.NewGoError(fmt.Errorf("anim module requires runtime owner bindings")))
+	registry.RegisterNativeModule(ModuleName, Loader())
+}
+
+func Loader() require.ModuleLoader {
+	return func(runtime *goja.Runtime, module *goja.Object) {
+		runtimeServices, ok := runtimebridge.Lookup(runtime)
+		if !ok || runtimeServices.Owner == nil {
+			panic(runtime.NewGoError(fmt.Errorf("anim module requires runtime services")))
 		}
 		env, ok := envpkg.Lookup(runtime)
 		if !ok || env == nil {
-			panic(runtime.NewGoError(fmt.Errorf("anim module requires environment bindings")))
+			panic(runtime.NewGoError(fmt.Errorf("anim module requires environment services")))
 		}
 		exports := module.Get("exports").(*goja.Object)
 		_ = exports.Set("to", func(call goja.FunctionCall) goja.Value {
-			ownerCtx := runtimeowner.OwnerContext(bindings.Owner, bindings.Context)
-			get, set := numericTarget(bindings, ownerCtx, runtime, call.Argument(0))
+			get, set := numericTarget(runtimeServices, runtime, call.Argument(0))
 			to := call.Argument(1).ToFloat()
 			duration := time.Duration(call.Argument(2).ToInteger()) * time.Millisecond
-			ease := easingFromArg(bindings, ownerCtx, runtime, call.Argument(3))
+			ease := easingFromArg(runtimeServices, runtime, call.Argument(3))
 			h := env.Anim.TweenFloat64(get, set, to, duration, ease)
 			return handleObject(runtime, h)
 		})
@@ -43,7 +46,7 @@ func Register(registry *require.Registry) {
 				panic(runtime.NewTypeError("anim.loop requires a function"))
 			}
 			h := env.Anim.Loop(duration, func(v float64) {
-				_ = bindings.Owner.Post(bindings.Context, "anim.loop.callback", func(_ context.Context, vm *goja.Runtime) {
+				_ = runtimeServices.PostWithLifetimeContext("anim.loop.callback", func(_ context.Context, vm *goja.Runtime) {
 					_, err := fn(goja.Undefined(), vm.ToValue(v))
 					if err != nil {
 						panic(vm.NewGoError(err))
@@ -56,11 +59,10 @@ func Register(registry *require.Registry) {
 			timeline := env.Anim.Timeline()
 			obj := runtime.NewObject()
 			_ = obj.Set("to", func(call goja.FunctionCall) goja.Value {
-				ownerCtx := runtimeowner.OwnerContext(bindings.Owner, bindings.Context)
-				get, set := numericTarget(bindings, ownerCtx, runtime, call.Argument(0))
+				get, set := numericTarget(runtimeServices, runtime, call.Argument(0))
 				to := call.Argument(1).ToFloat()
 				duration := time.Duration(call.Argument(2).ToInteger()) * time.Millisecond
-				ease := easingFromArg(bindings, ownerCtx, runtime, call.Argument(3))
+				ease := easingFromArg(runtimeServices, runtime, call.Argument(3))
 				timeline.To(get, set, to, duration, ease)
 				return obj
 			})
@@ -69,10 +71,10 @@ func Register(registry *require.Registry) {
 			})
 			return obj
 		})
-	})
+	}
 }
 
-func numericTarget(bindings runtimebridge.Bindings, ownerCtx context.Context, runtime *goja.Runtime, value goja.Value) (func() float64, func(float64)) {
+func numericTarget(runtimeServices runtimebridge.RuntimeServices, runtime *goja.Runtime, value goja.Value) (func() float64, func(float64)) {
 	obj := value.ToObject(runtime)
 	getValue, ok := goja.AssertFunction(obj.Get("get"))
 	if !ok {
@@ -83,7 +85,7 @@ func numericTarget(bindings runtimebridge.Bindings, ownerCtx context.Context, ru
 		panic(runtime.NewTypeError("animation target must expose set()"))
 	}
 	get := func() float64 {
-		result, err := bindings.Owner.Call(ownerCtx, "anim.target.get", func(_ context.Context, vm *goja.Runtime) (any, error) {
+		result, err := runtimeServices.CallWithCurrentContext(runtime, "anim.target.get", func(_ context.Context, vm *goja.Runtime) (any, error) {
 			v, err := getValue(obj)
 			if err != nil {
 				return nil, err
@@ -96,7 +98,7 @@ func numericTarget(bindings runtimebridge.Bindings, ownerCtx context.Context, ru
 		return result.(float64)
 	}
 	set := func(v float64) {
-		_, err := bindings.Owner.Call(ownerCtx, "anim.target.set", func(_ context.Context, vm *goja.Runtime) (any, error) {
+		_, err := runtimeServices.CallWithCurrentContext(runtime, "anim.target.set", func(_ context.Context, vm *goja.Runtime) (any, error) {
 			_, err := setValue(obj, runtime.ToValue(v))
 			return nil, err
 		})
@@ -110,7 +112,7 @@ func numericTarget(bindings runtimebridge.Bindings, ownerCtx context.Context, ru
 	return get, set
 }
 
-func easingFromArg(bindings runtimebridge.Bindings, ownerCtx context.Context, runtime *goja.Runtime, value goja.Value) easing.Func {
+func easingFromArg(runtimeServices runtimebridge.RuntimeServices, runtime *goja.Runtime, value goja.Value) easing.Func {
 	if goja.IsUndefined(value) || goja.IsNull(value) {
 		return easing.Linear
 	}
@@ -119,7 +121,7 @@ func easingFromArg(bindings runtimebridge.Bindings, ownerCtx context.Context, ru
 		return easing.Linear
 	}
 	return func(t float64) float64 {
-		result, err := bindings.Owner.Call(ownerCtx, "anim.easing", func(_ context.Context, vm *goja.Runtime) (any, error) {
+		result, err := runtimeServices.CallWithCurrentContext(runtime, "anim.easing", func(_ context.Context, vm *goja.Runtime) (any, error) {
 			result, err := fn(goja.Undefined(), vm.ToValue(t))
 			if err != nil {
 				return nil, err

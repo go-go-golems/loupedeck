@@ -15,14 +15,18 @@ import (
 const ModuleName = "loupedeck/present"
 
 func Register(registry *require.Registry) {
-	registry.RegisterNativeModule(ModuleName, func(runtime *goja.Runtime, module *goja.Object) {
-		bindings, ok := runtimebridge.Lookup(runtime)
-		if !ok || bindings.Owner == nil {
-			panic(runtime.NewGoError(fmt.Errorf("present module requires runtime owner bindings")))
+	registry.RegisterNativeModule(ModuleName, Loader())
+}
+
+func Loader() require.ModuleLoader {
+	return func(runtime *goja.Runtime, module *goja.Object) {
+		runtimeServices, ok := runtimebridge.Lookup(runtime)
+		if !ok || runtimeServices.Owner == nil {
+			panic(runtime.NewGoError(fmt.Errorf("present module requires runtime services")))
 		}
 		env, ok := envpkg.Lookup(runtime)
 		if !ok || env == nil || env.Present == nil {
-			panic(runtime.NewGoError(fmt.Errorf("present module requires environment bindings")))
+			panic(runtime.NewGoError(fmt.Errorf("present module requires environment services")))
 		}
 		exports := module.Get("exports").(*goja.Object)
 		_ = exports.Set("invalidate", func(call goja.FunctionCall) goja.Value {
@@ -35,9 +39,8 @@ func Register(registry *require.Registry) {
 			if !ok {
 				panic(runtime.NewTypeError("present.onFrame requires a function"))
 			}
-			ownerCtx := runtimeowner.OwnerContext(bindings.Owner, bindings.Context)
 			env.Present.SetRenderFunc(func(reason string) error {
-				_, err := bindings.Owner.Call(ownerCtx, "present.onFrame", func(_ context.Context, vm *goja.Runtime) (any, error) {
+				_, err := runtimeServices.CallWithCurrentContext(runtime, "present.onFrame", func(_ context.Context, vm *goja.Runtime) (any, error) {
 					_, err := fn(goja.Undefined(), vm.ToValue(reason))
 					return nil, err
 				})
@@ -51,5 +54,5 @@ func Register(registry *require.Registry) {
 			})
 			return goja.Undefined()
 		})
-	})
+	}
 }

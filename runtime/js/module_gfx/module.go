@@ -10,8 +10,8 @@ import (
 
 const ModuleName = "loupedeck/gfx"
 
-func Register(registry *require.Registry) {
-	registry.RegisterNativeModule(ModuleName, func(runtime *goja.Runtime, module *goja.Object) {
+func Loader() require.ModuleLoader {
+	return func(runtime *goja.Runtime, module *goja.Object) {
 		exports := module.Get("exports").(*goja.Object)
 		_ = exports.Set("surface", func(call goja.FunctionCall) goja.Value {
 			width := int(call.Argument(0).ToInteger())
@@ -27,7 +27,11 @@ func Register(registry *require.Registry) {
 			}
 			return fontObject(runtime, loaded)
 		})
-	})
+	}
+}
+
+func Register(registry *require.Registry) {
+	registry.RegisterNativeModule(ModuleName, Loader())
 }
 
 func fontObject(runtime *goja.Runtime, loaded *gfx.LoadedFont) goja.Value {

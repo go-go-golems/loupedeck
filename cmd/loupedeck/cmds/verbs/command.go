@@ -20,7 +20,7 @@ import (
 	"github.com/spf13/cobra"
 )
 
-type invokerFactory func(repo scannedRepository, verb *jsverbs.VerbSpec, verbDescription *cmds.CommandDescription) jsverbs.VerbInvoker
+type InvokerFactory func(repo ScannedRepository, verb *jsverbs.VerbSpec, verbDescription *cmds.CommandDescription) jsverbs.VerbInvoker
 
 type runtimeCommandWrapper struct {
 	desc       *cmds.CommandDescription
@@ -94,21 +94,13 @@ func adoptHelpAndOutput(source *cobra.Command, target *cobra.Command) {
 	target.SetUsageTemplate(source.Root().UsageTemplate())
 }
 
-func newCommandWithInvokerFactory(bootstrap Bootstrap, invokers invokerFactory) (*cobra.Command, error) {
+func newCommandWithInvokerFactory(bootstrap Bootstrap, invokers InvokerFactory) (*cobra.Command, error) {
 	root := &cobra.Command{
 		Use:   "verbs",
 		Short: "Run annotated loupedeck scene verbs",
 	}
 
-	repositories, err := scanRepositories(bootstrap)
-	if err != nil {
-		return nil, err
-	}
-	discovered, err := collectDiscoveredVerbs(repositories)
-	if err != nil {
-		return nil, err
-	}
-	commands, err := buildCommands(discovered, invokers)
+	commands, err := NewCommandsWithInvokerFactory(bootstrap, invokers)
 	if err != nil {
 		return nil, err
 	}
@@ -118,18 +110,46 @@ func newCommandWithInvokerFactory(bootstrap Bootstrap, invokers invokerFactory) 
 	return root, nil
 }
 
-func buildCommands(discovered []discoveredVerb, invokers invokerFactory) ([]cmds.Command, error) {
+func NewCommands(bootstrap Bootstrap) ([]cmds.Command, error) {
+	return NewCommandsWithInvokerFactory(bootstrap, liveSceneInvokerFactory)
+}
+
+func NewCommandsWithInvokerFactory(bootstrap Bootstrap, invokers InvokerFactory) ([]cmds.Command, error) {
+	return newCommandsWithInvokerFactory(bootstrap, invokers, true)
+}
+
+func NewCommandsWithInvokerFactoryWithoutRuntimeSections(bootstrap Bootstrap, invokers InvokerFactory) ([]cmds.Command, error) {
+	return newCommandsWithInvokerFactory(bootstrap, invokers, false)
+}
+
+func newCommandsWithInvokerFactory(bootstrap Bootstrap, invokers InvokerFactory, includeRuntimeSections bool) ([]cmds.Command, error) {
+	repositories, err := scanRepositories(bootstrap)
+	if err != nil {
+		return nil, err
+	}
+	discovered, err := collectDiscoveredVerbs(repositories)
+	if err != nil {
+		return nil, err
+	}
+	return buildCommands(discovered, invokers, includeRuntimeSections)
+}
+
+func buildCommands(discovered []DiscoveredVerb, invokers InvokerFactory, includeRuntimeSections bool) ([]cmds.Command, error) {
 	commands := make([]cmds.Command, 0, len(discovered))
-	for _, discoveredVerb := range discovered {
-		repo := discoveredVerb.Repository
-		verb := discoveredVerb.Verb
+	for _, DiscoveredVerb := range discovered {
+		repo := DiscoveredVerb.Repository
+		verb := DiscoveredVerb.Verb
 		verbDescription, err := repo.Registry.CommandDescriptionForVerb(verb)
 		if err != nil {
 			return nil, err
 		}
-		augmentedDescription, err := augmentDescription(verbDescription)
-		if err != nil {
-			return nil, err
+		augmentedDescription := verbDescription
+		if includeRuntimeSections {
+			var err error
+			augmentedDescription, err = augmentDescription(verbDescription)
+			if err != nil {
+				return nil, err
+			}
 		}
 		invoker := invokers(repo, verb, verbDescription)
 		commands = append(commands, &runtimeCommandWrapper{
@@ -218,7 +238,7 @@ func augmentDescription(description *cmds.CommandDescription) (*cmds.CommandDesc
 	return ret, nil
 }
 
-func liveSceneInvokerFactory(repo scannedRepository, verb *jsverbs.VerbSpec, verbDescription *cmds.CommandDescription) jsverbs.VerbInvoker {
+func liveSceneInvokerFactory(repo ScannedRepository, verb *jsverbs.VerbSpec, verbDescription *cmds.CommandDescription) jsverbs.VerbInvoker {
 	identity := runcmd.SceneIdentity{ScriptPath: verbSourceLabel(repo, verb), Verb: verb.FullPath()}
 	runtimeOptions := repo.runtimeOptions()
 	return func(ctx context.Context, _ *jsverbs.Registry, _ *jsverbs.VerbSpec, parsedValues *values.Values) (interface{}, error) {
@@ -282,7 +302,7 @@ func printRuntimeCommandResult(w io.Writer, outputMode string, result any) error
 	}
 }
 
-func verbSourceLabel(repo scannedRepository, verb *jsverbs.VerbSpec) string {
+func verbSourceLabel(repo ScannedRepository, verb *jsverbs.VerbSpec) string {
 	if verb == nil || verb.File == nil {
 		return repo.Repository.Name
 	}

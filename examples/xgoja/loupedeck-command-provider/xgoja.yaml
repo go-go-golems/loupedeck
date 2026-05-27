@@ -1,0 +1,84 @@
+name: loupedeck-command-provider
+target:
+  kind: xgoja
+  output: dist/loupedeck-command-provider
+packages:
+  - id: loupedeck
+    import: github.com/go-go-golems/loupedeck/pkg/xgoja/provider
+    version: v0.0.0
+    replace: ../../..
+  - id: go-go-goja-core
+    import: github.com/go-go-golems/go-go-goja/pkg/xgoja/providers/core
+  - id: go-go-goja-host
+    import: github.com/go-go-golems/go-go-goja/pkg/xgoja/providers/host
+  - id: go-go-goja-http
+    import: github.com/go-go-golems/go-go-goja/pkg/xgoja/providers/http
+runtimes:
+  scene:
+    modules:
+      - package: loupedeck
+        name: loupedeck/anim
+        as: loupedeck/anim
+      - package: loupedeck
+        name: loupedeck/easing
+        as: loupedeck/easing
+      - package: loupedeck
+        name: loupedeck/gfx
+        as: loupedeck/gfx
+      - package: loupedeck
+        name: loupedeck/metrics
+        as: loupedeck/metrics
+      - package: loupedeck
+        name: loupedeck/present
+        as: loupedeck/present
+      - package: loupedeck
+        name: loupedeck/scene-metrics
+        as: loupedeck/scene-metrics
+      - package: loupedeck
+        name: loupedeck/state
+        as: loupedeck/state
+      - package: loupedeck
+        name: loupedeck/ui
+        as: loupedeck/ui
+      - package: go-go-goja-core
+        name: timer
+        as: timer
+      - package: go-go-goja-host
+        name: fs
+        as: fs
+        config:
+          allow: true
+      - package: go-go-goja-http
+        name: express
+        as: express
+commands:
+  eval:
+    enabled: false
+  run:
+    enabled: false
+  repl:
+    enabled: false
+  jsverbs:
+    enabled: false
+commandProviders:
+  - id: loupedeck-scenes
+    package: loupedeck
+    name: scenes
+    mount: loupe
+    runtimeProfile: scene
+    modules:
+      - loupedeck/anim
+      - loupedeck/easing
+      - loupedeck/gfx
+      - loupedeck/metrics
+      - loupedeck/present
+      - loupedeck/scene-metrics
+      - loupedeck/state
+      - loupedeck/ui
+      - timer
+      - fs
+      - express
+    config:
+      includeRun: false
+      repositories:
+        - ./verbs

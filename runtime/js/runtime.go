@@ -17,12 +17,12 @@ type Runtime struct {
 func OpenRuntime(ctx context.Context, env *envpkg.LoupeDeckEnvironment, opts ...engine.Option) (*Runtime, error) {
 	env = envpkg.Ensure(env)
 	builder := engine.NewBuilder(opts...).
-		WithRuntimeModuleRegistrars(NewRegistrar(env))
+		WithModules(NewRegistrar(env))
 	factory, err := builder.Build()
 	if err != nil {
 		return nil, fmt.Errorf("build loupedeck runtime factory: %w", err)
 	}
-	rt, err := factory.NewRuntime(ctx)
+	rt, err := factory.NewRuntime(engine.WithStartupContext(ctx), engine.WithLifetimeContext(ctx))
 	if err != nil {
 		return nil, fmt.Errorf("create loupedeck runtime: %w", err)
 	}
