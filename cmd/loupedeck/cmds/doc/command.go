@@ -1,5 +1,7 @@
 package doc
 
+//glazedclilint:file-ignore legacy documentation command uses Cobra flags pending Glazed field migration
+
 import (
 	"fmt"
 	"strings"
