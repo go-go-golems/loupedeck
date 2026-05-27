@@ -1,5 +1,7 @@
 package main
 
+//glazedclilint:file-ignore example command uses standard flags outside production Glazed CLI
+
 import (
 	"context"
 	"flag"

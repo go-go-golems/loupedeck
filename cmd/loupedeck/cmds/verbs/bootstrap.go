@@ -1,5 +1,7 @@
 package verbs
 
+//glazedclilint:file-ignore verb bootstrap bridges environment defaults into runtime setup
+
 import (
 	"context"
 	"fmt"

@@ -1,5 +1,7 @@
 package main
 
+//glazedclilint:file-ignore legacy root command uses Cobra persistent flags pending Glazed field migration
+
 import (
 	"github.com/go-go-golems/glazed/pkg/cmds/logging"
 	"github.com/go-go-golems/glazed/pkg/help"
