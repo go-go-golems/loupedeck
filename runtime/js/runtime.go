@@ -22,10 +22,11 @@ func OpenRuntime(ctx context.Context, env *envpkg.LoupeDeckEnvironment, opts ...
 		// runtime modules. When the Loupedeck provider is used from a generated
 		// xgoja binary, additional domain modules may also have registered
 		// themselves in go-go-goja's default module registry. Select the optional
-		// AST analysis module names here so scripts run through `deck run` can
-		// compose Loupedeck UI modules with go-ast-analysis without exposing the
-		// whole host default registry.
-		UseModuleMiddleware(engine.MiddlewareOnly("go-ast-analysis", "ast"))
+		// AST analysis and filesystem module names here so scripts run through
+		// `deck run` can compose Loupedeck UI modules with go-ast-analysis and
+		// file-backed browser remote-control state without exposing the whole host
+		// default registry.
+		UseModuleMiddleware(engine.MiddlewareOnly("go-ast-analysis", "ast", "fs", "node:fs"))
 	factory, err := builder.Build()
 	if err != nil {
 		return nil, fmt.Errorf("build loupedeck runtime factory: %w", err)
