@@ -30,7 +30,9 @@ import (
 	"github.com/go-go-golems/loupedeck/runtime/js/module_anim"
 	"github.com/go-go-golems/loupedeck/runtime/js/module_easing"
 	"github.com/go-go-golems/loupedeck/runtime/js/module_gfx"
+	"github.com/go-go-golems/loupedeck/runtime/js/module_metrics"
 	"github.com/go-go-golems/loupedeck/runtime/js/module_present"
+	"github.com/go-go-golems/loupedeck/runtime/js/module_scene_metrics"
 	"github.com/go-go-golems/loupedeck/runtime/js/module_state"
 	"github.com/go-go-golems/loupedeck/runtime/js/module_ui"
 	"github.com/go-go-golems/loupedeck/runtime/metrics"
@@ -50,7 +52,9 @@ func Register(registry *providerapi.Registry) error {
 		moduleEntry(module_anim.ModuleName, "Animation loop and timeline helpers for Loupedeck scenes.", module_anim.Loader),
 		moduleEntry(module_easing.ModuleName, "Easing functions for loupedeck animation curves.", module_easing.Loader),
 		moduleEntry(module_gfx.ModuleName, "Offscreen drawing surfaces, colors, text, and font helpers.", module_gfx.Loader),
+		moduleEntry(module_metrics.ModuleName, "Low-level metrics helpers for Loupedeck scene scripts.", module_metrics.Loader),
 		moduleEntry(module_present.ModuleName, "Presentation helpers for Loupedeck visual scene runtimes.", module_present.Loader),
+		moduleEntry(module_scene_metrics.ModuleName, "Scene-level metrics helpers for Loupedeck render loops.", module_scene_metrics.Loader),
 		moduleEntry(module_state.ModuleName, "Reactive state primitives for Loupedeck scenes.", module_state.Loader),
 		moduleEntry(module_ui.ModuleName, "Retained Loupedeck UI pages, tiles, displays, and hardware events.", module_ui.Loader),
 		providerapi.WithPackageCapability(hardware),
@@ -96,7 +100,7 @@ func newScenesCommandSet(ctx providerapi.CommandSetContext) (*providerapi.Comman
 	}
 	var verbCommands []cmds.Command
 	if ctx.RuntimeFactory != nil {
-		verbCommands, err = verbscmd.NewCommandsWithInvokerFactory(bootstrap, xgojaSceneInvokerFactory(ctx))
+		verbCommands, err = verbscmd.NewCommandsWithInvokerFactoryWithoutRuntimeSections(bootstrap, xgojaSceneInvokerFactory(ctx))
 	} else {
 		verbCommands, err = verbscmd.NewCommands(bootstrap)
 	}

@@ -115,6 +115,14 @@ func NewCommands(bootstrap Bootstrap) ([]cmds.Command, error) {
 }
 
 func NewCommandsWithInvokerFactory(bootstrap Bootstrap, invokers InvokerFactory) ([]cmds.Command, error) {
+	return newCommandsWithInvokerFactory(bootstrap, invokers, true)
+}
+
+func NewCommandsWithInvokerFactoryWithoutRuntimeSections(bootstrap Bootstrap, invokers InvokerFactory) ([]cmds.Command, error) {
+	return newCommandsWithInvokerFactory(bootstrap, invokers, false)
+}
+
+func newCommandsWithInvokerFactory(bootstrap Bootstrap, invokers InvokerFactory, includeRuntimeSections bool) ([]cmds.Command, error) {
 	repositories, err := scanRepositories(bootstrap)
 	if err != nil {
 		return nil, err
@@ -123,10 +131,10 @@ func NewCommandsWithInvokerFactory(bootstrap Bootstrap, invokers InvokerFactory)
 	if err != nil {
 		return nil, err
 	}
-	return buildCommands(discovered, invokers)
+	return buildCommands(discovered, invokers, includeRuntimeSections)
 }
 
-func buildCommands(discovered []DiscoveredVerb, invokers InvokerFactory) ([]cmds.Command, error) {
+func buildCommands(discovered []DiscoveredVerb, invokers InvokerFactory, includeRuntimeSections bool) ([]cmds.Command, error) {
 	commands := make([]cmds.Command, 0, len(discovered))
 	for _, DiscoveredVerb := range discovered {
 		repo := DiscoveredVerb.Repository
@@ -135,9 +143,13 @@ func buildCommands(discovered []DiscoveredVerb, invokers InvokerFactory) ([]cmds
 		if err != nil {
 			return nil, err
 		}
-		augmentedDescription, err := augmentDescription(verbDescription)
-		if err != nil {
-			return nil, err
+		augmentedDescription := verbDescription
+		if includeRuntimeSections {
+			var err error
+			augmentedDescription, err = augmentDescription(verbDescription)
+			if err != nil {
+				return nil, err
+			}
 		}
 		invoker := invokers(repo, verb, verbDescription)
 		commands = append(commands, &runtimeCommandWrapper{

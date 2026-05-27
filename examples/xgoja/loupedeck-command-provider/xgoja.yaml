@@ -26,8 +26,14 @@ runtimes:
         name: loupedeck/gfx
         as: loupedeck/gfx
       - package: loupedeck
+        name: loupedeck/metrics
+        as: loupedeck/metrics
+      - package: loupedeck
         name: loupedeck/present
         as: loupedeck/present
+      - package: loupedeck
+        name: loupedeck/scene-metrics
+        as: loupedeck/scene-metrics
       - package: loupedeck
         name: loupedeck/state
         as: loupedeck/state
@@ -64,7 +70,9 @@ commandProviders:
       - loupedeck/anim
       - loupedeck/easing
       - loupedeck/gfx
+      - loupedeck/metrics
       - loupedeck/present
+      - loupedeck/scene-metrics
       - loupedeck/state
       - loupedeck/ui
       - timer

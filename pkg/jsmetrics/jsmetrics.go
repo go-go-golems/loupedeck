@@ -25,7 +25,11 @@ func RegisterModules(registry *require.Registry, prefix string) {
 }
 
 func RegisterLowLevelModuleAs(registry *require.Registry, name string) {
-	registry.RegisterNativeModule(name, func(runtime *goja.Runtime, module *goja.Object) {
+	registry.RegisterNativeModule(name, LowLevelModuleLoader())
+}
+
+func LowLevelModuleLoader() require.ModuleLoader {
+	return func(runtime *goja.Runtime, module *goja.Object) {
 		collector, ok := Lookup(runtime)
 		if !ok {
 			panic(runtime.NewGoError(fmt.Errorf("metrics module requires collector binding")))
@@ -78,11 +82,15 @@ func RegisterLowLevelModuleAs(registry *require.Registry, name string) {
 			}
 			return result
 		})
-	})
+	}
 }
 
 func RegisterSceneModuleAs(registry *require.Registry, name string) {
-	registry.RegisterNativeModule(name, func(runtime *goja.Runtime, module *goja.Object) {
+	registry.RegisterNativeModule(name, SceneModuleLoader())
+}
+
+func SceneModuleLoader() require.ModuleLoader {
+	return func(runtime *goja.Runtime, module *goja.Object) {
 		collector, ok := Lookup(runtime)
 		if !ok {
 			panic(runtime.NewGoError(fmt.Errorf("scene-metrics module requires collector binding")))
@@ -98,7 +106,7 @@ func RegisterSceneModuleAs(registry *require.Registry, name string) {
 			}
 			return helperObject(runtime, collector, prefix)
 		})
-	})
+	}
 }
 
 func helperObject(runtime *goja.Runtime, collector *metrics.Collector, prefix string) goja.Value {

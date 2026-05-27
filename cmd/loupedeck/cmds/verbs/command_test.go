@@ -111,7 +111,7 @@ func TestNewCommandInvokesDynamicVerbThroughCustomInvoker(t *testing.T) {
 			captured["duration"] = duration
 			return nil, nil
 		}
-	})
+	}, true)
 	if err != nil {
 		t.Fatalf("build commands: %v", err)
 	}
