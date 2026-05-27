@@ -17,7 +17,15 @@ type Runtime struct {
 func OpenRuntime(ctx context.Context, env *envpkg.LoupeDeckEnvironment, opts ...engine.Option) (*Runtime, error) {
 	env = envpkg.Ensure(env)
 	builder := engine.NewBuilder(opts...).
-		WithModules(NewRegistrar(env))
+		WithModules(NewRegistrar(env)).
+		// Raw Loupedeck scene commands normally install only the Loupedeck
+		// runtime modules. When the Loupedeck provider is used from a generated
+		// xgoja binary, additional domain modules may also have registered
+		// themselves in go-go-goja's default module registry. Select the optional
+		// AST analysis module names here so scripts run through `deck run` can
+		// compose Loupedeck UI modules with go-ast-analysis without exposing the
+		// whole host default registry.
+		UseModuleMiddleware(engine.MiddlewareOnly("go-ast-analysis", "ast"))
 	factory, err := builder.Build()
 	if err != nil {
 		return nil, fmt.Errorf("build loupedeck runtime factory: %w", err)
