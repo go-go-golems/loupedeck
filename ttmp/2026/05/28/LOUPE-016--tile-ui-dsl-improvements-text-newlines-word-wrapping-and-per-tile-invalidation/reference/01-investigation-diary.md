@@ -144,3 +144,33 @@ Design 3 (per-tile invalidation) is largely about documentation and ergonomics, 
 2. ~~Upload to reMarkable~~ ✓ Done — uploaded as "LOUPE-016 Tile UI DSL Improvements.pdf" to /ai/2026/05/28
 3. ~~Update ticket index and tasks~~ ✓ Done
 4. Implementation of the three features (see tasks.md)
+
+## 2026-05-28 — Documentation and Examples Pass
+
+### What I did
+
+- Rewrote the API reference (`docs/help/topics/01-loupedeck-js-api-reference.md`) with:
+  - New "Two rendering paths" section explaining retained vs surface vs per-tile surface paths
+  - Full `loupedeck/gfx` module documentation (surface, font, all drawing methods, text options)
+  - Full `loupedeck/present` module documentation (invalidate, onFrame)
+  - `tile.surface()` documentation with performance guidance
+  - Display object documentation (text, icon, visible, surface, layer, tile)
+  - `page.display()` documentation
+  - Updated module overview table with gfx and present
+  - New example patterns: per-tile surface clock, full-display surface, hybrid layers
+  - New troubleshooting entries for newline text, long text overflow, slow full-display scenes
+  - Updated "Current limitations" to mention LOUPE-016 newline/wrapping bugs
+
+- Rewrote the tutorial (`docs/help/tutorials/01-build-your-first-live-loupedeck-js-script.md`) with:
+  - New Step 6: Custom pixel content with per-tile surfaces
+  - "Two rendering paths explained" section with data flow diagrams for all three paths
+  - Complete per-tile surface pulse-meter example
+  - Updated example table to include new examples
+  - Updated troubleshooting table with per-tile surface and text entries
+  - Fixed stale repository path references
+
+- Created new examples:
+  - `examples/js/13-per-tile-clock.js`: 12-tile clock with per-tile surfaces, anim.loop, batch(), demonstrates per-tile invalidation
+  - `examples/js/14-tile-surface-drawing.js`: 12-tile showcase of all gfx primitives (fillRect, line, text, crosshatch, set/add, compositeAdd, alignment, brightness gradient, borders, checkerboard, animated wave, animated pulse rings)
+
+- Updated `examples/js/02-counter-button.js`: minor cleanup
