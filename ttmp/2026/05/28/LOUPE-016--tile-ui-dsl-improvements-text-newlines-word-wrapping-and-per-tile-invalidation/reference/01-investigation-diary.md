@@ -174,3 +174,5 @@ Design 3 (per-tile invalidation) is largely about documentation and ergonomics, 
   - `examples/js/14-tile-surface-drawing.js`: 12-tile showcase of all gfx primitives (fillRect, line, text, crosshatch, set/add, compositeAdd, alignment, brightness gradient, borders, checkerboard, animated wave, animated pulse rings)
 
 - Updated `examples/js/02-counter-button.js`: minor cleanup
+
+- Re-uploaded combined docs bundle (API reference + tutorial + design doc) to reMarkable as "LOUPE-016 Tile UI DSL - API Reference, Tutorial, and Design.pdf"
