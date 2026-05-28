@@ -176,3 +176,25 @@ Design 3 (per-tile invalidation) is largely about documentation and ergonomics, 
 - Updated `examples/js/02-counter-button.js`: minor cleanup
 
 - Re-uploaded combined docs bundle (API reference + tutorial + design doc) to reMarkable as "LOUPE-016 Tile UI DSL - API Reference, Tutorial, and Design.pdf"
+
+## 2026-05-28 — External Script Improvements
+
+### What I did
+
+Improved all 5 scripts in the goja-ast-analysis loupedeck-code-nav directory to use per-tile surfaces instead of the broken `tile.text("LINE1\nLINE2")` pattern.
+
+**Key improvements across all scripts:**
+1. Replaced `tile.text("A\nB")` with per-tile `gfx.surface(90, 90)` + `surface.text()` calls — works around the newline rendering bug
+2. Two-line labels: category label on top (dimmer), value on bottom (bright) — much more readable
+3. Accent bars: each tile gets a colored top bar indicating its role (bright = interactive, dim = static)
+4. Per-tile invalidation: only the tiles that actually change are re-rendered when a knob turns
+5. `surface.batch()` used consistently for grouped drawing operations
+6. Static tiles drawn once (control labels, hints) instead of reactively
+7. `drawParamTile()` / `drawStaticTile()` helpers reduce code duplication
+
+**Per-script changes:**
+- `01-log-interactions.js`: Counter tile gets a progress bar. Touched tiles highlight with bright accent. Per-tile surfaces show touch number + last interaction type.
+- `02-query-state-console.js`: Three rows — parameter tiles (reactive), knob assignment tiles (static), action tiles. Parameter tiles show KIND/methods, SCOPE/package, FILTER/exported, LIMIT/10.
+- `03-ast-query-console.js`: Same layout as 02 but with real AST queries. Knob handlers only redraw the parameter tile they affect, not all tiles.
+- `04-result-tiles.js`: The big winner — result tiles show receiver + name on separate lines, file + line number clearly. Mode tile highlighted with bright accent. Touched tiles highlight briefly.
+- `05-web-remote-browser.js`: Info row shows package, item index, kind+label, file+line. Static control row. Status tile with two-line status display.
