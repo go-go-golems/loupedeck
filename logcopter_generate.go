@@ -1,0 +1,3 @@
+package loupedeck
+
+//go:generate go tool logcopter-gen -area-prefix go-go-golems.loupedeck -strip-prefix github.com/go-go-golems/loupedeck ./cmd/... ./pkg/... ./runtime/...
