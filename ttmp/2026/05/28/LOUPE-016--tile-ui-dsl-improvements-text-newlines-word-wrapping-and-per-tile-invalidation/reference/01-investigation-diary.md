@@ -140,6 +140,7 @@ Design 3 (per-tile invalidation) is largely about documentation and ergonomics, 
 
 ### Next steps
 
-1. Commit the current state
-2. Upload to reMarkable
-3. Update ticket index and tasks
+1. ~~Commit the current state~~ ✓ Done
+2. ~~Upload to reMarkable~~ ✓ Done — uploaded as "LOUPE-016 Tile UI DSL Improvements.pdf" to /ai/2026/05/28
+3. ~~Update ticket index and tasks~~ ✓ Done
+4. Implementation of the three features (see tasks.md)
