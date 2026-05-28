@@ -14,23 +14,35 @@ DocType: index
 Intent: long-term
 Owners: []
 RelatedFiles:
-    - runtime/gfx/text.go
-    - runtime/gfx/surface.go
-    - runtime/ui/tile.go
-    - runtime/ui/display.go
-    - runtime/ui/ui.go
-    - runtime/render/visual_runtime.go
-    - runtime/js/module_ui/module.go
-    - runtime/js/module_gfx/module.go
-    - runtime/present/runtime.go
-    - runtime/reactive/runtime.go
-    - runtime/reactive/signal.go
+    - Path: runtime/gfx/surface.go
+      Note: Grayscale pixel buffer with drawing primitives and change listeners
+    - Path: runtime/gfx/text.go
+      Note: THE TEXT RENDERER - single-line DrawString
+    - Path: runtime/js/module_gfx/module.go
+      Note: JS bridge for loupedeck/gfx - surface.text() options parsing
+    - Path: runtime/js/module_ui/module.go
+      Note: JS bridge for loupedeck/ui - tile.surface() already at line 322
+    - Path: runtime/present/runtime.go
+      Note: Invalidate-on-demand presentation loop
+    - Path: runtime/reactive/runtime.go
+      Note: Reactive dependency tracking and batch flush
+    - Path: runtime/reactive/signal.go
+      Note: Mutable reactive value with notification
+    - Path: runtime/render/visual_runtime.go
+      Note: Retained renderer - drawsCenteredLabel
+    - Path: runtime/ui/display.go
+      Note: Display struct with surface/layers/tiles
+    - Path: runtime/ui/tile.go
+      Note: Tile struct with text/icon/visible/surface properties and per-tile dirty tracking
+    - Path: runtime/ui/ui.go
+      Note: UI orchestrator with dirty tile/display sets
 ExternalSources: []
-Summary: "Fix text newline rendering, add word wrapping, and improve per-tile invalidation ergonomics in the Loupedeck tile UI DSL"
+Summary: Fix text newline rendering, add word wrapping, and improve per-tile invalidation ergonomics in the Loupedeck tile UI DSL
 LastUpdated: 2026-05-28T09:00:00-04:00
-WhatFor: "Guide implementation of three tile UI improvements for the Loupedeck JS DSL"
-WhenToUse: "When implementing text wrapping, newline rendering, or per-tile invalidation features"
+WhatFor: Guide implementation of three tile UI improvements for the Loupedeck JS DSL
+WhenToUse: When implementing text wrapping, newline rendering, or per-tile invalidation features
 ---
+
 
 # Tile UI DSL Improvements: Text Newlines, Word Wrapping, and Per-Tile Invalidation
 
