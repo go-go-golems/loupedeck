@@ -16,11 +16,11 @@ Status: active
 
 ## Implementation — Text Newlines
 
-- [ ] Add `LineGap` field to `gfx.TextOptions` in `runtime/gfx/text.go`
-- [ ] Modify `Surface.Text()` to split on `\n` and render multiple lines
-- [ ] Modify `drawCenteredLabel()` in `runtime/render/visual_runtime.go` to split on `\n`
-- [ ] Add `lineGap` property parsing in `runtime/js/module_gfx/module.go`
-- [ ] Write unit tests for multi-line text rendering
+- [x] Add `LineGap` field to `gfx.TextOptions` in `runtime/gfx/text.go`
+- [x] Modify `Surface.Text()` to split on `\n` and render multiple lines
+- [x] Modify `drawCenteredLabel()` in `runtime/render/visual_runtime.go` to split on `\n`
+- [x] Add `lineGap` property parsing in `runtime/js/module_gfx/module.go`
+- [x] Write unit tests for multi-line text rendering
 - [ ] Verify with probe script `01-text-newline-probe.js`
 
 ## Implementation — Word Wrapping

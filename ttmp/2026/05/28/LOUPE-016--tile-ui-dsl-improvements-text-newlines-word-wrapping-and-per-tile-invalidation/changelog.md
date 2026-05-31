@@ -46,3 +46,15 @@ Status: active
 - Created examples/js/14-tile-surface-drawing.js: 12-tile gfx primitives showcase
 - Updated 02-counter-button.js
 - Re-uploaded combined docs bundle to reMarkable
+
+## 2026-05-30
+
+Step 6: Implement text newline support — LineGap field, Surface.Text() splits on \n, drawCenteredLabel() splits on \n, lineGap JS bridge, unit tests (commit 95a46a1)
+
+### Related Files
+
+- /home/manuel/workspaces/2026-05-27/better-loupedeck-tiles/loupedeck/runtime/gfx/text.go — Added LineGap field
+- /home/manuel/workspaces/2026-05-27/better-loupedeck-tiles/loupedeck/runtime/gfx/text_test.go — New comprehensive multi-line text unit tests
+- /home/manuel/workspaces/2026-05-27/better-loupedeck-tiles/loupedeck/runtime/js/module_gfx/module.go — Added lineGap property parsing in textOptionsFromValue()
+- /home/manuel/workspaces/2026-05-27/better-loupedeck-tiles/loupedeck/runtime/render/visual_runtime.go — drawCenteredLabel() now splits on \n
+

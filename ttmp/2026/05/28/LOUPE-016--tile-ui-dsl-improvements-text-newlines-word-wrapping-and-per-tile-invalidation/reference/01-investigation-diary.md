@@ -198,3 +198,68 @@ Improved all 5 scripts in the goja-ast-analysis loupedeck-code-nav directory to 
 - `03-ast-query-console.js`: Same layout as 02 but with real AST queries. Knob handlers only redraw the parameter tile they affect, not all tiles.
 - `04-result-tiles.js`: The big winner — result tiles show receiver + name on separate lines, file + line number clearly. Mode tile highlighted with bright accent. Touched tiles highlight briefly.
 - `05-web-remote-browser.js`: Info row shows package, item index, kind+label, file+line. Static control row. Status tile with two-line status display.
+
+## 2026-05-30 — Step 6: Implement Text Newline Support
+
+Implemented the first feature from the design doc: multi-line text rendering via `\n` splitting. This covers tasks #6–#10.
+
+### Prompt Context
+
+**User prompt (verbatim):** "go ahead. keep a diary as you work. commit at appropriate intervals, check tasks off as you go."
+
+**Assistant interpretation:** Begin implementing the LOUPE-016 features in order, starting with text newline support. Keep the investigation diary updated, commit at logical boundaries, and check off tasks.
+
+**Inferred user intent:** Execute the implementation plan from the design doc, maintaining full traceability.
+
+**Commit (code):** 95a46a1 — "LOUPE-016: Implement text newline support in Surface.Text() and drawCenteredLabel()"
+
+### What I did
+- Added `LineGap` field to `gfx.TextOptions` in `runtime/gfx/text.go`
+- Refactored `Surface.Text()` to detect `\n` in the text and render each line separately with proper vertical offsets
+- Extracted `renderLine()` as the single-line rendering function (original `Text()` logic)
+- Added `splitLines()` helper that preserves empty lines for vertical spacing
+- Modified `drawCenteredLabel()` in `runtime/render/visual_runtime.go` to split on `\n` and render each line
+- Extracted `drawSingleLine()` helper for the renderer
+- Added `lineGap` property parsing in `runtime/js/module_gfx/module.go` `textOptionsFromValue()`
+- Wrote comprehensive unit tests in `runtime/gfx/text_test.go`: 8 new tests covering multi-line, line gap, empty lines, edge cases
+- Saved verification script `scripts/03-verify-text-newline.sh` to ticket
+
+### Why
+The Go `font.Drawer.DrawString()` treats the entire string as one line — `\n` characters render as missing-glyph boxes. Users need multi-line text in both the surface API and the retained tile renderer.
+
+### What worked
+- Splitting `Text()` into `Text()` (dispatcher) + `renderLine()` (single line) was clean
+- For multi-line, setting `lineOpts.Height = lineH + 4` per line gave consistent positioning
+- The `drawCenteredLabel()` change was straightforward — same pattern as `Surface.Text()`
+
+### What didn't work
+- First attempt used the original `opts.Height` for each line's alpha mask in multi-line mode — caused the second line to be vertically centered in a too-tall mask, pushing pixels outside the test's expected region. Fixed by overriding `lineOpts.Height = lineH + 4` per line.
+- Initial test `TestSurfaceTextNewlineRendersMultipleLines` used a fixed row-45 split boundary, but Face7x13 has `Height.Ceil() = 13`, so two lines only span ~26 rows. Rewrote test to use the actual `lineH` as the separator.
+
+### What I learned
+- Face7x13 metrics: Height=13, Ascent=11, Descent=2
+- When auto-calculating `Height` (height <= 0 → lineH + 4), the baseline calculation `h/2` can exceed the actual text extent — this works for single-line centering but is wrong for multi-line where we want each line to occupy exactly one line-height
+
+### What was tricky to build
+- The `Height` field serves two purposes: alpha mask size and vertical centering computation. For single-line centering, a larger Height is fine. For multi-line layout, each line needs its Height set to exactly `lineH + 4` so the baseline calculation produces consistent per-line positioning.
+- The renderer's `drawCenteredLabel()` uses a `baseline` parameter that's an absolute Y position in the destination image, not relative — so multi-line layout there is just `baseline + i*lineH`.
+
+### What warrants a second pair of eyes
+- The `lineOpts.Height = lineH + 4` override in the multi-line path — is 4px the right margin? It matches the original single-line auto-height but may be too tight for larger fonts.
+- The `drawCenteredLabel()` uses `lineH` (font height) with no gap between lines — should we add a configurable gap in the retained renderer too? Currently the tile renderer doesn't have a `LineGap` option.
+
+### What should be done in the future
+- Add `LineGap` support to the retained tile renderer's `drawCenteredLabel()` (currently only the surface `Text()` API supports it)
+- Consider adding a `WrapWidth` field for word wrapping (next step in the plan)
+
+### Code review instructions
+- Start with `runtime/gfx/text.go`: new `LineGap` field, `splitLines()`, `renderLine()`, modified `Text()` dispatcher
+- Then `runtime/render/visual_runtime.go`: modified `drawCenteredLabel()`, new `drawSingleLine()`
+- Then `runtime/js/module_gfx/module.go`: `LineGap` line in `textOptionsFromValue()`
+- Run: `go test ./runtime/gfx/ -count=1 -v -run "TestSurfaceText|TestSplitLines"`
+
+### Technical details
+- `splitLines()` uses `strings.Split(text, "\n")` — preserves empty lines
+- Multi-line Y layout: `opts.Y + i*(lineH+gap)` where `lineH = face.Metrics().Height.Ceil()`
+- Per-line Height override: `lineH + 4` (4px margin below descent line)
+- Face7x13: Height=13, so two lines with gap=0 span 26 rows, three lines span 39 rows
