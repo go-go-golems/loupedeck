@@ -4,6 +4,7 @@ import (
 	"image"
 	"image/color"
 	"image/draw"
+	"strings"
 
 	"golang.org/x/image/font"
 	"golang.org/x/image/font/basicfont"
@@ -18,9 +19,53 @@ type TextOptions struct {
 	Brightness uint8
 	Face       font.Face
 	Center     bool
+	LineGap    int // extra vertical pixels between lines when text contains \n
 }
 
 func (s *Surface) Text(text string, opts TextOptions) {
+	if s == nil || text == "" {
+		return
+	}
+
+	lines := splitLines(text)
+	if len(lines) == 1 {
+		s.renderLine(lines[0], opts)
+		return
+	}
+
+	// Multi-line rendering: compute per-line height and lay out vertically.
+	face := opts.Face
+	if face == nil {
+		face = basicfont.Face7x13
+	}
+	lineH := face.Metrics().Height.Ceil()
+	gap := opts.LineGap
+	if gap < 0 {
+		gap = 0
+	}
+
+	for i, line := range lines {
+		lineOpts := opts
+		lineOpts.Y = opts.Y + i*(lineH+gap)
+		lineOpts.Height = lineH + 4 // per-line alpha mask height
+		if line == "" {
+			continue
+		}
+		s.renderLine(line, lineOpts)
+	}
+}
+
+// splitLines splits text on \n, preserving empty lines so that
+// blank lines still take up vertical space in multi-line layout.
+func splitLines(text string) []string {
+	if text == "" {
+		return nil
+	}
+	return strings.Split(text, "\n")
+}
+
+// renderLine draws a single line of text onto the surface.
+func (s *Surface) renderLine(text string, opts TextOptions) {
 	if s == nil || text == "" {
 		return
 	}

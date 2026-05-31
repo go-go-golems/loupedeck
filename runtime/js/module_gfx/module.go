@@ -200,6 +200,7 @@ func textOptionsFromValue(runtime *goja.Runtime, value goja.Value) gfx.TextOptio
 		Brightness: clampIntToUint8(intProp(obj, "brightness")),
 		Center:     boolProp(obj, "center"),
 		Face:       base.Face,
+		LineGap:    intProp(obj, "lineGap"),
 	}
 }
 

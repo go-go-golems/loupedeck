@@ -4,6 +4,7 @@ import (
 	"image"
 	"image/color"
 	"image/draw"
+	"strings"
 
 	"github.com/go-go-golems/loupedeck/runtime/ui"
 	"golang.org/x/image/font"
@@ -187,6 +188,21 @@ func drawCenteredLabel(dst draw.Image, text string, baseline int, fg color.Color
 		return
 	}
 	face := basicfont.Face7x13
+	lineH := face.Metrics().Height.Ceil()
+
+	lines := strings.Split(text, "\n")
+	for i, line := range lines {
+		if line == "" {
+			continue
+		}
+		drawSingleLine(dst, line, baseline+i*lineH, fg, face)
+	}
+}
+
+func drawSingleLine(dst draw.Image, text string, baseline int, fg color.Color, face font.Face) {
+	if text == "" {
+		return
+	}
 	d := &font.Drawer{
 		Dst:  dst,
 		Src:  &image.Uniform{fg},
