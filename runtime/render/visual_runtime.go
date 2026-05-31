@@ -164,7 +164,11 @@ func (r *Renderer) renderTile(tile *ui.Tile) image.Image {
 		drawCenteredLabel(im, icon, 24, r.Theme.Foreground)
 	}
 	if text := tile.Text(); text != "" {
-		drawCenteredLabel(im, text, 58, r.Theme.Foreground)
+		if tile.Wrap() {
+			drawWrappedLabel(im, text, 58, r.Theme.Foreground, TileWidth-8) // 4px padding each side
+		} else {
+			drawCenteredLabel(im, text, 58, r.Theme.Foreground)
+		}
 	}
 	return im
 }
@@ -215,4 +219,65 @@ func drawSingleLine(dst draw.Image, text string, baseline int, fg color.Color, f
 	}
 	d.Dot = fixed.P(x, baseline)
 	d.DrawString(text)
+}
+
+// drawWrappedLabel renders text centered, word-wrapped to wrapWidth pixels,
+// starting at baseline for the first line and incrementing by lineH for
+// subsequent lines.
+func drawWrappedLabel(dst draw.Image, text string, baseline int, fg color.Color, wrapWidth int) {
+	if text == "" || wrapWidth <= 0 {
+		drawCenteredLabel(dst, text, baseline, fg)
+		return
+	}
+	face := basicfont.Face7x13
+	lineH := face.Metrics().Height.Ceil()
+
+	lines := wrapRendererText(text, face, wrapWidth)
+	for i, line := range lines {
+		drawSingleLine(dst, line, baseline+i*lineH, fg, face)
+	}
+}
+
+// wrapRendererText wraps text to fit within wrapWidth pixels using the given
+// font face. Returns a slice of lines.
+func wrapRendererText(text string, face font.Face, wrapWidth int) []string {
+	if text == "" || wrapWidth <= 0 {
+		return []string{text}
+	}
+
+	// First split on explicit newlines.
+	paragraphs := strings.Split(text, "\n")
+
+	d := &font.Drawer{Face: face}
+	var result []string
+	for _, para := range paragraphs {
+		if para == "" {
+			result = append(result, "")
+			continue
+		}
+		words := strings.Fields(para)
+		var current strings.Builder
+		for i, word := range words {
+			if i == 0 {
+				current.WriteString(word)
+				continue
+			}
+			candidate := current.String() + " " + word
+			if d.MeasureString(candidate).Round() <= wrapWidth {
+				current.WriteString(" ")
+				current.WriteString(word)
+			} else {
+				result = append(result, current.String())
+				current.Reset()
+				current.WriteString(word)
+			}
+		}
+		if current.Len() > 0 {
+			result = append(result, current.String())
+		}
+	}
+	if len(result) == 0 {
+		return []string{text}
+	}
+	return result
 }

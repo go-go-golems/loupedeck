@@ -260,6 +260,11 @@ func displayObject(runtimeServices runtimebridge.RuntimeServices, runtime *goja.
 func tileObject(runtimeServices runtimebridge.RuntimeServices, runtime *goja.Runtime, _ *envpkg.LoupeDeckEnvironment, tile *ui.Tile) *goja.Object {
 	obj := runtime.NewObject()
 	_ = obj.Set("text", func(call goja.FunctionCall) goja.Value {
+		// Parse options from second argument
+		opts := tileTextOptionsFromValue(call.Argument(1), runtime)
+		if opts.wrap {
+			tile.SetWrap(true)
+		}
 		if fn, ok := goja.AssertFunction(call.Argument(0)); ok {
 			tile.BindText(func() string {
 				result, err := runtimeServices.CallWithCurrentContext(runtime, "ui.tile.text", func(_ context.Context, vm *goja.Runtime) (any, error) {
@@ -377,6 +382,28 @@ func layerOptionsFromValue(value goja.Value, runtime *goja.Runtime) ui.LayerOpti
 		B: clampInt64ToUint8(bValue.ToInteger()),
 		A: a,
 	}}
+}
+
+type tileTextOpts struct {
+	wrap bool
+}
+
+func tileTextOptionsFromValue(value goja.Value, runtime *goja.Runtime) tileTextOpts {
+	if goja.IsUndefined(value) || goja.IsNull(value) {
+		return tileTextOpts{}
+	}
+	obj := value.ToObject(runtime)
+	return tileTextOpts{
+		wrap: boolProp(obj, "wrap"),
+	}
+}
+
+func boolProp(obj *goja.Object, name string) bool {
+	value := obj.Get(name)
+	if value == nil || goja.IsUndefined(value) || goja.IsNull(value) {
+		return false
+	}
+	return value.ToBoolean()
 }
 
 func clampInt64ToUint8(v int64) uint8 {

@@ -201,6 +201,7 @@ func textOptionsFromValue(runtime *goja.Runtime, value goja.Value) gfx.TextOptio
 		Center:     boolProp(obj, "center"),
 		Face:       base.Face,
 		LineGap:    intProp(obj, "lineGap"),
+		WrapWidth:  intProp(obj, "wrapWidth"),
 	}
 }
 

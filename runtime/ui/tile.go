@@ -14,6 +14,7 @@ type Tile struct {
 	text       string
 	icon       string
 	visible    bool
+	wrap       bool
 	dirty      bool
 	surface    *gfx.Surface
 	surfaceSub gfx.Subscription
@@ -33,6 +34,18 @@ func (t *Tile) Icon() string {
 
 func (t *Tile) Visible() bool {
 	return t.visible
+}
+
+func (t *Tile) Wrap() bool {
+	return t.wrap
+}
+
+func (t *Tile) SetWrap(value bool) {
+	if t.wrap == value {
+		return
+	}
+	t.wrap = value
+	t.markDirty()
 }
 
 func (t *Tile) Surface() *gfx.Surface {
