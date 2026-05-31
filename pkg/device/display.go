@@ -4,7 +4,6 @@ import (
 	"encoding/binary"
 	"fmt"
 	"image"
-	"log/slog"
 
 	"maze.io/x/pixel/pixelcolor"
 	// "time"
@@ -148,13 +147,13 @@ func (d *Display) Draw(im image.Image, xoff, yoff int) {
 	if d.loupedeck.renderer != nil {
 		key := fmt.Sprintf("%s:%d:%d:%d:%d", d.Name, x, y, width, height)
 		if err := d.loupedeck.renderer.Invalidate(key, cmd); err != nil {
-			slog.Warn("render invalidate failed", "err", err)
+			log.Warn().Err(err).Msg("render invalidate failed")
 		}
 		return
 	}
 
 	err := d.loupedeck.EnqueueCommand(cmd)
 	if err != nil {
-		slog.Warn("send failed", "err", err)
+		log.Warn().Err(err).Msg("send failed")
 	}
 }

@@ -1,9 +1,7 @@
 package device
 
 import (
-	//"github.com/tarm/serial"
 	"fmt"
-	"log/slog"
 	"net"
 	"path/filepath"
 	"time"
@@ -82,7 +80,7 @@ func (l *SerialWebSockConn) SetWriteDeadline(t time.Time) error {
 // ConnectSerialAuto connects to the first compatible Loupedeck in the
 // system.  To connect to a specific Loupedeck, use ConnectSerialPath.
 func ConnectSerialAuto() (*SerialWebSockConn, error) {
-	slog.Info("Enumerating ports")
+	log.Info().Msg("Enumerating ports")
 
 	ports, err := enumerator.GetDetailedPortsList()
 	if err != nil {
@@ -93,7 +91,7 @@ func ConnectSerialAuto() (*SerialWebSockConn, error) {
 	}
 
 	for _, port := range ports {
-		slog.Info("Trying to open port", "port", port.Name)
+		log.Info().Str("port", port.Name).Msg("Trying to open port")
 		if port.IsUSB && (port.VID == "2ec2" || port.VID == "1532") {
 			p, err := serial.Open(port.Name, &serial.Mode{})
 			if err != nil {
@@ -104,7 +102,7 @@ func ConnectSerialAuto() (*SerialWebSockConn, error) {
 			// buffer may contain websocket frames from an earlier
 			// connection that would confuse the HTTP handshake.
 			if err := p.ResetInputBuffer(); err != nil {
-				slog.Warn("Unable to reset serial input buffer", "port", port.Name, "err", err)
+			log.Warn().Str("port", port.Name).Err(err).Msg("Unable to reset serial input buffer")
 			}
 			conn := &SerialWebSockConn{
 				Name:    port.Name,
@@ -160,7 +158,7 @@ func lookupSerialPortMetadata(serialPath string) (string, string, error) {
 func ConnectSerialPath(serialPath string) (*SerialWebSockConn, error) {
 	vendor, product, metaErr := lookupSerialPortMetadata(serialPath)
 	if metaErr != nil {
-		slog.Warn("Unable to resolve serial metadata for path", "path", serialPath, "err", metaErr)
+		log.Warn().Str("path", serialPath).Err(metaErr).Msg("Unable to resolve serial metadata for path")
 	}
 
 	p, err := serial.Open(serialPath, &serial.Mode{})
@@ -172,7 +170,7 @@ func ConnectSerialPath(serialPath string) (*SerialWebSockConn, error) {
 	// buffer may contain websocket frames from an earlier
 	// connection that would confuse the HTTP handshake.
 	if err := p.ResetInputBuffer(); err != nil {
-		slog.Warn("Unable to reset serial input buffer", "path", serialPath, "err", err)
+		log.Warn().Str("path", serialPath).Err(err).Msg("Unable to reset serial input buffer")
 	}
 	conn := &SerialWebSockConn{
 		Name:    serialPath,

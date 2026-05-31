@@ -6,7 +6,6 @@ import (
 	"image"
 	"image/color"
 	"image/draw"
-	"log/slog"
 	"os"
 	"os/signal"
 	"sort"
@@ -180,9 +179,9 @@ func RunSceneSession(ctx context.Context, identity SceneIdentity, opts SessionOp
 		return nil, fmt.Errorf("connect: %w", err)
 	}
 	defer func() {
-		slog.Debug("closing loupedeck connection")
+	log.Debug().Msg("closing loupedeck connection")
 		if err := deckConn.Close(); err != nil {
-			slog.Warn("close failed", "error", err)
+		log.Warn().Err(err).Msg("close failed")
 		}
 	}()
 
@@ -261,16 +260,16 @@ func RunSceneSession(ctx context.Context, identity SceneIdentity, opts SessionOp
 		}
 		snap := rt.Env.Metrics.SnapshotAndReset()
 		if opts.LogJSStats {
-			slog.Info("js stats", "script", identity.ScriptPath, "verb", identity.Verb, "label", label, "counters", formatJSCounters(snap), "timings", formatJSTimings(snap))
+		log.Info().Str("script", identity.ScriptPath).Str("verb", identity.Verb).Str("label", label).Str("counters", formatJSCounters(snap)).Str("timings", formatJSTimings(snap)).Msg("js stats")
 		}
 		if opts.LogJSTrace {
 			for _, event := range filterTraceEvents(snap.Trace, false) {
-				slog.Info("js trace", "script", identity.ScriptPath, "verb", identity.Verb, "label", label, "seq", event.Seq, "event", event.Name, "fields", formatTraceFields(event.Fields))
+			log.Info().Str("script", identity.ScriptPath).Str("verb", identity.Verb).Str("label", label).Uint64("seq", event.Seq).Str("event", event.Name).Str("fields", formatTraceFields(event.Fields)).Msg("js trace")
 			}
 		}
 		if opts.LogGoTrace {
 			for _, event := range filterTraceEvents(snap.Trace, true) {
-				slog.Info("go trace", "script", identity.ScriptPath, "verb", identity.Verb, "label", label, "seq", event.Seq, "event", event.Name, "fields", formatTraceFields(event.Fields))
+			log.Info().Str("script", identity.ScriptPath).Str("verb", identity.Verb).Str("label", label).Uint64("seq", event.Seq).Str("event", event.Name).Str("fields", formatTraceFields(event.Fields)).Msg("go trace")
 			}
 		}
 	}
@@ -297,11 +296,11 @@ func RunSceneSession(ctx context.Context, identity SceneIdentity, opts SessionOp
 	rt.Env.Present.Start(rt.Context())
 	defer rt.Env.Present.Close()
 
-	slog.Info("Loupedeck JS live runner started", "script", identity.ScriptPath, "verb", identity.Verb, "duration", opts.Duration, "send_interval", opts.SendInterval, "flush_interval", opts.FlushInterval, "log_render_stats", opts.LogRenderStats, "log_writer_stats", opts.LogWriterStats, "log_js_stats", opts.LogJSStats, "log_js_trace", opts.LogJSTrace, "log_go_trace", opts.LogGoTrace, "trace_limit", opts.TraceLimit)
+	log.Info().Str("script", identity.ScriptPath).Str("verb", identity.Verb).Dur("duration", opts.Duration).Dur("send_interval", opts.SendInterval).Dur("flush_interval", opts.FlushInterval).Bool("log_render_stats", opts.LogRenderStats).Bool("log_writer_stats", opts.LogWriterStats).Bool("log_js_stats", opts.LogJSStats).Bool("log_js_trace", opts.LogJSTrace).Bool("log_go_trace", opts.LogGoTrace).Int("trace_limit", opts.TraceLimit).Msg("Loupedeck JS live runner started")
 	exitRunner := func(reason string, attrs ...any) error {
 		logAttrs := []any{"reason", reason, "script", identity.ScriptPath, "verb", identity.Verb}
 		logAttrs = append(logAttrs, attrs...)
-		slog.Info("Loupedeck JS live runner exiting", logAttrs...)
+		log.Info().Str("reason", reason).Str("script", identity.ScriptPath).Str("verb", identity.Verb).Msg("Loupedeck JS live runner exiting")
 		if opts.TraceDumpOnExit {
 			dumpMetricsWindow("final")
 		}
@@ -317,14 +316,14 @@ func RunSceneSession(ctx context.Context, identity SceneIdentity, opts SessionOp
 		case <-statsTick:
 			if opts.LogRenderStats {
 				renderWindowMu.Lock()
-				slog.Info("render stats", "script", identity.ScriptPath, "verb", identity.Verb, "stats", renderWindow.String())
+				log.Info().Str("script", identity.ScriptPath).Str("verb", identity.Verb).Str("stats", renderWindow.String()).Msg("render stats")
 				renderWindow = renderStatsWindow{}
 				renderWindowMu.Unlock()
 			}
 			if opts.LogWriterStats {
 				current := deckConn.WriterStats()
 				delta := diffWriterStats(lastWriterStats, current)
-				slog.Info("writer stats", "script", identity.ScriptPath, "verb", identity.Verb, "delta", delta, "current", current)
+				log.Info().Str("script", identity.ScriptPath).Str("verb", identity.Verb).Interface("delta", delta).Interface("current", current).Msg("writer stats")
 				lastWriterStats = current
 			}
 			dumpMetricsWindow("interval")
@@ -355,19 +354,19 @@ func registerEventLogging(env *envpkg.LoupeDeckEnvironment) {
 	for _, button := range []device.Button{device.Circle, device.Button1, device.Button2, device.Button3, device.Button4, device.Button5, device.Button6, device.Button7} {
 		button := button
 		env.Host.OnButton(button, func(b device.Button, s device.ButtonStatus) {
-			slog.Info("button event", "button", b.String(), "status", s.String())
+		log.Info().Str("button", b.String()).Str("status", s.String()).Msg("button event")
 		})
 	}
 	for _, touch := range []device.TouchButton{device.Touch1, device.Touch2, device.Touch3, device.Touch4, device.Touch5, device.Touch6, device.Touch7, device.Touch8, device.Touch9, device.Touch10, device.Touch11, device.Touch12} {
 		touch := touch
 		env.Host.OnTouch(touch, func(t device.TouchButton, s device.ButtonStatus, x, y uint16) {
-			slog.Info("touch event", "touch", t.String(), "status", s.String(), "x", x, "y", y)
+		log.Info().Str("touch", t.String()).Str("status", s.String()).Uint16("x", x).Uint16("y", y).Msg("touch event")
 		})
 	}
 	for _, knob := range []device.Knob{device.Knob1, device.Knob2, device.Knob3, device.Knob4, device.Knob5, device.Knob6} {
 		knob := knob
 		env.Host.OnKnob(knob, func(k device.Knob, value int) {
-			slog.Info("knob event", "knob", k.String(), "value", value)
+		log.Info().Str("knob", k.String()).Int("value", value).Msg("knob event")
 		})
 	}
 }
