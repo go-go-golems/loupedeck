@@ -1,8 +1,10 @@
 package provider
 
 import (
+	"bytes"
 	"context"
 	"encoding/json"
+	"io/fs"
 	"testing"
 
 	"github.com/dop251/goja"
@@ -65,6 +67,27 @@ func TestRegisterScenesCommandProvider(t *testing.T) {
 	}
 	if provider.DefaultMount != "loupedeck" {
 		t.Fatalf("default mount = %q, want loupedeck", provider.DefaultMount)
+	}
+}
+
+func TestRegisterProviderHelpSource(t *testing.T) {
+	registry := providerapi.NewRegistry()
+	if err := Register(registry); err != nil {
+		t.Fatalf("register provider: %v", err)
+	}
+	source, ok := registry.ResolveHelpSource(PackageID, "runtime-api")
+	if !ok {
+		t.Fatalf("missing help source %s.runtime-api", PackageID)
+	}
+	if source.Root != "." || source.FS == nil {
+		t.Fatalf("unexpected help source: %#v", source)
+	}
+	data, err := fs.ReadFile(source.FS, "topics/01-loupedeck-js-api-reference.md")
+	if err != nil {
+		t.Fatalf("read api reference: %v", err)
+	}
+	if !bytes.Contains(data, []byte("Slug: loupedeck-js-api-reference")) {
+		t.Fatalf("expected embedded API reference slug, got %q", data[:min(len(data), 200)])
 	}
 }
 
