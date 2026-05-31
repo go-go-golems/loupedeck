@@ -174,6 +174,8 @@ Examples in the repo:
 | `05-pulse-animation.js` | Animation loop driving a signal |
 | `06-page-switcher.js` | Multi-page navigation |
 | `13-per-tile-clock.js` | Per-tile surfaces with custom drawing |
+| `14-tile-surface-drawing.js` | All gfx primitives showcase |
+| `15-tile-draw-clock.js` | `tile.draw()` and `tile.invalidate()` pattern |
 
 Try the page-switcher example:
 
@@ -189,6 +191,28 @@ go run ./cmd/loupedeck run \
 The retained tile path (`tile.text()`, `tile.icon()`) handles text and simple labels. For anything custom — charts, meters, patterns, custom fonts — use a per-tile surface.
 
 A per-tile surface is a 90×90 pixel buffer you draw into from JavaScript. When it changes, **only that tile** is re-rendered and sent to the hardware. This is much faster than redrawing the entire 360×270 display.
+
+### The `tile.draw()` shorthand
+
+The easiest way to draw custom content on a tile is `tile.draw(fn)`. It auto-creates a per-tile surface if needed and passes it to your drawing function:
+
+```javascript
+const ui = require("loupedeck/ui");
+
+ui.page("demo", page => {
+  page.tile(0, 0, tile => {
+    tile.draw(s => {
+      s.clear(0);
+      s.fillRect(0, 0, 90, 8, 100);  // accent bar
+      s.text("HELLO", { x: 0, y: 30, width: 90, height: 20, center: true });
+    });
+  });
+});
+```
+
+### The `tile.surface()` pattern (for animation updates)
+
+When you need to redraw the surface on each frame (e.g., animation), create the surface separately and keep a reference so you can modify it later:
 
 ```javascript
 const gfx = require("loupedeck/gfx");
@@ -218,19 +242,44 @@ anim.loop(100, () => {
 ui.show("meter");
 ```
 
+### Multi-line and wrapped text
+
+Both `tile.text()` and `surface.text()` support newlines and word wrapping:
+
+```javascript
+// Multi-line text with \n
+tile.text("LINE 1\nLINE 2");
+
+// Word-wrapped text (wraps to tile width)
+tile.text("Very long label text", { wrap: true });
+
+// Multi-line surface text with line gap
+surface.text("ABOVE\nBELOW", {
+  x: 0, y: 0, width: 90, center: true,
+  lineGap: 4,  // 4 extra pixels between lines
+});
+
+// Word-wrapped surface text
+surface.text("This is a very long label", {
+  x: 4, y: 0, width: 90, center: true,
+  wrapWidth: 82,  // wrap at 82 pixels (90 - 8 padding)
+});
+```
+
 Key points about per-tile surfaces:
 
 - Create a `gfx.surface(90, 90)` — the tile is 90×90 pixels
-- Assign it with `tile.surface(tileSurface)`
+- Assign it with `tile.surface(tileSurface)`, or use `tile.draw(fn)` for the shorthand
 - Draw into it with `surface.text()`, `surface.fillRect()`, `surface.line()`, etc.
 - Always use `surface.batch(fn)` when making multiple drawing calls — this coalesces change notifications so the tile is only re-rendered once
 - When the surface changes, only that tile is re-rendered — other tiles are unaffected
+- Use `tile.invalidate()` to explicitly mark a tile dirty (usually not needed — surface changes auto-mark the tile)
 
 **When to use per-tile vs. display-level surfaces:**
 
 | Scenario | Use this | Why |
 |---|---|---|
-| Each tile has independent content (clock, meter, status) | `tile.surface(s)` | Only changed tiles are re-rendered |
+| Each tile has independent content (clock, meter, status) | `tile.surface(s)` or `tile.draw(fn)` | Only changed tiles are re-rendered |
 | Full-display effects span tile boundaries (ripples, scanlines) | `display.surface(s)` | The effect covers the entire display anyway |
 | Both independent tiles and full-display effects | Both | Use display layers for background, per-tile for foreground |
 
@@ -339,8 +388,6 @@ Important current constraints:
 - there is no JS `assets` module yet
 - scripts do not get raw transport access, by design
 - the goja VM is treated as **single-threaded** and all callbacks are serialized through the owner runner
-- text with newline characters (`\n`) does not render correctly yet (known bug, LOUPE-016)
-- text does not wrap at word boundaries when it overflows a tile (planned, LOUPE-016)
 
 These constraints are not accidents. They preserve the transport and rendering boundaries that keep the system stable.
 
@@ -355,9 +402,9 @@ These constraints are not accidents. They preserve the transport and rendering b
 | Circle exits the app when you wanted to use it as input | The live runner defaults to `--exit-on-circle=true` | Re-run with `--exit-on-circle=false` |
 | A tile bound with `tile.text(() => ...)` never changes | The closure is not reading reactive state, so there is nothing to invalidate it | Read a signal or computed value inside the closure, such as `count.get()` |
 | You expected icons but only see words | The current JS renderer uses placeholder text rendering for `tile.icon(...)` | Treat icon strings as labels for now |
-| Full-display surface scene feels slow | Every frame redraws 360×270 pixels | Switch to per-tile surfaces if tiles are independent |
-| Text with `\n` renders garbled | Newline characters are not handled by the renderer | Avoid `\n` in text for now (known bug, LOUPE-016) |
-| Long text overflows tile boundaries | Word wrapping is not yet implemented | Keep text under ~12 characters per line with the default font |
+| Full-display surface scene feels slow | Every frame redraws 360×270 pixels | Switch to per-tile surfaces or `tile.draw()` if tiles are independent |
+| Long text overflows tile boundaries | Text was not configured to wrap | Use `tile.text("long label", { wrap: true })` or `surface.text("...", { wrapWidth: 82 })` |
+| Multi-line text needed | Use `\n` in text strings | Both `tile.text()` and `surface.text()` support `\n` for multi-line rendering |
 
 ## See Also
 

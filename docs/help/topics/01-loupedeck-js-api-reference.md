@@ -224,9 +224,9 @@ ui.page("scene", page => {
 });
 ```
 
-### `tile.text(valueOrFn)`
+### `tile.text(valueOrFn, opts?)`
 
-Sets static text or binds text to a reactive closure.
+Sets static text or binds text to a reactive closure. An optional second argument provides rendering options.
 
 Static:
 
@@ -239,6 +239,22 @@ Reactive:
 ```javascript
 tile.text(() => `COUNT ${count.get()}`);
 ```
+
+With wrapping (text wraps to tile width with 4px padding):
+
+```javascript
+tile.text("Very long label text", { wrap: true });
+```
+
+Text options:
+
+| Option | Type | Default | Meaning |
+|---|---|---|---|
+| `wrap` | bool | false | Wrap text to tile width (82px) |
+
+**Newline support:** Text containing `\n` is rendered as multiple lines. Each line is vertically offset by the font's line height. This works for both retained tiles and `surface.text()`.
+
+**Word wrapping:** When `wrap: true` is set, long text is automatically word-wrapped to fit within the tile (82px with 4px padding). This is useful for labels that may be too long to fit on a single line.
 
 Use the reactive form when the tile should update automatically after signal changes. The closure executes on the owner thread and its signal dependencies are tracked by the Go reactive runtime. When the signal changes, the tile is **marked dirty individually** — only that 90×90 tile is re-rendered and sent to hardware.
 
@@ -301,6 +317,53 @@ Pass `null` or `undefined` to remove a surface and revert to the retained text/i
 ```javascript
 tile.surface(null);
 ```
+
+### `tile.draw(fn)`
+
+Convenience method that auto-creates a per-tile surface (90×90) if one doesn't already exist, passes it to `fn` for drawing, and marks the tile dirty. This is a shorthand for the `gfx.surface()` + `tile.surface()` pattern.
+
+```javascript
+const ui = require("loupedeck/ui");
+
+ui.page("demo", page => {
+  page.tile(0, 0, tile => {
+    tile.draw(s => {
+      s.clear(0);
+      s.fillRect(0, 0, 90, 8, 100);  // accent bar
+      s.text("HELLO", { x: 0, y: 30, width: 90, height: 20, center: true });
+    });
+  });
+});
+```
+
+If the tile already has a surface (set via `tile.surface()` or a previous `tile.draw()`), `draw()` reuses it. The surface is passed as the first argument to `fn`.
+
+**When to use:**
+- **`tile.text()`** for simple text labels (fastest, retained rendering)
+- **`tile.draw()`** for custom pixel content within a single tile (per-tile invalidation)
+- **`tile.surface()`** when you need a shared surface reference across multiple tiles or for animation updates
+
+### `tile.invalidate()`
+
+Explicitly marks the tile as dirty, causing it to be re-rendered on the next flush. This is useful when you have modified the tile's surface via a stored reference outside of a reactive binding.
+
+```javascript
+const tileSurface = gfx.surface(90, 90);
+ui.page("demo", page => {
+  page.tile(0, 0, tile => {
+    tile.surface(tileSurface);
+  });
+});
+
+// Later, modify the surface and invalidate
+tileSurface.clear(0);
+tileSurface.text("UPDATED", { x: 0, y: 30, width: 90, height: 20, center: true });
+// Surface.OnChange auto-marks the tile dirty, so invalidate() is not needed here.
+// But if you're bypassing the surface's change notification, use:
+// tile.invalidate();
+```
+
+**Note:** In most cases you don't need `tile.invalidate()` because surface mutations automatically trigger the tile's dirty flag via the `OnChange` listener. Use `invalidate()` only when you need to force a re-render for reasons outside the normal change notification flow.
 
 ### Display objects
 
@@ -592,6 +655,8 @@ surface.text("HELLO", {
   brightness: 200,
   center: true,
   font: myFont,
+  lineGap: 2,
+  wrapWidth: 80,
 });
 ```
 
@@ -606,8 +671,27 @@ Text options:
 | `brightness` | int | 255 | Brightness multiplier (0–255) |
 | `center` | bool | false | Center text horizontally within the width |
 | `font` | font object | built-in 7×13 | Custom font to use |
+| `lineGap` | int | 0 | Extra vertical pixels between lines (for multi-line text) |
+| `wrapWidth` | int | 0 | If > 0, word-wrap text to this pixel width |
 
-**Current limitation:** Text is rendered as a single line. Newline characters (`\n`) are not handled correctly — they may render as missing glyphs. Word wrapping is not yet supported. These are planned improvements (see LOUPE-016).
+**Multi-line text:** Text containing `\n` is automatically rendered as multiple lines. Each line is offset vertically by the font's line height plus `lineGap`. Empty lines are preserved for vertical spacing.
+
+```javascript
+surface.text("HELLO\nWORLD", {
+  x: 0, y: 0, width: 90, center: true,
+  lineGap: 4,  // 4 extra pixels between lines
+});
+```
+
+**Word wrapping:** When `wrapWidth` is set to a value > 0, text that would exceed the given pixel width is automatically word-wrapped. The wrapping algorithm is greedy: it fills each line with as many words as fit, then wraps to the next line. Explicit `\n` newlines are still respected within wrapped text.
+
+```javascript
+// Wrap long text to fit within an 82-pixel wide area
+surface.text("This is a very long label", {
+  x: 4, y: 0, width: 90, center: true,
+  wrapWidth: 82,
+});
+```
 
 #### `surface.compositeAdd(other, x, y)`
 
@@ -1095,8 +1179,6 @@ What is **not** implemented yet:
 - a JS assets module
 - full JS-driven SVG/icon raster asset support
 - direct JS timer APIs such as `setTimeout` / `setInterval`
-- text newline rendering (planned, see LOUPE-016)
-- text word wrapping (planned, see LOUPE-016)
 - left/right strip retained UI in the JS layer
 - advanced scene-graph widgets beyond simple tiles
 
@@ -1114,9 +1196,9 @@ These omissions are intentional. The current boundary preserves Go-side transpor
 | You see text where you expected icons | `tile.icon(...)` is currently a placeholder string in the JS renderer | Treat icons as labels until the asset layer is wired into JS |
 | An animation callback or hardware callback seems to stop after shutdown | The owned runtime suppresses post-close callback execution | Re-run the process; do not expect closed runtimes to keep dispatching work |
 | Reconnect sometimes fails with malformed HTTP or closed-port warnings | The device lifecycle is still somewhat fragile after abrupt stops | Retry cleanly, prefer `Ctrl-C` or Circle exits, and avoid piling overlapping runs on the same device |
-| Full-display surface scene is slow | Every frame redraws 360×270 pixels | Switch to per-tile surfaces if tiles are independent — see the per-tile clock pattern above |
-| Text with `\n` renders garbled | Newline characters are not handled by the text renderer | This is a known bug (LOUPE-016); avoid `\n` in text for now |
-| Long text overflows tile boundaries | Word wrapping is not yet implemented | Keep text under ~12 characters per line with the default 7×13 font |
+| Full-display surface scene is slow | Every frame redraws 360×270 pixels | Switch to per-tile surfaces or `tile.draw()` if tiles are independent — see the per-tile clock pattern above |
+| Long text overflows tile boundaries | Text was not configured to wrap | Use `tile.text("long label", { wrap: true })` or `surface.text("long label", { wrapWidth: 82 })` |
+| Multi-line text needed | Use `\n` in text strings | Both `tile.text()` and `surface.text()` support `\n` for multi-line rendering. Use `lineGap` option for extra spacing |
 
 ## See Also
 

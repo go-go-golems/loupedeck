@@ -180,4 +180,11 @@ function runScene() {
   });
 }
 
-module.exports = { runScene };
+if (typeof globalThis.__glazedVerbRegistry === "undefined") {
+  runScene();
+}
+
+__verb__("runScene", {
+  name: "run",
+  short: "Run the tile.draw() clock example"
+});
