@@ -25,14 +25,14 @@ Status: active
 
 ## Implementation — Word Wrapping
 
-- [ ] Add `wrapText()` function to `runtime/gfx/text.go`
-- [ ] Add `WrapWidth` field to `gfx.TextOptions`
-- [ ] Integrate `wrapText()` into `Surface.Text()`
-- [ ] Add `drawWrappedLabel()` to `runtime/render/visual_runtime.go`
-- [ ] Add `wrapWidth` property parsing in `runtime/js/module_gfx/module.go`
-- [ ] Add `tile.text(valueOrFn, { wrap: true })` support in `runtime/js/module_ui/module.go`
-- [ ] Write unit tests for word wrapping
-- [ ] Write integration test script for wrapped text
+- [x] Add `wrapText()` function to `runtime/gfx/text.go`
+- [x] Add `WrapWidth` field to `gfx.TextOptions`
+- [x] Integrate `wrapText()` into `Surface.Text()`
+- [x] Add `drawWrappedLabel()` to `runtime/render/visual_runtime.go`
+- [x] Add `wrapWidth` property parsing in `runtime/js/module_gfx/module.go`
+- [x] Add `tile.text(valueOrFn, { wrap: true })` support in `runtime/js/module_ui/module.go`
+- [x] Write unit tests for word wrapping
+- [x] Write integration test script for wrapped text
 
 ## Implementation — Per-Tile Invalidation Ergonomics
 

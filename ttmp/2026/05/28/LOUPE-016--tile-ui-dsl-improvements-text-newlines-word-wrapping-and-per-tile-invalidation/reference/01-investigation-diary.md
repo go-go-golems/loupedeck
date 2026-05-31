@@ -263,3 +263,69 @@ The Go `font.Drawer.DrawString()` treats the entire string as one line — `\n` 
 - Multi-line Y layout: `opts.Y + i*(lineH+gap)` where `lineH = face.Metrics().Height.Ceil()`
 - Per-line Height override: `lineH + 4` (4px margin below descent line)
 - Face7x13: Height=13, so two lines with gap=0 span 26 rows, three lines span 39 rows
+
+## 2026-05-30 — Step 7: Implement Word Wrapping
+
+Implemented word wrapping support across the full rendering stack: surface API, retained tile renderer, and JS bridge.
+
+### Prompt Context
+
+**User prompt (verbatim):** (see Step 6)
+**Assistant interpretation:** Continue implementing LOUPE-016 features — word wrapping next.
+**Inferred user intent:** Execute the implementation plan, maintaining traceability.
+
+**Commit (code):** ebce3cc — "LOUPE-016: Implement word wrapping support"
+
+### What I did
+- Added `WrapWidth` field to `gfx.TextOptions` in `runtime/gfx/text.go`
+- Added `wrapText()` function: greedy word-wrapping algorithm using `font.Drawer.MeasureString()`
+- Added `expandTextLines()`: first applies word wrapping per paragraph, then splits on `\n`
+- Modified `Surface.Text()` to call `expandTextLines()` instead of just `splitLines()`, clearing `WrapWidth` per sub-line to avoid re-wrapping
+- Added `drawWrappedLabel()` and `wrapRendererText()` in `runtime/render/visual_runtime.go`
+- Added `Wrap` bool field to `ui.Tile` with `SetWrap()` and `Wrap()` methods
+- Modified `renderTile()` to use `drawWrappedLabel()` with `TileWidth-8` padding when `tile.Wrap()` is true
+- Added `tile.text(valueOrFn, { wrap: true })` JS bridge support in `module_ui`
+- Added `wrapWidth` property parsing in `module_gfx` JS bridge
+- Wrote comprehensive unit tests for word wrapping (7 new tests)
+- Saved verification script `scripts/04-verify-word-wrapping.sh`
+
+### Why
+Text that exceeds tile/surface width clips instead of wrapping. Users need automatic line-breaking for long text in both the surface API and retained tile renderer.
+
+### What worked
+- The `expandTextLines()` pattern — wrapping first, then newline splitting — ensures correct behavior when both features are combined
+- Clearing `WrapWidth` in multi-line rendering prevents double-wrapping
+- The tile `wrap: true` shorthand (auto-uses `TileWidth - 8` padding) is a convenient API
+
+### What didn't work
+- Initial test `TestSurfaceTextWrapWidthRendersMultipleLines` assumed a fixed row-45 split boundary — but with Face7x13 (lineH=13), 3 wrapped lines only span ~39 rows. Rewrote to use per-line vertical bands.
+- Debugging wrapText output with `%v` was confusing because `[VERY LONG SENTENCE]` prints identically for a single string vs. a 3-element slice of single-word strings. Switched to per-line `%q` formatting.
+
+### What I learned
+- The greedy word-wrapping algorithm doesn't try to minimize raggedness — it just fills each line until the next word would overflow. This is sufficient for short tile text.
+- When a single word is wider than `wrapWidth`, it stays on its own line (no character-level wrapping).
+
+### What was tricky to build
+- The order of operations matters: wrapping must happen before newline splitting so that a paragraph containing long text gets wrapped first, then any explicit newlines between paragraphs are preserved.
+- The `tile.text({ wrap: true })` API design: should it be an option bag on the text call, or a separate tile method? Chose option bag for ergonomics.
+
+### What warrants a second pair of eyes
+- `drawWrappedLabel()` uses `TileWidth - 8` (4px padding each side) — is this the right padding value?
+- The `wrapText()` algorithm uses `strings.Fields()` which collapses multiple spaces. Is that acceptable for tile text?
+
+### What should be done in the future
+- Consider adding `LineGap` support to the retained tile renderer's `drawCenteredLabel()` and `drawWrappedLabel()` (currently only the surface `Text()` API supports it)
+- Consider character-level wrapping for very long single words (e.g., URLs)
+
+### Code review instructions
+- Start with `runtime/gfx/text.go`: `WrapWidth` field, `wrapText()`, `expandTextLines()`, modified `Text()` dispatcher
+- Then `runtime/render/visual_runtime.go`: `drawWrappedLabel()`, `wrapRendererText()`
+- Then `runtime/ui/tile.go`: `Wrap` field, `SetWrap()`, `Wrap()`
+- Then `runtime/js/module_ui/module.go`: `tileTextOptionsFromValue()`, `boolProp()`, modified `tile.text()`
+- Run: `go test ./runtime/gfx/ -count=1 -v -run "TestWrapText|TestExpandTextLines"`
+
+### Technical details
+- `wrapText()`: greedy word-by-word wrapping using `MeasureString().Round() <= wrapWidth`
+- `expandTextLines()`: splits on `\n` first, then wraps each paragraph
+- Tile wrap width: `TileWidth - 8 = 82` pixels (4px padding each side)
+- Face7x13: "VERY"=28px, "LONG"=28px, "SENTENCE"=56px, space=7px

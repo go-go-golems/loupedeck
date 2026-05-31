@@ -58,3 +58,17 @@ Step 6: Implement text newline support — LineGap field, Surface.Text() splits 
 - /home/manuel/workspaces/2026-05-27/better-loupedeck-tiles/loupedeck/runtime/js/module_gfx/module.go — Added lineGap property parsing in textOptionsFromValue()
 - /home/manuel/workspaces/2026-05-27/better-loupedeck-tiles/loupedeck/runtime/render/visual_runtime.go — drawCenteredLabel() now splits on \n
 
+
+## 2026-05-30
+
+Step 7: Implement word wrapping — WrapWidth field, wrapText(), expandTextLines(), drawWrappedLabel(), tile.Wrap, tile.text({wrap:true}), unit tests (commit ebce3cc)
+
+### Related Files
+
+- /home/manuel/workspaces/2026-05-27/better-loupedeck-tiles/loupedeck/runtime/gfx/text.go — Added WrapWidth field
+- /home/manuel/workspaces/2026-05-27/better-loupedeck-tiles/loupedeck/runtime/gfx/text_test.go — Word wrapping unit tests
+- /home/manuel/workspaces/2026-05-27/better-loupedeck-tiles/loupedeck/runtime/js/module_gfx/module.go — wrapWidth property parsing
+- /home/manuel/workspaces/2026-05-27/better-loupedeck-tiles/loupedeck/runtime/js/module_ui/module.go — tileTextOptionsFromValue
+- /home/manuel/workspaces/2026-05-27/better-loupedeck-tiles/loupedeck/runtime/render/visual_runtime.go — drawWrappedLabel()
+- /home/manuel/workspaces/2026-05-27/better-loupedeck-tiles/loupedeck/runtime/ui/tile.go — Added Wrap field
+
