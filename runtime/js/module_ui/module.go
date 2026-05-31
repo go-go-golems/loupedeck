@@ -9,6 +9,7 @@ import (
 	"github.com/dop251/goja_nodejs/require"
 	"github.com/go-go-golems/go-go-goja/pkg/runtimebridge"
 	deck "github.com/go-go-golems/loupedeck/pkg/device"
+	"github.com/go-go-golems/loupedeck/runtime/gfx"
 	envpkg "github.com/go-go-golems/loupedeck/runtime/js/env"
 	"github.com/go-go-golems/loupedeck/runtime/js/module_gfx"
 	"github.com/go-go-golems/loupedeck/runtime/ui"
@@ -331,6 +332,23 @@ func tileObject(runtimeServices runtimebridge.RuntimeServices, runtime *goja.Run
 		} else {
 			tile.SetSurface(module_gfx.SurfaceFromValue(arg, runtime))
 		}
+		return goja.Undefined()
+	})
+	_ = obj.Set("draw", func(call goja.FunctionCall) goja.Value {
+		fn, ok := goja.AssertFunction(call.Argument(0))
+		if !ok {
+			panic(runtime.NewTypeError("tile.draw requires a function"))
+		}
+		tile.Draw(func(surface *gfx.Surface) {
+			surfaceObj := module_gfx.SurfaceObject(runtime, surface)
+			if _, err := fn(goja.Undefined(), surfaceObj); err != nil {
+				panic(runtime.NewGoError(err))
+			}
+		})
+		return goja.Undefined()
+	})
+	_ = obj.Set("invalidate", func(goja.FunctionCall) goja.Value {
+		tile.Invalidate()
 		return goja.Undefined()
 	})
 	return obj

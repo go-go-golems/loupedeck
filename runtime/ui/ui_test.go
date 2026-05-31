@@ -245,3 +245,85 @@ func TestTileSurfaceMutationMarksTileDirty(t *testing.T) {
 		t.Fatalf("expected tile surface mutation to mark tile dirty, got %#v", dirty)
 	}
 }
+
+func TestTileDrawCreatesSurfaceAndDraws(t *testing.T) {
+	ui := New(nil)
+	page := ui.AddPage("home")
+	tile := page.AddTile(0, 0)
+
+	if tile.Surface() != nil {
+		t.Fatal("expected no surface initially")
+	}
+
+	tile.Draw(func(s *gfx.Surface) {
+		s.FillRect(10, 10, 30, 30, 200)
+	})
+
+	if tile.Surface() == nil {
+		t.Fatal("expected Draw to create a surface")
+	}
+	// Surface should have the drawn pixels
+	if tile.Surface().At(20, 20) != 200 {
+		t.Fatalf("expected pixel at (20,20) to be 200, got %d", tile.Surface().At(20, 20))
+	}
+	if !tile.Dirty() {
+		t.Fatal("expected Draw to mark tile dirty")
+	}
+}
+
+func TestTileDrawReusesExistingSurface(t *testing.T) {
+	ui := New(nil)
+	page := ui.AddPage("home")
+	tile := page.AddTile(0, 0)
+
+	// Set a custom surface first
+	customSurface := gfx.NewSurface(TileSurfaceWidth, TileSurfaceHeight)
+	tile.SetSurface(customSurface)
+
+	// Draw should reuse the existing surface
+	tile.Draw(func(s *gfx.Surface) {
+		s.FillRect(5, 5, 10, 10, 150)
+	})
+
+	if tile.Surface() != customSurface {
+		t.Fatal("expected Draw to reuse existing surface")
+	}
+	if tile.Surface().At(8, 8) != 150 {
+		t.Fatalf("expected pixel at (8,8) to be 150, got %d", tile.Surface().At(8, 8))
+	}
+}
+
+func TestTileInvalidateMarksDirty(t *testing.T) {
+	ui := New(nil)
+	page := ui.AddPage("home")
+	tile := page.AddTile(0, 0)
+
+	if err := ui.Show("home"); err != nil {
+		t.Fatalf("show home: %v", err)
+	}
+	ui.ClearDirty()
+
+	// Invalidate should mark the tile as dirty
+	tile.Invalidate()
+	dirty := ui.DirtyTiles()
+	if len(dirty) != 1 || dirty[0] != tile {
+		t.Fatalf("expected Invalidate to mark tile dirty, got %#v", dirty)
+	}
+}
+
+func TestTileWrapProperty(t *testing.T) {
+	ui := New(nil)
+	page := ui.AddPage("home")
+	tile := page.AddTile(0, 0)
+
+	if tile.Wrap() {
+		t.Fatal("expected Wrap to be false by default")
+	}
+	tile.SetWrap(true)
+	if !tile.Wrap() {
+		t.Fatal("expected Wrap to be true after SetWrap(true)")
+	}
+	if !tile.Dirty() {
+		t.Fatal("expected SetWrap to mark tile dirty")
+	}
+}
