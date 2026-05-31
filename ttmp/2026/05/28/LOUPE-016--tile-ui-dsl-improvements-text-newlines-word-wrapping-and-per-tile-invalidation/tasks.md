@@ -36,12 +36,12 @@ Status: active
 
 ## Implementation — Per-Tile Invalidation Ergonomics
 
-- [ ] Add `tile.draw(fn)` method to `runtime/ui/tile.go`
-- [ ] Add `tile.draw(fn)` JS bridge in `runtime/js/module_ui/module.go`
-- [ ] Add `tile.invalidate()` method to `runtime/ui/tile.go`
-- [ ] Add `tile.invalidate()` JS bridge in `runtime/js/module_ui/module.go`
-- [ ] Export `module_gfx.surfaceObject()` as public helper or create shared function
-- [ ] Write example script `13-per-tile-clock.js`
+- [x] Add `tile.draw(fn)` method to `runtime/ui/tile.go`
+- [x] Add `tile.draw(fn)` JS bridge in `runtime/js/module_ui/module.go`
+- [x] Add `tile.invalidate()` method to `runtime/ui/tile.go`
+- [x] Add `tile.invalidate()` JS bridge in `runtime/js/module_ui/module.go`
+- [x] Export `module_gfx.surfaceObject()` as public helper or create shared function
+- [x] Write example script `13-per-tile-clock.js`
 - [ ] Update API reference documentation
 
 ## Documentation

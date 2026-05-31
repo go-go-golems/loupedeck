@@ -72,3 +72,16 @@ Step 7: Implement word wrapping — WrapWidth field, wrapText(), expandTextLines
 - /home/manuel/workspaces/2026-05-27/better-loupedeck-tiles/loupedeck/runtime/render/visual_runtime.go — drawWrappedLabel()
 - /home/manuel/workspaces/2026-05-27/better-loupedeck-tiles/loupedeck/runtime/ui/tile.go — Added Wrap field
 
+
+## 2026-05-30
+
+Step 8: Implement per-tile invalidation ergonomics — tile.Draw(fn), tile.Invalidate(), JS bridges, SurfaceObject export, example script (commit f07e23c)
+
+### Related Files
+
+- /home/manuel/workspaces/2026-05-27/better-loupedeck-tiles/loupedeck/examples/js/15-tile-draw-clock.js — New example demonstrating tile.draw() and tile.invalidate()
+- /home/manuel/workspaces/2026-05-27/better-loupedeck-tiles/loupedeck/runtime/js/module_gfx/module.go — Exported SurfaceObject()
+- /home/manuel/workspaces/2026-05-27/better-loupedeck-tiles/loupedeck/runtime/js/module_ui/module.go — tile.draw()
+- /home/manuel/workspaces/2026-05-27/better-loupedeck-tiles/loupedeck/runtime/ui/tile.go — Added Draw(fn)
+- /home/manuel/workspaces/2026-05-27/better-loupedeck-tiles/loupedeck/runtime/ui/ui_test.go — Unit tests for Draw
+

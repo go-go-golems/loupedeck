@@ -329,3 +329,65 @@ Text that exceeds tile/surface width clips instead of wrapping. Users need autom
 - `expandTextLines()`: splits on `\n` first, then wraps each paragraph
 - Tile wrap width: `TileWidth - 8 = 82` pixels (4px padding each side)
 - Face7x13: "VERY"=28px, "LONG"=28px, "SENTENCE"=56px, space=7px
+
+## 2026-05-30 — Step 8: Implement Per-Tile Invalidation Ergonomics
+
+Implemented `tile.draw(fn)`, `tile.invalidate()`, and the JS bridges for both. This completes the per-tile invalidation ergonomics feature.
+
+### Prompt Context
+
+**User prompt (verbatim):** (see Step 6)
+**Assistant interpretation:** Continue implementing — per-tile ergonomics next.
+**Inferred user intent:** Complete the per-tile invalidation ergonomics, then move to documentation.
+
+**Commit (code):** f07e23c — "LOUPE-016: Implement per-tile invalidation ergonomics"
+
+### What I did
+- Added `Draw(fn func(*gfx.Surface))` method to `ui.Tile`: auto-creates a 90×90 surface if one doesn't exist, passes it to fn for drawing, then marks dirty
+- Added `Invalidate()` method to `ui.Tile`: marks the tile as dirty
+- Added `TileSurfaceWidth` and `TileSurfaceHeight` constants (90×90) in the `ui` package to avoid import cycle with `render`
+- Exported `module_gfx.surfaceObject()` → `SurfaceObject()` as public helper for use by `module_ui`
+- Added `tile.draw(fn)` JS bridge in `module_ui`: creates surface object via `module_gfx.SurfaceObject()`, calls fn with it
+- Added `tile.invalidate()` JS bridge in `module_ui`
+- Added `gfx` import to `module_ui` for `*gfx.Surface` type in `Draw()` callback
+- Wrote unit tests for `Draw()`, `Invalidate()`, `Wrap()` in `ui_test.go`
+- Created example script `15-tile-draw-clock.js` demonstrating `tile.draw()` API with animated clock
+- Saved verification script `scripts/05-verify-per-tile-ergonomics.sh`
+
+### Why
+The existing `tile.surface()` API works but is verbose — users must create a surface, draw on it, then assign it. `tile.draw(fn)` is a one-call convenience that handles surface creation and assignment. `tile.invalidate()` is needed for the common pattern of modifying a surface via a stored reference and then needing to flag the tile for re-render.
+
+### What worked
+- `Draw()` reusing existing surface if one is set — avoids creating duplicate surfaces
+- The `TileSurfaceWidth/Height` constants in `ui` package avoid the circular import between `render` and `ui`
+- `SurfaceObject()` export from `module_gfx` was straightforward — just capitalizing the function name
+
+### What didn't work
+- N/A — clean implementation, no issues encountered
+
+### What I learned
+- Go naming: exporting `surfaceObject` → `SurfaceObject` is idiomatic and makes the function usable across packages
+- The `ui` package can't import `render` (circular: render→ui), so tile dimension constants must be duplicated or placed in a shared package. Duplicating the 90×90 values is acceptable since they're hardware-defined.
+
+### What was tricky to build
+- The `tile.draw()` JS bridge needs to create a `goja.Object` wrapping the `*gfx.Surface` — this requires calling `module_gfx.SurfaceObject()` which was previously unexported. The export was straightforward but required updating the internal call site in `module_gfx.Loader()` too.
+
+### What warrants a second pair of eyes
+- The `Draw()` method creates a `gfx.NewSurface(TileSurfaceWidth, TileSurfaceHeight)` even if a custom surface was previously set. It reuses the existing surface, which is correct — but if someone set a different-size surface and then calls `Draw()`, the callback gets the custom-sized surface. This is intentional (Draw works with whatever surface is set).
+
+### What should be done in the future
+- Consider adding `tile.draw(fn, { width, height })` for custom surface dimensions
+- The `15-tile-draw-clock.js` example could be expanded with knob/button interactivity
+
+### Code review instructions
+- Start with `runtime/ui/tile.go`: `Draw()`, `Invalidate()`, constants
+- Then `runtime/js/module_ui/module.go`: `tile.draw()`, `tile.invalidate()`, gfx import
+- Then `runtime/js/module_gfx/module.go`: `SurfaceObject()` export
+- Then `runtime/ui/ui_test.go`: new tests at the end
+- Run: `go test ./runtime/ui/ -count=1 -v`
+
+### Technical details
+- `Draw()` flow: if surface == nil → `SetSurface(gfx.NewSurface(90,90))` → `fn(surface)` → surface.OnChange already marks tile dirty via listener
+- `Invalidate()` flow: just calls `markDirty()` directly
+- JS `tile.draw(fn)` flow: `tile.Draw(func(surface *gfx.Surface) { surfaceObj := module_gfx.SurfaceObject(runtime, surface); fn(surfaceObj) })`
+- `SurfaceObject()` creates a goja object with all surface methods (width, height, clear, batch, set, add, fillRect, line, crosshatch, text, compositeAdd, at, __surface)
