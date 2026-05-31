@@ -38,9 +38,9 @@ function runScene() {
       tile.text(() => `TICK\n${String(counter.get()).padStart(2, "0")}`);
     });
 
-    // Tile (2,0): Long text that should wrap
+    // Tile (2,0): Long text with wrapping enabled
     page.tile(2, 0, tile => {
-      tile.text("THIS IS A LONG STRING THAT OVERFLOWS");
+      tile.text("THIS IS A LONG STRING THAT OVERFLOWS", { wrap: true });
     });
 
     // Tile (3,0): Short text for comparison

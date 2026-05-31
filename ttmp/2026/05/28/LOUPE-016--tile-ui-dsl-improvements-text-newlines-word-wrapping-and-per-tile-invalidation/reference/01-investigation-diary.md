@@ -391,3 +391,71 @@ The existing `tile.surface()` API works but is verbose — users must create a s
 - `Invalidate()` flow: just calls `markDirty()` directly
 - JS `tile.draw(fn)` flow: `tile.Draw(func(surface *gfx.Surface) { surfaceObj := module_gfx.SurfaceObject(runtime, surface); fn(surfaceObj) })`
 - `SurfaceObject()` creates a goja object with all surface methods (width, height, clear, batch, set, add, fillRect, line, crosshatch, text, compositeAdd, at, __surface)
+
+## 2026-05-30 — Step 9: Documentation and Final Pass
+
+Updated the API reference, tutorial, and example script to document all new features. Fixed the example script's `module.exports` issue. All 28 tasks are now complete.
+
+### Prompt Context
+
+**User prompt (verbatim):** (see Step 6)
+**Assistant interpretation:** Complete the documentation tasks and verify everything.
+**Inferred user intent:** Finish all remaining LOUPE-016 tasks and close out the implementation.
+
+**Commit (code):** 6515cce — "LOUPE-016: Update documentation and example for new features"
+
+### What I did
+- Updated API reference (`01-loupedeck-js-api-reference.md`):
+  - Added `tile.text(valueOrFn, opts?)` with `wrap` option and newline support documentation
+  - Added `tile.draw(fn)` section with usage examples and when-to-use guidance
+  - Added `tile.invalidate()` section
+  - Added `lineGap` and `wrapWidth` options to `surface.text()` table with examples
+  - Removed LOUPE-016 from "not implemented yet" list (newlines and wrapping now work)
+  - Updated troubleshooting table entries
+- Updated tutorial (`01-build-your-first-live-loupedeck-js-script.md`):
+  - Added `tile.draw()` shorthand subsection
+  - Added "Multi-line and wrapped text" subsection with code examples
+  - Added `tile.invalidate()` mention
+  - Updated troubleshooting entries
+  - Added examples 14 and 15 to the example table
+  - Removed LOUPE-016 limitations
+- Fixed `15-tile-draw-clock.js`: replaced `module.exports = { runScene }` with `__verb__("runScene", ...)` + `runScene()` self-invocation pattern
+- Updated probe script `01-text-newline-probe.js` to use `{ wrap: true }` for the long text tile
+
+### Why
+The new features need documentation so users can discover and use them. The example script convention uses `__package__`/`__verb__`/`runScene()`, not `module.exports`.
+
+### What worked
+- All targeted edits to the existing docs were clean
+- The `__verb__` pattern is simple once you know it
+
+### What didn't work
+- Initial `15-tile-draw-clock.js` used `module.exports` which caused two test failures:
+  1. `TestExampleScriptsBoot/15-tile-draw-clock.js`: ReferenceError: module is not defined
+  2. `TestBuiltinRepositoryIncludesExplicitVerbForEveryExampleScript`: no explicit jsverb registered
+- Fixed by switching to the `__verb__` + self-invocation pattern used by all other examples
+
+### What I learned
+- All loupedeck example scripts must use `__package__`, `__verb__`, and `runScene()` patterns — never `module.exports`
+- The verbs test (`bootstrap_test.go`) scans all `.js` files in the examples directory and requires each to have at least one explicit verb registration
+
+### What was tricky to build
+- The test infrastructure catches convention violations quickly — good for enforcement, but means any new example script must follow the exact pattern
+
+### What warrants a second pair of eyes
+- The documentation updates are substantial but mechanical — worth scanning for accuracy
+
+### What should be done in the future
+- Consider uploading the updated docs to reMarkable
+- Consider running the probe script on actual hardware to verify the visual output
+- N/A for this step otherwise — all tasks are complete
+
+### Code review instructions
+- Review `docs/help/topics/01-loupedeck-js-api-reference.md`: new sections for tile.draw(), tile.invalidate(), tile.text({wrap}), surface.text lineGap/wrapWidth
+- Review `docs/help/tutorials/01-build-your-first-live-loupedeck-js-script.md`: new tile.draw() section, multi-line text section
+- Review `examples/js/15-tile-draw-clock.js`: ensure __verb__ pattern is correct
+- Run: `go test ./... -count=1 -timeout 60s`
+
+### Technical details
+- All 28 tasks complete
+- Commits: 95a46a1 (newlines), ebce3cc (wrapping), f07e23c (ergonomics), 6515cce (docs)

@@ -85,3 +85,14 @@ Step 8: Implement per-tile invalidation ergonomics — tile.Draw(fn), tile.Inval
 - /home/manuel/workspaces/2026-05-27/better-loupedeck-tiles/loupedeck/runtime/ui/tile.go — Added Draw(fn)
 - /home/manuel/workspaces/2026-05-27/better-loupedeck-tiles/loupedeck/runtime/ui/ui_test.go — Unit tests for Draw
 
+
+## 2026-05-30
+
+Step 9: Documentation pass — updated API reference and tutorial with tile.draw(), tile.invalidate(), tile.text({wrap}), lineGap, wrapWidth, removed LOUPE-016 limitations (commit 6515cce)
+
+### Related Files
+
+- /home/manuel/workspaces/2026-05-27/better-loupedeck-tiles/loupedeck/docs/help/topics/01-loupedeck-js-api-reference.md — Added tile.draw()
+- /home/manuel/workspaces/2026-05-27/better-loupedeck-tiles/loupedeck/docs/help/tutorials/01-build-your-first-live-loupedeck-js-script.md — Added tile.draw() section
+- /home/manuel/workspaces/2026-05-27/better-loupedeck-tiles/loupedeck/examples/js/15-tile-draw-clock.js — Fixed to use __verb__/runScene pattern
+

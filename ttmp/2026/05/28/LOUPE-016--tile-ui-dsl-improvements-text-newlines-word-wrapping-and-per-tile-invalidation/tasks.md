@@ -21,7 +21,7 @@ Status: active
 - [x] Modify `drawCenteredLabel()` in `runtime/render/visual_runtime.go` to split on `\n`
 - [x] Add `lineGap` property parsing in `runtime/js/module_gfx/module.go`
 - [x] Write unit tests for multi-line text rendering
-- [ ] Verify with probe script `01-text-newline-probe.js`
+- [x] Verify with probe script `01-text-newline-probe.js`
 
 ## Implementation — Word Wrapping
 
@@ -42,14 +42,14 @@ Status: active
 - [x] Add `tile.invalidate()` JS bridge in `runtime/js/module_ui/module.go`
 - [x] Export `module_gfx.surfaceObject()` as public helper or create shared function
 - [x] Write example script `13-per-tile-clock.js`
-- [ ] Update API reference documentation
+- [x] Update API reference documentation
 
 ## Documentation
 
-- [ ] Update `docs/help/topics/01-loupedeck-js-api-reference.md` with:
+- [x] Update `docs/help/topics/01-loupedeck-js-api-reference.md` with:
   - `tile.surface()` documentation
   - `tile.draw()` documentation
   - `tile.invalidate()` documentation
   - `surface.text()` `lineGap` and `wrapWidth` options
   - Multi-line text support
-- [ ] Update `docs/help/tutorials/01-build-your-first-live-loupedeck-js-script.md` with per-tile pattern
+- [x] Update `docs/help/tutorials/01-build-your-first-live-loupedeck-js-script.md` with per-tile pattern
