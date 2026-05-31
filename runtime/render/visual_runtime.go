@@ -164,10 +164,40 @@ func (r *Renderer) renderTile(tile *ui.Tile) image.Image {
 		drawCenteredLabel(im, icon, 24, r.Theme.Foreground)
 	}
 	if text := tile.Text(); text != "" {
+		// Compute the number of rendered lines to vertically center the text block.
+		face := basicfont.Face7x13
+		lineH := face.Metrics().Height.Ceil()
+		var lines []string
 		if tile.Wrap() {
-			drawWrappedLabel(im, text, 58, r.Theme.Foreground, TileWidth-8) // 4px padding each side
+			lines = wrapRendererText(text, face, TileWidth-8)
 		} else {
-			drawCenteredLabel(im, text, 58, r.Theme.Foreground)
+			lines = strings.Split(text, "\n")
+		}
+		numLines := len(lines)
+
+		// Available vertical area: below 8px accent bar to bottom of tile.
+		// If there's an icon, text goes below it; otherwise center in full area.
+		var areaTop, areaBottom int
+		if tile.Icon() != "" {
+			areaTop = 40 // below icon area
+		} else {
+			areaTop = 12 // just below accent bar with small margin
+		}
+		areaBottom = TileHeight - 4 // small bottom margin
+
+		// Center the text block vertically within the available area.
+		blockHeight := numLines * lineH
+		if blockHeight > areaBottom-areaTop {
+			blockHeight = areaBottom - areaTop
+		}
+		blockTop := areaTop + (areaBottom-areaTop-blockHeight)/2
+		baseline := blockTop + face.Metrics().Ascent.Ceil()
+
+		for i, line := range lines {
+			if line == "" {
+				continue
+			}
+			drawSingleLine(im, line, baseline+i*lineH, r.Theme.Foreground, face)
 		}
 	}
 	return im

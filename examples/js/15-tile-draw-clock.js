@@ -178,6 +178,8 @@ function runScene() {
       s.fillRect(4, 30, barW, 6, 120);
     });
   });
+
+  ui.show("clock");
 }
 
 if (typeof globalThis.__glazedVerbRegistry === "undefined") {
