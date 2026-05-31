@@ -45,3 +45,14 @@ Step 4: Recovered xgoja architecture by adding loupedeck-server CommandSetProvid
 - /home/manuel/workspaces/2026-05-27/better-loupedeck-tiles/loupedeck-server/xgoja.yaml — Buildspec updated to include provider and commandProviders stanza
 - /home/manuel/workspaces/2026-05-27/better-loupedeck-tiles/loupedeck/ttmp/2026/05/31/LDCK-API-001--loupedeck-remote-control-http-api-xgoja-binary/scripts/02-start-server.sh — Updated smoke launcher to use generated serve command
 
+
+## 2026-05-31
+
+Step 5: Implemented clean loupedeck/hw JavaScript API for setBrightness and setButtonColor. Wired xgoja hardware capability to DeviceControl, selected module in xgoja.yaml, updated server.js to call hw and return 503 without hardware, added tests, rebuilt generated xgoja binary, smoke tests pass 27/27.
+
+### Related Files
+
+- /home/manuel/workspaces/2026-05-27/better-loupedeck-tiles/loupedeck-server/server.js — REST endpoints now call loupedeck/hw
+- /home/manuel/workspaces/2026-05-27/better-loupedeck-tiles/loupedeck-server/xgoja.yaml — Runtime profile includes loupedeck/hw
+- /home/manuel/workspaces/2026-05-27/better-loupedeck-tiles/loupedeck/runtime/js/module_hw/module.go — New hardware JS module
+

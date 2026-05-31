@@ -346,3 +346,133 @@ Commit:
 ```text
 f6542ad feat: add xgoja long-running server command provider
 ```
+
+## Step 5: Add clean `loupedeck/hw` JavaScript hardware API
+
+Implemented the hardware-control API as a first-class Loupedeck JavaScript module instead of adding ad-hoc hardware calls to `server.js` or the manual `main.go` spike. The new module gives scripts, jsverbs, REPL sessions, and the REST API one canonical way to control physical brightness and button LEDs.
+
+### Prompt Context
+
+**User prompt (verbatim):** "ok, perfect, add tasks to do that, and then implement it step by step, keeping a diary as you work and committing at appropriate intervals."
+
+**Assistant interpretation:** Add concrete tasks for the clean `loupedeck/hw` JS API and implement them with tests, xgoja wiring, server wiring, validation, and commits.
+
+**Inferred user intent:** Turn the API design explanation into actual code while preserving the xgoja architecture and avoiding false-positive REST responses.
+
+### What I did
+
+- Updated `tasks.md` with a detailed Phase 4 for `loupedeck/hw`.
+- Added `env.DeviceControl` to `runtime/js/env` using typed hardware arguments:
+  - `device.Button`
+  - `color.RGBA`
+- Added `env.LoupedeckDeviceControl`, an adapter around `*device.Loupedeck`.
+- Added `runtime/js/module_hw` with `ModuleName = "loupedeck/hw"`.
+- Implemented JavaScript exports:
+  - `setBrightness(value)` with range validation `0..10`
+  - `setButtonColor(button, {r,g,b})`
+  - `setButtonColor(button, "#rrggbb")`
+- Registered `loupedeck/hw` in both:
+  - `runtime/js/provider/provider.go` for xgoja-generated binaries,
+  - `runtime/js/registrar.go` for the older direct Loupedeck runtime path.
+- Wired `environment.DeviceControl = &env.LoupedeckDeviceControl{Deck: deckConn}` in the existing xgoja hardware capability after a physical device connects.
+- Added unit tests for:
+  - successful brightness and color calls with a mock hardware control,
+  - unavailable hardware error,
+  - validation errors for brightness, unknown button, RGB range, and malformed hex.
+- Updated `loupedeck-server/xgoja.yaml` to select `loupedeck/hw` in the `server` runtime profile.
+- Updated `server.js` to require `loupedeck/hw` and call it from brightness/button routes.
+- Updated no-hardware smoke expectations: hardware writes now return `503` instead of pretending success.
+- Rebuilt generated xgoja binary and reran smoke tests.
+
+### Why
+
+The previous endpoints returned success while the hardware calls were commented out. That was misleading. A clean module makes hardware behavior explicit, reusable, testable, and connected to the provider lifecycle that already knows when real hardware exists.
+
+### What worked
+
+Validation/test commands passed:
+
+```bash
+cd /home/manuel/workspaces/2026-05-27/better-loupedeck-tiles/loupedeck
+go test ./runtime/js/... ./runtime/host/... ./pkg/device/...
+
+cd /home/manuel/workspaces/2026-05-27/better-loupedeck-tiles/loupedeck-server
+go test ./...
+
+cd /home/manuel/workspaces/2026-05-27/better-loupedeck-tiles
+xgoja doctor -f loupedeck-server/xgoja.yaml
+xgoja build -f loupedeck-server/xgoja.yaml --xgoja-replace $(pwd)/go-go-goja --keep-work
+```
+
+Smoke result against generated xgoja `serve` command:
+
+```text
+27 passed, 0 failed
+```
+
+The smoke count changed from 28 to 27 because the no-hardware brightness restore test was removed. Hardware writes now correctly return `503` in the default no-hardware tmux session.
+
+### What didn't work
+
+- The initial WIP approach tried to put `setButtonColor` / `setBrightness` directly on `loupedeck/ui`. I replaced that with a dedicated `loupedeck/hw` module to keep retained UI and hardware commands separate.
+- Hardware side effects have not yet been operator-confirmed in this step. The module is wired and tested with mocks; real-device LED/brightness confirmation is still Phase 5.
+
+### What I learned
+
+- Keeping hardware calls in a separate `loupedeck/hw` module makes no-hardware behavior much clearer: the module exists, but calls return a clear "hardware control is not available" error when `--deck-enabled=false`.
+- The xgoja hardware capability was the right place to set `DeviceControl` because it already owns the physical `deckConn` lifecycle.
+- The server API should only update local cached state after the hardware call succeeds.
+
+### What was tricky to build
+
+The main tricky part was choosing the interface boundary. Passing button names into `DeviceControl` would have duplicated parsing and validation. Passing typed `device.Button` values keeps parsing in the JS module, where JavaScript errors can point to bad API input, and keeps the adapter as a thin hardware wrapper.
+
+### What warrants a second pair of eyes
+
+- Brightness is validated as `0..10`, matching the API design and current default usage, but the low-level device call accepts a byte. Confirm that `0..10` is the desired public API range.
+- `setButtonColor` accepts object colors and `#rrggbb`; decide whether shorthand `#rgb` should also be supported.
+- Error mapping in `server.js` currently returns `503` for any `hw` exception. Validation should ideally stay `400` while unavailable hardware stays `503`.
+
+### What should be done in the future
+
+- Add an operator hardware script that asks the user to confirm visible LED/brightness changes.
+- Add render diagnostics for display flushing before debugging page visibility further.
+- Decide whether to remove or build-tag the manual `loupedeck-server/main.go` spike.
+
+### Code review instructions
+
+Start here:
+
+- `loupedeck/runtime/js/module_hw/module.go`
+- `loupedeck/runtime/js/module_hw/module_test.go`
+- `loupedeck/runtime/js/env/env.go`
+- `loupedeck/runtime/js/env/device_control.go`
+- `loupedeck/runtime/js/provider/provider.go`
+- `loupedeck-server/server.js`
+- `loupedeck-server/xgoja.yaml`
+
+Validate with:
+
+```bash
+cd /home/manuel/workspaces/2026-05-27/better-loupedeck-tiles/loupedeck
+go test ./runtime/js/... ./runtime/host/... ./pkg/device/...
+
+cd ../loupedeck-server
+go test ./...
+
+cd ..
+xgoja doctor -f loupedeck-server/xgoja.yaml
+xgoja build -f loupedeck-server/xgoja.yaml --xgoja-replace $(pwd)/go-go-goja --keep-work
+loupedeck/ttmp/2026/05/31/LDCK-API-001--loupedeck-remote-control-http-api-xgoja-binary/scripts/02-start-server.sh
+loupedeck/ttmp/2026/05/31/LDCK-API-001--loupedeck-remote-control-http-api-xgoja-binary/scripts/01-smoke-test.sh
+loupedeck/ttmp/2026/05/31/LDCK-API-001--loupedeck-remote-control-http-api-xgoja-binary/scripts/04-stop-server.sh
+```
+
+### Technical details
+
+Commits:
+
+```text
+68e7400 feat: add loupedeck hardware JS module
+faff68b feat: wire loupedeck hardware module into server API
+```

@@ -53,16 +53,16 @@ check_json_field "info has connected" /api/v1/info connected True
 echo "--- Brightness ---"
 check "GET /api/v1/brightness" GET /api/v1/brightness
 check_json_field "default brightness" /api/v1/brightness value "9"
-check "PUT /api/v1/brightness" PUT /api/v1/brightness 200 '{"value":5}'
-check_json_field "updated brightness" /api/v1/brightness value "5"
-# Restore
-check "PUT /api/v1/brightness restore" PUT /api/v1/brightness 200 '{"value":9}'
+# Hardware writes are expected to fail in the default no-hardware tmux session.
+# This is intentional: the API should not pretend the physical device changed.
+check "PUT /api/v1/brightness (no hardware)" PUT /api/v1/brightness 503 '{"value":5}'
+check_json_field "brightness unchanged after no-hardware write" /api/v1/brightness value "9"
 
 # ── Buttons ──
 echo "--- Buttons ---"
 check "GET /api/v1/buttons" GET /api/v1/buttons
 check "GET /api/v1/buttons/Circle" GET /api/v1/buttons/Circle
-check "PUT /api/v1/buttons/Circle/color" PUT /api/v1/buttons/Circle/color 200 '{"r":255,"g":0,"b":0}'
+check "PUT /api/v1/buttons/Circle/color (no hardware)" PUT /api/v1/buttons/Circle/color 503 '{"r":255,"g":0,"b":0}'
 check "GET unknown button" GET /api/v1/buttons/UNKNOWN 404
 
 # ── Displays ──

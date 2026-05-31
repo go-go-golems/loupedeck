@@ -21,6 +21,12 @@ RelatedFiles:
       Note: REST API script and current API/hardware behavior
     - Path: loupedeck-server/xgoja.yaml
       Note: Original xgoja buildspec; now stale relative to manual main.go
+    - Path: loupedeck/runtime/js/env/device_control.go
+      Note: Physical Loupedeck adapter for DeviceControl
+    - Path: loupedeck/runtime/js/module_hw/module.go
+      Note: Clean loupedeck/hw JavaScript hardware API
+    - Path: loupedeck/runtime/js/module_hw/module_test.go
+      Note: Unit tests for hardware API success and validation
     - Path: loupedeck/runtime/js/module_ui/module.go
       Note: Current JS API and WIP hardware-control build break
     - Path: loupedeck/runtime/js/provider/provider.go
@@ -33,6 +39,7 @@ LastUpdated: 0001-01-01T00:00:00Z
 WhatFor: ""
 WhenToUse: ""
 ---
+
 
 
 

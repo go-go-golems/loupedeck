@@ -1,46 +1,56 @@
 # Tasks
 
-## Phase 1: Bootstrap the xgoja binary ✅
-- [x] 1a. Create `loupedeck-server/` directory with `xgoja.yaml`
-- [x] 1b. Validate buildspec with `xgoja doctor` — 18/18 checks pass
-- [x] 1c. Build with `xgoja build` — binary at `dist/loupedeck-server`
-- [x] 1d. Test: express, db, loupedeck/ui modules load correctly
+## Phase 0: Design and ticket setup ✅
+- [x] Research codebase (xgoja, gojahttp, loupedeck, database modules)
+- [x] Create ticket LDCK-API-001
+- [x] Write architecture and REST API design document
+- [x] Write investigation diary
+- [x] Validate docs with `docmgr doctor`
+- [x] Upload to reMarkable
 
-## Phase 2: Custom Go binary + REST API ✅
-- [x] 2a. Write custom `main.go` that creates engine.Runtime directly
-- [x] 2b. Add SIGINT blocking so HTTP server stays alive
-- [x] 2c. Wire gojahttp.Host, loupedeck/ui, database modules
-- [x] 2d. Write `server.js` with all REST endpoints
-- [x] 2e. Test: 28/28 smoke tests pass (no hardware)
+## Phase 1: Bootstrap xgoja buildspec ✅
+- [x] Create `loupedeck-server/` directory with `xgoja.yaml`
+- [x] Validate buildspec with `xgoja doctor`
+- [x] Verify express, db, and loupedeck modules can be selected by runtime profile
 
-## Phase 3: SQLite event queue + polling ✅
-- [x] 3a. Add `database` module to runtime (db with allowConfigure:true)
-- [x] 3b. Create `events` table in `server.js`
-- [x] 3c. Wire `ui.onButton/onKnob/onTouch` → insert into events table
-- [x] 3d. Implement `GET /api/v1/events?since=&limit=&type=`
-- [x] 3e. Implement `DELETE /api/v1/events` (acknowledge)
-- [x] 3f. Add debug logging to event callbacks
+## Phase 2: Recover xgoja server lifecycle ✅
+- [x] Identify why built-in xgoja `run` is short-lived and unsuitable for HTTP services
+- [x] Add `loupedeck-server/pkg/xgoja/serverprovider` CommandSetProvider
+- [x] Add long-running `serve` command that loads `server.js` then waits for SIGINT/SIGTERM
+- [x] Update `xgoja.yaml` commandProviders stanza
+- [x] Build generated xgoja binary with `xgoja build`
+- [x] Run API smoke tests against generated xgoja `serve` command (28/28 passing)
 
-## Phase 4: Display control endpoints ✅
-- [x] 4a. Implement page management (`POST /api/v1/pages`, `GET`, `DELETE`)
-- [x] 4b. Implement `POST /api/v1/pages/show`
-- [x] 4c. Implement display draw (`POST /api/v1/displays/:name/draw`)
+## Phase 3: REST API script and polling ✅
+- [x] Write `server.js` with express routes for info, pages, display draw, brightness, buttons, events
+- [x] Add SQLite `events` table
+- [x] Wire `ui.onButton/onKnob/onTouch` callbacks to insert into event table
+- [x] Implement `GET /api/v1/events?since=&limit=&type=`
+- [x] Implement `DELETE /api/v1/events` acknowledge endpoint
 
-## Phase 5: Extend loupedeck/ui module for hardware control
-- [ ] 5a. Add `setButtonColor(name, r, g, b)` to `module_ui`
-- [ ] 5b. Add `setBrightness(value)` to `module_ui`
-- [ ] 5c. Rebuild binary, wire button color/brightness endpoints
+## Phase 4: Clean hardware JS API (`loupedeck/hw`) ✅
+- [x] 4a. Add `DeviceControl` interface to `runtime/js/env` using typed `device.Button` + `color.RGBA`
+- [x] 4b. Add `LoupedeckDeviceControl` adapter for `*device.Loupedeck`
+- [x] 4c. Add new `runtime/js/module_hw` module exporting `setBrightness` and `setButtonColor`
+- [x] 4d. Add validation for brightness, button names, color objects, and `#rrggbb` strings
+- [x] 4e. Register `loupedeck/hw` in `runtime/js/provider/provider.go`
+- [x] 4f. Wire `environment.DeviceControl` in the existing xgoja hardware capability after hardware connects
+- [x] 4g. Add unit tests for `loupedeck/hw` no-hardware, invalid input, and mock hardware success
+- [x] 4h. Update `loupedeck-server/xgoja.yaml` runtime profile to include `loupedeck/hw`
+- [x] 4i. Update `server.js` brightness/button endpoints to call `hw` and return 503 when unavailable
+- [x] 4j. Rebuild generated binary and re-run API smoke tests (27/27 passing; hardware writes correctly return 503 without hardware)
 
-## Phase 6: Smoke tests + tmux ✅
-- [x] 6a. Write `01-smoke-test.sh` — 28/28 passing
-- [x] 6b. Write `02-start-server.sh` — tmux launcher
-- [x] 6c. Write `03-event-poll-demo.sh` — polling workflow demo
-- [x] 6d. Write `04-stop-server.sh` — tmux stopper
+## Phase 5: Hardware operator tests
+- [ ] 5a. Add hardware operator smoke script for visible display and LED confirmation
+- [ ] 5b. Test `PUT /api/v1/buttons/:name/color` on real hardware
+- [ ] 5c. Test `PUT /api/v1/brightness` on real hardware
+- [ ] 5d. Test page/display rendering on real hardware with render diagnostics
+- [ ] 5e. Test button/knob/touch events end-to-end (hardware → SQLite → polling)
 
-## Phase 7: Hardware event verification
-- [ ] 7a. Test event capture with real hardware (button press → SQLite → polling)
-- [ ] 7b. Verify knob and touch event delivery
-- [ ] 7c. Test display rendering on real hardware
+## Phase 6: Cleanup and documentation
+- [ ] 6a. Decide whether to delete, build-tag, or archive manual `loupedeck-server/main.go` spike
+- [ ] 6b. Update design/code-review docs with final `loupedeck/hw` API
+- [ ] 6c. Re-upload updated docs to reMarkable
 
 ## DEFERRED (until go-go-goja gets a fetch module)
 - [ ] Webhook registration and delivery
@@ -50,3 +60,6 @@
 - `ed576d5` — feat: standalone loupedeck-server binary with REST API
 - `cf57f16` — chore: add .gitignore, remove db from tracking
 - `2b226e4` — feat: add debug logging for hardware event callbacks
+- `f6542ad` — feat: add xgoja long-running server command provider
+- `68e7400` — feat: add loupedeck hardware JS module
+- `faff68b` — feat: wire loupedeck hardware module into server API
