@@ -26,7 +26,7 @@ rm -f "$DB_DIR/loupedeck_events.db"
 
 # Create new session
 tmux new-session -d -s "$SESSION" -x 120 -y 40 \
-  "$BINARY $DECK_FLAG --http-listen :9876 $SCRIPT"
+  "cd $DB_DIR && $BINARY serve $SCRIPT $DECK_FLAG --http-listen :9876"
 
 echo "Server started in tmux session: $SESSION"
 echo "  URL: http://localhost:9876"

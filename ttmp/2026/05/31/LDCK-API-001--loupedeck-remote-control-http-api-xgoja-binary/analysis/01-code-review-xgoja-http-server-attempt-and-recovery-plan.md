@@ -15,6 +15,8 @@ RelatedFiles:
       Note: xgoja HTTP provider lifecycle and config sections
     - Path: loupedeck-server/main.go
       Note: Manual host spike being reviewed; bypasses xgoja generation
+    - Path: loupedeck-server/pkg/xgoja/serverprovider/provider.go
+      Note: Implemented recovery plan as xgoja CommandSetProvider
     - Path: loupedeck-server/server.js
       Note: REST API script and current API/hardware behavior
     - Path: loupedeck-server/xgoja.yaml
@@ -23,12 +25,15 @@ RelatedFiles:
       Note: Current JS API and WIP hardware-control build break
     - Path: loupedeck/runtime/js/provider/provider.go
       Note: Loupedeck xgoja provider hardware capability to reuse
+    - Path: loupedeck/ttmp/2026/05/31/LDCK-API-001--loupedeck-remote-control-http-api-xgoja-binary/scripts/02-start-server.sh
+      Note: Updated tmux launcher to call generated serve command
 ExternalSources: []
 Summary: ""
 LastUpdated: 0001-01-01T00:00:00Z
 WhatFor: ""
 WhenToUse: ""
 ---
+
 
 
 # Code Review: xgoja HTTP Server Attempt and Recovery Plan

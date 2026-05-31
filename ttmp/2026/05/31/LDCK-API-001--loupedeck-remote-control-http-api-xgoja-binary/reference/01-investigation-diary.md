@@ -241,3 +241,108 @@ go build ./...
 cd /home/manuel/workspaces/2026-05-27/better-loupedeck-tiles/loupedeck
 go test ./runtime/js/... ./runtime/host/... ./pkg/device/...
 ```
+
+## Step 4: Recover xgoja lifecycle with a CommandSetProvider
+
+Implemented the recovery plan from the code review: keep xgoja as the authoritative composition layer and move the long-running server lifecycle into a provider-owned command instead of a hand-written application `main.go`.
+
+### Prompt Context
+
+**User prompt (verbatim):** "go ahead"
+
+**Assistant interpretation:** Proceed with the recommended recovery path: restore a green build, implement the xgoja-native long-running server command provider, update the buildspec, and validate it.
+
+**Inferred user intent:** Convert the spike back into a real xgoja-based solution and prove it works with tests/smoke checks.
+
+### What I did
+
+- Reverted the incomplete hardware-control WIP that had broken the loupedeck build:
+  - restored `runtime/js/env/env.go` shape,
+  - removed `runtime/js/env/device_control.go`,
+  - removed incomplete `setButtonColor` / `setBrightness` exports from `runtime/js/module_ui/module.go`.
+- Fixed `loupedeck-server/main.go` back to a compiling spike state, then stopped building on it as the primary path.
+- Added `loupedeck-server/pkg/xgoja/serverprovider/provider.go`.
+- Updated `loupedeck-server/xgoja.yaml`:
+  - changed generated module path to `github.com/go-go-golems/generated/loupedeck-server` so the generated module can import the real `github.com/go-go-golems/loupedeck-server/pkg/xgoja/serverprovider`,
+  - added the `loupedeck-server` provider package,
+  - added a root-mounted command provider named `serve`,
+  - renamed the built-in short-lived xgoja run command back to `run`.
+- Updated `scripts/02-start-server.sh` to call the generated xgoja binary using `serve server.js ...`.
+- Built the generated xgoja binary with:
+  - `xgoja doctor -f loupedeck-server/xgoja.yaml`
+  - `xgoja build -f loupedeck-server/xgoja.yaml --xgoja-replace $(pwd)/go-go-goja --keep-work`
+- Ran the generated binary with hardware disabled and verified API behavior.
+- Ran the existing smoke test script against the generated xgoja `serve` command: 28/28 checks passed.
+- Committed the provider recovery work in the `loupedeck-server` repo.
+
+### Why
+
+The manual `main.go` spike solved the lifecycle problem by bypassing xgoja, but it also duplicated provider logic and made `xgoja.yaml` stale. The new command provider keeps the lifecycle fix while preserving xgoja's provider composition model.
+
+### What worked
+
+- `xgoja doctor` passed with 22 checks after adding the provider package and command provider.
+- `xgoja build` generated a binary successfully at `dist/loupedeck-server`.
+- `./dist/loupedeck-server --help` now shows both:
+  - `run` — built-in short-lived script runner,
+  - `serve` — new long-lived HTTP server command.
+- `./dist/loupedeck-server serve --help --long-help` shows the HTTP and Loupedeck provider flags (`--http-listen`, `--deck-enabled`, etc.).
+- `scripts/01-smoke-test.sh` passed 28/28 checks against the generated xgoja binary.
+
+### What didn't work
+
+- Port `:9876` was initially occupied by an older tmux server session. I stopped `loupedeck-api` / killed the port before retesting.
+- The API still reports successful button color / brightness responses without changing hardware because `server.js` still has those hardware calls commented out. That remains an honest follow-up after the xgoja lifecycle fix.
+
+### What I learned
+
+- The generated module path in `xgoja.yaml` must not be the same module path as the provider package you want to import from the source checkout. Otherwise, `github.com/go-go-golems/loupedeck-server/pkg/...` resolves inside the generated build workspace where that package does not exist. Changing `go.module` to `github.com/go-go-golems/generated/loupedeck-server` fixes this.
+- `CommandSetProvider` is sufficient for the long-running server lifecycle. No xgoja core changes were required.
+- Provider-owned commands can collect config sections from selected modules, so the new `serve` command inherits both HTTP and Loupedeck flags from the selected runtime profile.
+
+### What was tricky to build
+
+The key invariant was to wait for SIGINT outside the goja owner. The command provider loads `server.js` through `rt.Owner.Call(...)`, then returns to Go and blocks on a signal channel. This keeps the runtime alive while leaving the owner/event loop free for `gojahttp.Host.ServeHTTP` callbacks.
+
+### What warrants a second pair of eyes
+
+- The new `serverprovider` uses `providerutil.InitRuntimeFromSections` directly with a local `runtimeHandle`. That mirrors xgoja internals but should be reviewed for compatibility if xgoja evolves.
+- The provider currently prints lifecycle messages to stderr using `fmt.Fprintf`; it may want structured logcopter logging later.
+- The manual `main.go` spike still exists. It should either be moved under an explicit `cmd/manual-spike` path, given an ignore build tag, or deleted once the generated path is accepted.
+
+### What should be done in the future
+
+- Add a regression test for the command provider: start `serve` with `--deck-enabled=false`, curl `/api/v1/info`, terminate, assert clean exit.
+- Implement hardware-control APIs as a focused change after xgoja lifecycle is stable.
+- Replace API smoke tests that imply hardware side effects with explicit operator-confirmed hardware tests.
+
+### Code review instructions
+
+- Start with `loupedeck-server/pkg/xgoja/serverprovider/provider.go`.
+- Then read `loupedeck-server/xgoja.yaml` and confirm the provider package + commandProviders stanza.
+- Verify behavior with:
+
+```bash
+cd /home/manuel/workspaces/2026-05-27/better-loupedeck-tiles
+xgoja doctor -f loupedeck-server/xgoja.yaml
+xgoja build -f loupedeck-server/xgoja.yaml --xgoja-replace $(pwd)/go-go-goja --keep-work
+loupedeck/ttmp/2026/05/31/LDCK-API-001--loupedeck-remote-control-http-api-xgoja-binary/scripts/02-start-server.sh
+loupedeck/ttmp/2026/05/31/LDCK-API-001--loupedeck-remote-control-http-api-xgoja-binary/scripts/01-smoke-test.sh
+loupedeck/ttmp/2026/05/31/LDCK-API-001--loupedeck-remote-control-http-api-xgoja-binary/scripts/04-stop-server.sh
+```
+
+### Technical details
+
+Generated binary validation:
+
+```text
+xgoja doctor: 22 checks passed
+xgoja build: ok, output /home/manuel/workspaces/2026-05-27/better-loupedeck-tiles/dist/loupedeck-server
+smoke test: 28 passed, 0 failed
+```
+
+Commit:
+
+```text
+f6542ad feat: add xgoja long-running server command provider
+```

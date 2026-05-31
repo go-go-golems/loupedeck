@@ -34,3 +34,14 @@ Step 3: Paused implementation and wrote code review/recovery plan. Finding: manu
 - /home/manuel/workspaces/2026-05-27/better-loupedeck-tiles/loupedeck/ttmp/2026/05/31/LDCK-API-001--loupedeck-remote-control-http-api-xgoja-binary/analysis/01-code-review-xgoja-http-server-attempt-and-recovery-plan.md — Primary code review and recovery plan
 - /home/manuel/workspaces/2026-05-27/better-loupedeck-tiles/loupedeck/ttmp/2026/05/31/LDCK-API-001--loupedeck-remote-control-http-api-xgoja-binary/reference/01-investigation-diary.md — Diary updated with review step
 
+
+## 2026-05-31
+
+Step 4: Recovered xgoja architecture by adding loupedeck-server CommandSetProvider with a long-lived serve command. xgoja doctor/build pass; generated dist/loupedeck-server exposes serve; smoke tests pass 28/28 using generated xgoja binary.
+
+### Related Files
+
+- /home/manuel/workspaces/2026-05-27/better-loupedeck-tiles/loupedeck-server/pkg/xgoja/serverprovider/provider.go — New xgoja command provider with long-running serve lifecycle
+- /home/manuel/workspaces/2026-05-27/better-loupedeck-tiles/loupedeck-server/xgoja.yaml — Buildspec updated to include provider and commandProviders stanza
+- /home/manuel/workspaces/2026-05-27/better-loupedeck-tiles/loupedeck/ttmp/2026/05/31/LDCK-API-001--loupedeck-remote-control-http-api-xgoja-binary/scripts/02-start-server.sh — Updated smoke launcher to use generated serve command
+
