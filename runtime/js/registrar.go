@@ -12,6 +12,7 @@ import (
 	"github.com/go-go-golems/loupedeck/runtime/js/module_anim"
 	"github.com/go-go-golems/loupedeck/runtime/js/module_easing"
 	"github.com/go-go-golems/loupedeck/runtime/js/module_gfx"
+	"github.com/go-go-golems/loupedeck/runtime/js/module_hw"
 	"github.com/go-go-golems/loupedeck/runtime/js/module_present"
 	"github.com/go-go-golems/loupedeck/runtime/js/module_state"
 	"github.com/go-go-golems/loupedeck/runtime/js/module_ui"
@@ -54,6 +55,7 @@ func (r Registrar) RegisterRuntimeModule(ctx *engine.RuntimeModuleContext, reg *
 	module_easing.Register(reg)
 	module_anim.Register(reg)
 	module_gfx.Register(reg)
+	module_hw.Register(reg)
 	module_present.Register(reg)
 	jsmetrics.RegisterModules(reg, "loupedeck")
 	return nil

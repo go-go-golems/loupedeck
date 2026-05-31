@@ -31,6 +31,7 @@ import (
 	"github.com/go-go-golems/loupedeck/runtime/js/module_anim"
 	"github.com/go-go-golems/loupedeck/runtime/js/module_easing"
 	"github.com/go-go-golems/loupedeck/runtime/js/module_gfx"
+	"github.com/go-go-golems/loupedeck/runtime/js/module_hw"
 	"github.com/go-go-golems/loupedeck/runtime/js/module_metrics"
 	"github.com/go-go-golems/loupedeck/runtime/js/module_present"
 	"github.com/go-go-golems/loupedeck/runtime/js/module_scene_metrics"
@@ -53,6 +54,7 @@ func Register(registry *providerapi.Registry) error {
 		moduleEntry(module_anim.ModuleName, "Animation loop and timeline helpers for Loupedeck scenes.", module_anim.Loader),
 		moduleEntry(module_easing.ModuleName, "Easing functions for loupedeck animation curves.", module_easing.Loader),
 		moduleEntry(module_gfx.ModuleName, "Offscreen drawing surfaces, colors, text, and font helpers.", module_gfx.Loader),
+		moduleEntry(module_hw.ModuleName, "Hardware-level Loupedeck controls such as brightness and button LEDs.", module_hw.Loader),
 		moduleEntry(module_metrics.ModuleName, "Low-level metrics helpers for Loupedeck scene scripts.", module_metrics.Loader),
 		moduleEntry(module_present.ModuleName, "Presentation helpers for Loupedeck visual scene runtimes.", module_present.Loader),
 		moduleEntry(module_scene_metrics.ModuleName, "Scene-level metrics helpers for Loupedeck render loops.", module_scene_metrics.Loader),
@@ -276,6 +278,7 @@ func (c *hardwareCapability) InitRuntimeFromSections(ctx context.Context, vals *
 			return err
 		}
 		environment.Host.Attach(deckConn)
+		environment.DeviceControl = &env.LoupedeckDeviceControl{Deck: deckConn}
 		listenErrCh := make(chan error, 1)
 		go func() { listenErrCh <- deckConn.Listen() }()
 		go func() {
