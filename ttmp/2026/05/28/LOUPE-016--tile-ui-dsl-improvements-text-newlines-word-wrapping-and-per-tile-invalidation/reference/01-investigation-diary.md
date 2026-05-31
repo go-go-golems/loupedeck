@@ -459,3 +459,63 @@ The new features need documentation so users can discover and use them. The exam
 ### Technical details
 - All 28 tasks complete
 - Commits: 95a46a1 (newlines), ebce3cc (wrapping), f07e23c (ergonomics), 6515cce (docs)
+
+## 2026-05-30 — Step 10: Hardware Test Bug Fixes + slog→logcopter Migration
+
+Tested on real hardware. Found and fixed two visual bugs, then migrated all `slog` usage to logcopter/zerolog.
+
+### Prompt Context
+
+**User prompt (verbatim):** "test it on the real device, and i can tell you if it actually works."
+**Assistant interpretation:** Run scripts on the actual Loupedeck and get visual feedback.
+**Inferred user intent:** Validate the implementation on hardware, fix any visual issues.
+
+**Commits:** c10f5de (bug fixes), 4dd694f (slog migration)
+
+### What I did
+1. **Fixed multi-line text vertical centering** — the retained tile renderer used hardcoded `baseline=58` which was designed for single-line text at the bottom of the tile. Multi-line text started at row 58 and went down, leaving the top of the tile empty. Changed to compute the number of lines and vertically center the text block in the available area (below accent bar, with icon-aware margins).
+2. **Fixed 15-tile-draw-clock.js** — missing `ui.show("clock")` call meant no page was ever activated, so the device showed black.
+3. **Migrated all `slog` to logcopter** across `pkg/device/` (6 files) and `cmd/loupedeck/cmds/run/session.go`. The packages already had `var log = logcopter.Package(...)` generated but were using `slog` instead.
+
+### Why
+- The baseline=58 was a design oversight — single-line text at row 58 looked fine, but multi-line text needs vertical centering
+- The clock script was a simple omission — forgot `ui.show()`
+- The slog→logcopter migration ensures consistent log format with proper `area=` tags and zerolog structured fields
+
+### What worked
+- The vertical centering calculation is straightforward: compute line count, calculate available area, center the block
+- The logcopter migration was mechanical but clean — every `slog.Info("msg", "key", val)` becomes `log.Info().Str("key", val).Msg("msg")`
+
+### What didn't work
+- The clock script never showed anything — no error, no hint, just a black screen. Hard to debug without the device.
+
+### What I learned
+- Always include `ui.show()` in example scripts — the runner doesn't auto-show any page
+- The `pkg/device` package had a generated logcopter variable (`var log = logcopter.Package(...)`) but all the code was using `slog`. This is likely a leftover from an earlier migration that was never completed.
+- `slog` and logcopter/zerolog have incompatible APIs — `slog` uses key-value pairs as alternating args, zerolog uses method chaining with typed accessors (`.Str()`, `.Int()`, `.Err()`, `.Dur()`, etc.)
+
+### What was tricky to build
+- The `MessageType` is a `byte` type alias, not `uint8`, so `log.Warn().Uint8("message_type", m.messageType)` needed a `byte()` cast
+- `event.Seq` is `uint64`, not `int` — needed `.Uint64()` instead of `.Int()`
+- The `delta` and `current` variables for writer stats are structs — used `.Interface()` for those
+
+### What warrants a second pair of eyes
+- The vertical centering logic in `renderTile()` — does the icon/text area division look right? Currently: areaTop=40 if icon present, areaTop=12 if no icon, areaBottom=86 (TileHeight-4)
+- The exit runner now logs reason/script/verb but dropped the extra attrs (signal, duration, error) from the log message — should those be added back?
+
+### What should be done in the future
+- Add the missing extra attributes back to the exit runner log (signal name, duration, error details)
+- Check if other packages in the repo still use `slog` instead of logcopter
+
+### Code review instructions
+- `runtime/render/visual_runtime.go`: the `renderTile()` text centering logic (the big if block replacing the old 3-line version)
+- `examples/js/15-tile-draw-clock.js`: added `ui.show("clock")` at end of `runScene()`
+- `pkg/device/*.go`: all `slog` → `log` conversions
+- `cmd/loupedeck/cmds/run/session.go`: all `slog` → `log` conversions
+- Run: `go test ./... -count=1 -timeout 60s`
+
+### Technical details
+- Vertical centering: `blockHeight = numLines * lineH`, `blockTop = areaTop + (areaBottom-areaTop-blockHeight)/2`, `baseline = blockTop + face.Metrics().Ascent.Ceil()`
+- Face7x13: Ascent=11, Descent=2, Height=13
+- Area without icon: rows 12–86 (74px), single line centered at ~37
+- Area with icon: rows 40–86 (46px), single line centered at ~57
