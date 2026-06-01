@@ -4,6 +4,7 @@ import (
 	"image"
 	"image/color"
 	"image/draw"
+	"strings"
 
 	"github.com/go-go-golems/loupedeck/runtime/ui"
 	"golang.org/x/image/font"
@@ -163,7 +164,41 @@ func (r *Renderer) renderTile(tile *ui.Tile) image.Image {
 		drawCenteredLabel(im, icon, 24, r.Theme.Foreground)
 	}
 	if text := tile.Text(); text != "" {
-		drawCenteredLabel(im, text, 58, r.Theme.Foreground)
+		// Compute the number of rendered lines to vertically center the text block.
+		face := basicfont.Face7x13
+		lineH := face.Metrics().Height.Ceil()
+		var lines []string
+		if tile.Wrap() {
+			lines = wrapRendererText(text, face, TileWidth-8)
+		} else {
+			lines = strings.Split(text, "\n")
+		}
+		numLines := len(lines)
+
+		// Available vertical area: below 8px accent bar to bottom of tile.
+		// If there's an icon, text goes below it; otherwise center in full area.
+		var areaTop, areaBottom int
+		if tile.Icon() != "" {
+			areaTop = 40 // below icon area
+		} else {
+			areaTop = 12 // just below accent bar with small margin
+		}
+		areaBottom = TileHeight - 4 // small bottom margin
+
+		// Center the text block vertically within the available area.
+		blockHeight := numLines * lineH
+		if blockHeight > areaBottom-areaTop {
+			blockHeight = areaBottom - areaTop
+		}
+		blockTop := areaTop + (areaBottom-areaTop-blockHeight)/2
+		baseline := blockTop + face.Metrics().Ascent.Ceil()
+
+		for i, line := range lines {
+			if line == "" {
+				continue
+			}
+			drawSingleLine(im, line, baseline+i*lineH, r.Theme.Foreground, face)
+		}
 	}
 	return im
 }
@@ -187,6 +222,21 @@ func drawCenteredLabel(dst draw.Image, text string, baseline int, fg color.Color
 		return
 	}
 	face := basicfont.Face7x13
+	lineH := face.Metrics().Height.Ceil()
+
+	lines := strings.Split(text, "\n")
+	for i, line := range lines {
+		if line == "" {
+			continue
+		}
+		drawSingleLine(dst, line, baseline+i*lineH, fg, face)
+	}
+}
+
+func drawSingleLine(dst draw.Image, text string, baseline int, fg color.Color, face font.Face) {
+	if text == "" {
+		return
+	}
 	d := &font.Drawer{
 		Dst:  dst,
 		Src:  &image.Uniform{fg},
@@ -199,4 +249,48 @@ func drawCenteredLabel(dst draw.Image, text string, baseline int, fg color.Color
 	}
 	d.Dot = fixed.P(x, baseline)
 	d.DrawString(text)
+}
+
+// wrapRendererText wraps text to fit within wrapWidth pixels using the given
+// font face. Returns a slice of lines.
+func wrapRendererText(text string, face font.Face, wrapWidth int) []string {
+	if text == "" || wrapWidth <= 0 {
+		return []string{text}
+	}
+
+	// First split on explicit newlines.
+	paragraphs := strings.Split(text, "\n")
+
+	d := &font.Drawer{Face: face}
+	var result []string
+	for _, para := range paragraphs {
+		if para == "" {
+			result = append(result, "")
+			continue
+		}
+		words := strings.Fields(para)
+		var current strings.Builder
+		for i, word := range words {
+			if i == 0 {
+				current.WriteString(word)
+				continue
+			}
+			candidate := current.String() + " " + word
+			if d.MeasureString(candidate).Round() <= wrapWidth {
+				current.WriteString(" ")
+				current.WriteString(word)
+			} else {
+				result = append(result, current.String())
+				current.Reset()
+				current.WriteString(word)
+			}
+		}
+		if current.Len() > 0 {
+			result = append(result, current.String())
+		}
+	}
+	if len(result) == 0 {
+		return []string{text}
+	}
+	return result
 }

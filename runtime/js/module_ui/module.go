@@ -9,6 +9,7 @@ import (
 	"github.com/dop251/goja_nodejs/require"
 	"github.com/go-go-golems/go-go-goja/pkg/runtimebridge"
 	deck "github.com/go-go-golems/loupedeck/pkg/device"
+	"github.com/go-go-golems/loupedeck/runtime/gfx"
 	envpkg "github.com/go-go-golems/loupedeck/runtime/js/env"
 	"github.com/go-go-golems/loupedeck/runtime/js/module_gfx"
 	"github.com/go-go-golems/loupedeck/runtime/ui"
@@ -260,6 +261,10 @@ func displayObject(runtimeServices runtimebridge.RuntimeServices, runtime *goja.
 func tileObject(runtimeServices runtimebridge.RuntimeServices, runtime *goja.Runtime, _ *envpkg.LoupeDeckEnvironment, tile *ui.Tile) *goja.Object {
 	obj := runtime.NewObject()
 	_ = obj.Set("text", func(call goja.FunctionCall) goja.Value {
+		// Parse options from second argument. Always apply the parsed value so
+		// reused tile objects can turn wrapping off after a previous wrapped text.
+		opts := tileTextOptionsFromValue(call.Argument(1), runtime)
+		tile.SetWrap(opts.wrap)
 		if fn, ok := goja.AssertFunction(call.Argument(0)); ok {
 			tile.BindText(func() string {
 				result, err := runtimeServices.CallWithCurrentContext(runtime, "ui.tile.text", func(_ context.Context, vm *goja.Runtime) (any, error) {
@@ -328,6 +333,23 @@ func tileObject(runtimeServices runtimebridge.RuntimeServices, runtime *goja.Run
 		}
 		return goja.Undefined()
 	})
+	_ = obj.Set("draw", func(call goja.FunctionCall) goja.Value {
+		fn, ok := goja.AssertFunction(call.Argument(0))
+		if !ok {
+			panic(runtime.NewTypeError("tile.draw requires a function"))
+		}
+		tile.Draw(func(surface *gfx.Surface) {
+			surfaceObj := module_gfx.SurfaceObject(runtime, surface)
+			if _, err := fn(goja.Undefined(), surfaceObj); err != nil {
+				panic(runtime.NewGoError(err))
+			}
+		})
+		return goja.Undefined()
+	})
+	_ = obj.Set("invalidate", func(goja.FunctionCall) goja.Value {
+		tile.Invalidate()
+		return goja.Undefined()
+	})
 	return obj
 }
 
@@ -377,6 +399,28 @@ func layerOptionsFromValue(value goja.Value, runtime *goja.Runtime) ui.LayerOpti
 		B: clampInt64ToUint8(bValue.ToInteger()),
 		A: a,
 	}}
+}
+
+type tileTextOpts struct {
+	wrap bool
+}
+
+func tileTextOptionsFromValue(value goja.Value, runtime *goja.Runtime) tileTextOpts {
+	if goja.IsUndefined(value) || goja.IsNull(value) {
+		return tileTextOpts{}
+	}
+	obj := value.ToObject(runtime)
+	return tileTextOpts{
+		wrap: boolProp(obj, "wrap"),
+	}
+}
+
+func boolProp(obj *goja.Object, name string) bool {
+	value := obj.Get(name)
+	if value == nil || goja.IsUndefined(value) || goja.IsNull(value) {
+		return false
+	}
+	return value.ToBoolean()
 }
 
 func clampInt64ToUint8(v int64) uint8 {

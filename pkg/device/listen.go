@@ -3,7 +3,6 @@ package device
 import (
 	"encoding/binary"
 	"fmt"
-	"log/slog"
 
 	"github.com/gorilla/websocket"
 )
@@ -15,25 +14,25 @@ func (l *Loupedeck) Listen() error {
 		websocketMsgType, message, err := l.conn.ReadMessage()
 
 		if err != nil {
-			slog.Warn("Read error, exiting", "error", err)
+			log.Warn().Err(err).Msg("Read error, exiting")
 			return fmt.Errorf("websocket read failed: %w", err)
 		}
 
 		if len(message) == 0 {
-			slog.Warn("Received a 0-byte message.  Skipping")
+			log.Warn().Msg("Received a 0-byte message.  Skipping")
 			continue
 		}
 
 		if websocketMsgType != websocket.BinaryMessage {
-			slog.Warn("Unknown websocket message type received", "type", websocketMsgType)
+			log.Warn().Int("type", websocketMsgType).Msg("Unknown websocket message type received")
 		}
 
 		m, _ := l.ParseMessage(message)
-		slog.Debug("read", "message", m.String())
+		log.Debug().Str("message", m.String()).Msg("read")
 
 		if m.transactionID != 0 {
 			if c := l.takeTransactionCallback(m.transactionID); c != nil {
-				slog.Debug("dispatching transaction callback", "transaction_id", m.transactionID)
+				log.Debug().Uint8("transaction_id", m.transactionID).Msg("dispatching transaction callback")
 				c(m)
 			}
 			continue
@@ -45,7 +44,7 @@ func (l *Loupedeck) Listen() error {
 			button := Button(binary.BigEndian.Uint16(message[2:]))
 			upDown := ButtonStatus(message[4])
 			if !l.dispatchButton(button, upDown) {
-				slog.Debug("received uncaught button press message", "button", button, "upDown", upDown, "message", message)
+				log.Debug().Str("button", fmt.Sprintf("%v", button)).Str("upDown", fmt.Sprintf("%v", upDown)).Msg("received uncaught button press message")
 			}
 		case KnobRotate:
 			knob := Knob(binary.BigEndian.Uint16(message[2:]))
@@ -55,7 +54,7 @@ func (l *Loupedeck) Listen() error {
 				v = -1
 			}
 			if !l.dispatchKnob(knob, v) {
-				slog.Debug("Received knob rotate message", "knob", knob, "value", value, "message", message)
+				log.Debug().Str("knob", fmt.Sprintf("%v", knob)).Int("value", value).Msg("Received knob rotate message")
 			}
 		case Touch:
 			x := binary.BigEndian.Uint16(message[4:])
@@ -63,7 +62,7 @@ func (l *Loupedeck) Listen() error {
 			id := message[8]
 			b := touchCoordToButton(x, y)
 			if !l.dispatchTouch(b, ButtonDown, x, y) {
-				slog.Debug("Received touch message", "x", x, "y", y, "id", id, "b", b, "message", message)
+				log.Debug().Uint16("x", x).Uint16("y", y).Uint8("id", id).Msg("Received touch message")
 			}
 		case TouchEnd:
 			x := binary.BigEndian.Uint16(message[4:])
@@ -71,20 +70,20 @@ func (l *Loupedeck) Listen() error {
 			id := message[8]
 			b := touchCoordToButton(x, y)
 			if !l.dispatchTouch(b, ButtonUp, x, y) {
-				slog.Debug("Received touch end message", "x", x, "y", y, "id", id, "b", b, "message", message)
+				log.Debug().Uint16("x", x).Uint16("y", y).Uint8("id", id).Msg("Received touch end message")
 			}
 		case TouchCT:
 			x := binary.BigEndian.Uint16(message[4:])
 			y := binary.BigEndian.Uint16(message[6:])
 			id := message[8]
-			slog.Debug("Received CT touch message (unhandled)", "x", x, "y", y, "id", id, "message", message)
+			log.Debug().Uint16("x", x).Uint16("y", y).Uint8("id", id).Msg("Received CT touch message (unhandled)")
 		case TouchEndCT:
 			x := binary.BigEndian.Uint16(message[4:])
 			y := binary.BigEndian.Uint16(message[6:])
 			id := message[8]
-			slog.Debug("Received CT touch end message (unhandled)", "x", x, "y", y, "id", id, "message", message)
+			log.Debug().Uint16("x", x).Uint16("y", y).Uint8("id", id).Msg("Received CT touch end message (unhandled)")
 		default:
-			slog.Debug("received unknown message", "message", m.String())
+			log.Debug().Str("message", m.String()).Msg("received unknown message")
 		}
 	}
 }

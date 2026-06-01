@@ -2,7 +2,6 @@ package device
 
 import (
 	"fmt"
-	"log/slog"
 	"net"
 	"net/http"
 	"time"
@@ -87,7 +86,7 @@ func tryConnect(open func() (*SerialWebSockConn, error), writerOptions WriterOpt
 	select {
 	case <-time.After(2 * time.Second):
 		// timeout
-		slog.Info("Timeout! Trying again without timeout.")
+		log.Info().Msg("Timeout! Trying again without timeout.")
 		_ = c.Close()
 		c2, err := open()
 		if err != nil {
@@ -103,7 +102,7 @@ func tryConnect(open func() (*SerialWebSockConn, error), writerOptions WriterOpt
 func doConnect(c *SerialWebSockConn, writerOptions WriterOptions, renderOptions *RenderOptions) (*Loupedeck, error) {
 	dialer := websocket.Dialer{
 		NetDial: func(network, addr string) (net.Conn, error) {
-			slog.Info("Dialing...")
+			log.Info().Msg("Dialing...")
 			return c, nil
 		},
 		HandshakeTimeout: 1 * time.Second,
@@ -111,20 +110,20 @@ func doConnect(c *SerialWebSockConn, writerOptions WriterOptions, renderOptions 
 
 	header := http.Header{}
 
-	slog.Info("Attempting to open websocket connection")
+	log.Info().Msg("Attempting to open websocket connection")
 	conn, resp, err := dialer.Dial("ws://fake", header)
 
 	if err != nil {
-		slog.Warn("dial failed", "err", err)
+		log.Warn().Err(err).Msg("dial failed")
 		return nil, err
 	}
 
-	slog.Info("Connect successful", "resp", resp)
+	log.Info().Str("resp", fmt.Sprintf("%v", resp)).Msg("Connect successful")
 
 	if c.Product == "" && c.Name != "" {
 		vendor, product, metaErr := lookupSerialPortMetadata(c.Name)
 		if metaErr != nil {
-			slog.Warn("Unable to refresh serial metadata after connect", "path", c.Name, "err", metaErr)
+			log.Warn().Str("path", c.Name).Err(metaErr).Msg("Unable to refresh serial metadata after connect")
 		} else {
 			if c.Vendor == "" {
 				c.Vendor = vendor
@@ -133,7 +132,7 @@ func doConnect(c *SerialWebSockConn, writerOptions WriterOptions, renderOptions 
 				c.Product = product
 			}
 			if c.Product != "" {
-				slog.Info("Resolved serial metadata after connect", "path", c.Name, "vendor", c.Vendor, "product", c.Product)
+				log.Info().Str("path", c.Name).Str("vendor", c.Vendor).Str("product", c.Product).Msg("Resolved serial metadata after connect")
 			}
 		}
 	}
@@ -166,9 +165,9 @@ func doConnect(c *SerialWebSockConn, writerOptions WriterOptions, renderOptions 
 		l.renderer = newRenderScheduler(l.writer, l.renderOptions)
 	}
 
-	slog.Info("Found Loupedeck", "vendor", l.Vendor, "product", l.Product, "model", l.Model)
+	log.Info().Str("vendor", l.Vendor).Str("product", l.Product).Str("model", l.Model).Msg("Found Loupedeck")
 
-	slog.Info("Sending reset.")
+	log.Info().Msg("Sending reset.")
 	data := make([]byte, 0)
 	m := l.NewMessage(Reset, data)
 	err = l.Send(m)
@@ -176,7 +175,7 @@ func doConnect(c *SerialWebSockConn, writerOptions WriterOptions, renderOptions 
 		return nil, fmt.Errorf("unable to send: %v", err)
 	}
 
-	slog.Info("Setting default brightness.")
+	log.Info().Msg("Setting default brightness.")
 	data = []byte{9}
 	m = l.NewMessage(SetBrightness, data)
 	err = l.Send(m)
@@ -191,11 +190,11 @@ func doConnect(c *SerialWebSockConn, writerOptions WriterOptions, renderOptions 
 	m = l.NewMessage(Version, data)
 	err = l.SendWithCallback(m, func(m *Message) {
 		if len(m.data) < 3 {
-			slog.Warn("Received short 'Version' response", "message_type", m.messageType, "length", len(m.data), "data", m.data)
+			log.Warn().Uint8("message_type", byte(m.messageType)).Int("length", len(m.data)).Bytes("data", m.data).Msg("Received short 'Version' response")
 			return
 		}
 		l.Version = fmt.Sprintf("%d.%d.%d", m.data[0], m.data[1], m.data[2])
-		slog.Info("Received 'Version' response", "version", l.Version)
+		log.Info().Str("version", l.Version).Msg("Received 'Version' response")
 	})
 	if err != nil {
 		return nil, fmt.Errorf("unable to send: %v", err)
@@ -204,11 +203,11 @@ func doConnect(c *SerialWebSockConn, writerOptions WriterOptions, renderOptions 
 	m = l.NewMessage(Serial, data)
 	err = l.SendWithCallback(m, func(m *Message) {
 		if len(m.data) == 0 {
-			slog.Warn("Received empty 'Serial' response", "message_type", m.messageType)
+			log.Warn().Uint8("message_type", byte(m.messageType)).Msg("Received empty 'Serial' response")
 			return
 		}
 		l.SerialNo = string(m.data)
-		slog.Info("Received 'Serial' response", "serial", l.SerialNo)
+		log.Info().Str("serial", l.SerialNo).Msg("Received 'Serial' response")
 	})
 	if err != nil {
 		return nil, fmt.Errorf("unable to send: %v", err)

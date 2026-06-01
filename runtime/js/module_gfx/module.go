@@ -17,7 +17,7 @@ func Loader() require.ModuleLoader {
 			width := int(call.Argument(0).ToInteger())
 			height := int(call.Argument(1).ToInteger())
 			surface := gfx.NewSurface(width, height)
-			return surfaceObject(runtime, surface)
+			return SurfaceObject(runtime, surface)
 		})
 		_ = exports.Set("font", func(call goja.FunctionCall) goja.Value {
 			path := call.Argument(0).String()
@@ -85,7 +85,7 @@ func textFaceFromValue(runtime *goja.Runtime, value goja.Value) gfx.TextOptions 
 	return gfx.TextOptions{Face: face}
 }
 
-func surfaceObject(runtime *goja.Runtime, surface *gfx.Surface) goja.Value {
+func SurfaceObject(runtime *goja.Runtime, surface *gfx.Surface) goja.Value {
 	obj := runtime.NewObject()
 	_ = obj.Set("width", func(goja.FunctionCall) goja.Value {
 		return runtime.ToValue(surface.Width())
@@ -200,6 +200,8 @@ func textOptionsFromValue(runtime *goja.Runtime, value goja.Value) gfx.TextOptio
 		Brightness: clampIntToUint8(intProp(obj, "brightness")),
 		Center:     boolProp(obj, "center"),
 		Face:       base.Face,
+		LineGap:    intProp(obj, "lineGap"),
+		WrapWidth:  intProp(obj, "wrapWidth"),
 	}
 }
 

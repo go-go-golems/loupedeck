@@ -11,12 +11,24 @@ import (
 	"time"
 
 	"github.com/dop251/goja"
+	"github.com/go-go-golems/go-go-goja/modules"
 	"github.com/go-go-golems/go-go-goja/pkg/runtimebridge"
 	"github.com/go-go-golems/loupedeck/pkg/device"
 	"github.com/go-go-golems/loupedeck/runtime/gfx"
 	envpkg "github.com/go-go-golems/loupedeck/runtime/js/env"
 	"golang.org/x/image/font/gofont/goregular"
 )
+
+type testNativeModule struct {
+	name string
+}
+
+func (m testNativeModule) Name() string { return m.name }
+func (m testNativeModule) Doc() string  { return "test module" }
+func (m testNativeModule) Loader(vm *goja.Runtime, module *goja.Object) {
+	exports := module.Get("exports").(*goja.Object)
+	_ = exports.Set("ok", true)
+}
 
 type fakeSource struct {
 	mu      sync.Mutex
@@ -65,6 +77,26 @@ func (f *fakeSource) emitButton(button device.Button, status device.ButtonStatus
 	f.mu.Unlock()
 	for _, cb := range callbacks {
 		cb(button, status)
+	}
+}
+
+func TestOpenRuntimeIncludesOptionalAstAlias(t *testing.T) {
+	if modules.GetModule("ast") == nil {
+		modules.Register(testNativeModule{name: "ast"})
+	}
+
+	rt, err := OpenRuntime(context.Background(), nil)
+	if err != nil {
+		t.Fatalf("OpenRuntime(): %v", err)
+	}
+	defer func() { _ = rt.Close(context.Background()) }()
+
+	_, err = rt.RunString(context.Background(), `
+		const ast = require("ast");
+		if (!ast.ok) throw new Error("expected ast test module");
+	`)
+	if err != nil {
+		t.Fatalf("require ast: %v", err)
 	}
 }
 
@@ -502,6 +534,40 @@ func TestDisplayCanOwnNamedGfxLayer(t *testing.T) {
 	rv, gv, bv, _ := fg.RGBA()
 	if rv <= gv || rv <= bv {
 		t.Fatalf("expected red foreground tint, got r=%d g=%d b=%d", rv, gv, bv)
+	}
+}
+
+func TestTileTextWrapCanBeResetOnReusedTile(t *testing.T) {
+	rt := NewRuntime(nil)
+	defer func() { _ = rt.Close(context.Background()) }()
+	env := rt.Env
+
+	_, err := rt.RunString(context.Background(), `
+		const ui = require("loupedeck/ui");
+		ui.page("home", page => {
+		  const tile = page.tile(0, 0);
+		  tile.text("wrapped", { wrap: true });
+		  tile.text("plain");
+		});
+		ui.page("home", page => {
+		  const tile = page.tile(1, 0);
+		  tile.text("wrapped", { wrap: true });
+		  tile.text("plain", { wrap: false });
+		});
+	`)
+	if err != nil {
+		t.Fatalf("run script: %v", err)
+	}
+
+	page := env.UI.Page("home")
+	if page == nil {
+		t.Fatal("expected home page")
+	}
+	if tile := page.Tile(0, 0); tile == nil || tile.Wrap() {
+		t.Fatalf("expected omitted text options to reset wrapping, got tile=%#v", tile)
+	}
+	if tile := page.Tile(1, 0); tile == nil || tile.Wrap() {
+		t.Fatalf("expected explicit wrap:false to reset wrapping, got tile=%#v", tile)
 	}
 }
 

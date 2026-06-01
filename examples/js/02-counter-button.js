@@ -1,6 +1,6 @@
 __package__({
   name: 'counter-button',
-  short: 'Counter button example scene'
+  short: 'Counter button example scene with reactive binding'
 });
 
 function runScene() {

@@ -3,7 +3,6 @@ package device
 import (
 	"errors"
 	"fmt"
-	"log/slog"
 	"sync"
 	"time"
 
@@ -198,7 +197,7 @@ func (w *outboundWriter) recordQueued(depth int) {
 	if depth > w.stats.MaxQueueDepth {
 		w.stats.MaxQueueDepth = depth
 	}
-	slog.Debug("writer queued command", "depth", depth)
+	log.Debug().Int("depth", depth).Msg("writer queued command")
 }
 
 func (w *outboundWriter) recordSentMessage() {

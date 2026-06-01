@@ -2,7 +2,6 @@ package device
 
 import (
 	"fmt"
-	"log/slog"
 	"time"
 
 	"github.com/gorilla/websocket"
@@ -159,7 +158,7 @@ func (l *Loupedeck) EnqueueCommand(cmd outboundCommand) error {
 
 // Send sends a message to the specified device.
 func (l *Loupedeck) Send(m *Message) error {
-	slog.Info("Sending", "message", m.String())
+	log.Info().Str("message", m.String()).Msg("Sending")
 	l.setTransactionCallback(m.transactionID, nil)
 	return l.EnqueueCommand(singleMessageCommand{message: m})
 }
@@ -169,7 +168,7 @@ func (l *Loupedeck) Send(m *Message) error {
 // response to the message, the callback function will be called and
 // provided with the response message.
 func (l *Loupedeck) SendWithCallback(m *Message, c transactionCallback) error {
-	slog.Info("Setting callback", "message", m.String())
+	log.Info().Str("message", m.String()).Msg("Setting callback")
 	l.setTransactionCallback(m.transactionID, c)
 	return l.EnqueueCommand(singleMessageCommand{message: m})
 }
@@ -183,7 +182,7 @@ func (l *Loupedeck) SendAndWait(m *Message, timeout time.Duration) (*Message, er
 		defer func() {
 			_ = recover()
 		}()
-		slog.Info("sendAndWait callback received, sending to channel")
+		log.Info().Msg("sendAndWait callback received, sending to channel")
 		ch <- m2
 	})
 	if err != nil {
@@ -203,10 +202,10 @@ func (l *Loupedeck) SendAndWait(m *Message, timeout time.Duration) (*Message, er
 
 	select {
 	case resp := <-ch:
-		slog.Info("sendAndWait received ok")
+		log.Info().Msg("sendAndWait received ok")
 		return resp, nil
 	case <-time.After(timeout):
-		slog.Warn("sendAndWait timeout")
+		log.Warn().Msg("sendAndWait timeout")
 		return nil, fmt.Errorf("timeout waiting for response")
 	}
 }

@@ -61,6 +61,12 @@ topics:
       description: User interface design, controls, and visual presentation surfaces
     - slug: web
       description: Browser, HTTP, websocket, and web-based delivery surfaces
+    - slug: agent-integration
+      description: Integration between coding agents and external tools/hardware
+    - slug: http-api
+      description: REST HTTP API design and implementation
+    - slug: xgoja
+      description: xgoja build system for custom goja-powered binaries
 docTypes:
     - slug: design-doc
       description: Structured rationale and architecture notes

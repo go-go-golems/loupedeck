@@ -1,7 +1,10 @@
 package env
 
 import (
+	"image/color"
+
 	"github.com/dop251/goja"
+	"github.com/go-go-golems/loupedeck/pkg/device"
 	"github.com/go-go-golems/loupedeck/runtime/anim"
 	"github.com/go-go-golems/loupedeck/runtime/host"
 	"github.com/go-go-golems/loupedeck/runtime/metrics"
@@ -10,13 +13,23 @@ import (
 	"github.com/go-go-golems/loupedeck/runtime/ui"
 )
 
+// DeviceControl provides explicit hardware operations that do not fit the
+// retained UI model. It is intentionally optional: runtimes created with
+// hardware disabled still expose the JavaScript module, but calls return a
+// clear "hardware not available" error.
+type DeviceControl interface {
+	SetButtonColor(button device.Button, c color.RGBA) error
+	SetBrightness(brightness int) error
+}
+
 type LoupeDeckEnvironment struct {
-	Reactive *reactive.Runtime
-	UI       *ui.UI
-	Host     *host.Runtime
-	Anim     *anim.Runtime
-	Present  *present.Runtime
-	Metrics  *metrics.Collector
+	Reactive      *reactive.Runtime
+	UI            *ui.UI
+	Host          *host.Runtime
+	Anim          *anim.Runtime
+	Present       *present.Runtime
+	Metrics       *metrics.Collector
+	DeviceControl DeviceControl
 }
 
 func Lookup(vm *goja.Runtime) (*LoupeDeckEnvironment, bool) {
