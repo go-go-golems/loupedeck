@@ -25,6 +25,7 @@ import (
 	"github.com/go-go-golems/go-go-goja/pkg/xgoja/providerutil"
 	runcmd "github.com/go-go-golems/loupedeck/cmd/loupedeck/cmds/run"
 	verbscmd "github.com/go-go-golems/loupedeck/cmd/loupedeck/cmds/verbs"
+	helpdoc "github.com/go-go-golems/loupedeck/docs/help"
 	"github.com/go-go-golems/loupedeck/pkg/device"
 	"github.com/go-go-golems/loupedeck/runtime/js/env"
 	"github.com/go-go-golems/loupedeck/runtime/js/module_anim"
@@ -57,6 +58,12 @@ func Register(registry *providerapi.Registry) error {
 		moduleEntry(module_scene_metrics.ModuleName, "Scene-level metrics helpers for Loupedeck render loops.", module_scene_metrics.Loader),
 		moduleEntry(module_state.ModuleName, "Reactive state primitives for Loupedeck scenes.", module_state.Loader),
 		moduleEntry(module_ui.ModuleName, "Retained Loupedeck UI pages, tiles, displays, and hardware events.", module_ui.Loader),
+		providerapi.HelpSource{
+			Name:        "runtime-api",
+			Description: "Loupedeck JavaScript runtime API reference and tutorials",
+			FS:          helpdoc.FS(),
+			Root:        ".",
+		},
 		providerapi.WithPackageCapability(hardware),
 		providerapi.CommandSetProvider{
 			Name:         "scenes",
