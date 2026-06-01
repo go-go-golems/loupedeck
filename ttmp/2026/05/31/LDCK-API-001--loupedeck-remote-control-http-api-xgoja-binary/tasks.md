@@ -40,12 +40,12 @@
 - [x] 4i. Update `server.js` brightness/button endpoints to call `hw` and return 503 when unavailable
 - [x] 4j. Rebuild generated binary and re-run API smoke tests (27/27 passing; hardware writes correctly return 503 without hardware)
 
-## Phase 5: Hardware operator tests
-- [ ] 5a. Add hardware operator smoke script for visible display and LED confirmation
-- [ ] 5b. Test `PUT /api/v1/buttons/:name/color` on real hardware
-- [ ] 5c. Test `PUT /api/v1/brightness` on real hardware
-- [ ] 5d. Test page/display rendering on real hardware with render diagnostics
-- [ ] 5e. Test button/knob/touch events end-to-end (hardware → SQLite → polling)
+## Phase 5: Hardware operator tests 🚧
+- [x] 5a. Add hardware operator smoke script for visible display and LED confirmation
+- [x] 5b. Test `PUT /api/v1/buttons/:name/color` on real hardware at HTTP/device-write level (operator visual confirmation still requested)
+- [x] 5c. Test `PUT /api/v1/brightness` on real hardware at HTTP/device-write level (operator visual confirmation still requested)
+- [ ] 5d. Test page/display rendering on real hardware with render diagnostics and operator confirmation
+- [ ] 5e. Test button/knob/touch events end-to-end (hardware → SQLite → polling) with operator input
 
 ## Phase 6: Cleanup and documentation
 - [ ] 6a. Decide whether to delete, build-tag, or archive manual `loupedeck-server/main.go` spike
@@ -61,5 +61,7 @@
 - `cf57f16` — chore: add .gitignore, remove db from tracking
 - `2b226e4` — feat: add debug logging for hardware event callbacks
 - `f6542ad` — feat: add xgoja long-running server command provider
-- `68e7400` — feat: add loupedeck hardware JS module
+- `3bf52bd` — feat: add loupedeck hardware JS module
 - `faff68b` — feat: wire loupedeck hardware module into server API
+- `609eacf` — docs: record loupedeck hw API implementation
+- docs: add hardware operator validation script (latest docs commit; see `git log`)

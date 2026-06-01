@@ -1,11 +1,23 @@
 ---
-title: Investigation diary
-doc-type: reference
-status: active
-intent: long-term
-topics: [loupedeck, xgoja, http-api, agent-integration]
-ticket: LDCK-API-001
+Title: ""
+Ticket: ""
+Status: ""
+Topics: []
+DocType: ""
+Intent: ""
+Owners: []
+RelatedFiles:
+    - Path: loupedeck/ttmp/2026/05/31/LDCK-API-001--loupedeck-remote-control-http-api-xgoja-binary/scripts/02-start-server.sh
+      Note: Starts generated xgoja server with --with-hardware
+    - Path: loupedeck/ttmp/2026/05/31/LDCK-API-001--loupedeck-remote-control-http-api-xgoja-binary/scripts/05-hardware-operator-test.sh
+      Note: Interactive hardware operator test for brightness LEDs display and events
+ExternalSources: []
+Summary: ""
+LastUpdated: 0001-01-01T00:00:00Z
+WhatFor: ""
+WhenToUse: ""
 ---
+
 
 # Diary
 
@@ -473,6 +485,123 @@ loupedeck/ttmp/2026/05/31/LDCK-API-001--loupedeck-remote-control-http-api-xgoja-
 Commits:
 
 ```text
-68e7400 feat: add loupedeck hardware JS module
+3bf52bd feat: add loupedeck hardware JS module
 faff68b feat: wire loupedeck hardware module into server API
 ```
+
+## Step 6: Exercise hardware-backed brightness, LED, and display endpoints
+
+With the physical Loupedeck attached, I restarted the generated xgoja server using `--with-hardware` and verified that the runtime connected to `/dev/ttyACM0` as a `Loupedeck Live`. This moved the previous no-hardware validation into a real device-write path: brightness and Circle LED endpoints now return HTTP 200 and produce low-level device `Sending` logs.
+
+I also added a reusable hardware operator script so future checks can separate transport/API success from visual confirmation. The script has an `--http-only` mode for non-interactive validation and a default interactive mode that asks the operator to confirm brightness, LED, display, and event behavior.
+
+### Prompt Context
+
+**User prompt (verbatim):** "hardware is attache"
+
+**Assistant interpretation:** The physical device is now attached, so run the hardware-backed server path and validate the real brightness/LED/display endpoints.
+
+**Inferred user intent:** Confirm that the `loupedeck/hw` module is not only build/test-correct, but also wired to a real Loupedeck device.
+
+### What I did
+
+- Started the generated xgoja server with real hardware:
+
+```bash
+/home/manuel/workspaces/2026-05-27/better-loupedeck-tiles/loupedeck/ttmp/2026/05/31/LDCK-API-001--loupedeck-remote-control-http-api-xgoja-binary/scripts/02-start-server.sh --with-hardware
+```
+
+- Confirmed `/api/v1/info` returns `connected: true` and model `Loupedeck Live`.
+- Exercised hardware endpoints directly:
+
+```bash
+PUT /api/v1/brightness {"value":2}  # HTTP 200
+PUT /api/v1/brightness {"value":9}  # HTTP 200
+PUT /api/v1/buttons/Circle/color {"r":255,"g":0,"b":0}  # HTTP 200
+PUT /api/v1/buttons/Circle/color {"r":0,"g":255,"b":0}  # HTTP 200
+PUT /api/v1/buttons/Circle/color {"r":0,"g":0,"b":0}  # HTTP 200
+POST /api/v1/displays/main/draw ...  # HTTP 200
+```
+
+- Added `scripts/05-hardware-operator-test.sh`.
+- Ran non-interactive HTTP/device-write validation:
+
+```bash
+scripts/05-hardware-operator-test.sh --http-only
+```
+
+Result:
+
+```text
+11 passed, 0 failed
+```
+
+### Why
+
+The no-hardware smoke test proved we stopped lying about hardware writes, but it did not prove the real device path. This step confirms that, once the xgoja hardware capability sets `DeviceControl`, REST brightness and LED calls reach the connected device layer without returning errors.
+
+### What worked
+
+The server connected successfully:
+
+```text
+Found Loupedeck model="Loupedeck Live" product=0004 vendor=2ec2
+[loupedeck-server] REST API ready
+```
+
+Brightness and LED endpoint calls returned HTTP 200. The tmux log showed additional low-level `Sending` lines immediately after the hardware requests.
+
+### What didn't work
+
+- The first version of `05-hardware-operator-test.sh` had a broken `count_events` helper. It invoked Python with both a here-doc and stdin redirected from the response body, so Python read the script from stdin instead of the JSON response and failed with:
+
+```text
+Traceback (most recent call last):
+  File "<stdin>", line 1, in <module>
+NameError: name 'null' is not defined
+```
+
+- I fixed it by passing the response-body file path as a Python argument and reading that file explicitly.
+- I did not mark display or event hardware behavior complete because visual confirmation and operator input are still needed.
+
+### What I learned
+
+The clean `loupedeck/hw` module now behaves differently depending on runtime hardware state exactly as intended:
+
+- `--deck-enabled=false`: brightness/LED calls return 503 from the REST API.
+- `--deck-enabled`: brightness/LED calls return 200 and trigger device writes.
+
+### What was tricky to build
+
+The event portion of the operator script needs to be interactive. Without a human pressing/touching/rotating controls, polling may legitimately return zero events. The script therefore treats zero events as non-fatal in `--http-only` mode and only requires events in default operator-confirmed mode.
+
+### What warrants a second pair of eyes
+
+- Confirm visually that brightness and Circle LED changes happened on the physical device.
+- Confirm whether the `POST /api/v1/displays/main/draw` response corresponds to visible display updates; this was previously a suspected issue.
+- Run the interactive event portion and verify SQLite polling receives hardware interactions.
+
+### What should be done in the future
+
+- Run `scripts/05-hardware-operator-test.sh` without `--http-only` and answer the visual prompts.
+- If display is still blank despite HTTP 200, add render/present/device draw instrumentation.
+
+### Code review instructions
+
+Review:
+
+- `scripts/05-hardware-operator-test.sh`
+- `tasks.md` Phase 5 updates
+
+Validate with a connected device:
+
+```bash
+scripts/02-start-server.sh --with-hardware
+scripts/05-hardware-operator-test.sh --http-only
+scripts/05-hardware-operator-test.sh
+scripts/04-stop-server.sh
+```
+
+### Technical details
+
+The hardware server is still running in tmux session `loupedeck-api` at the time of this diary entry.

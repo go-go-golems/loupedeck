@@ -56,3 +56,13 @@ Step 5: Implemented clean loupedeck/hw JavaScript API for setBrightness and setB
 - /home/manuel/workspaces/2026-05-27/better-loupedeck-tiles/loupedeck-server/xgoja.yaml — Runtime profile includes loupedeck/hw
 - /home/manuel/workspaces/2026-05-27/better-loupedeck-tiles/loupedeck/runtime/js/module_hw/module.go — New hardware JS module
 
+
+## 2026-06-01
+
+Step 6: Hardware-attached validation. Started generated xgoja server with --with-hardware, confirmed Loupedeck Live connection, verified brightness and Circle LED endpoints return HTTP 200 with device-write logs, added scripts/05-hardware-operator-test.sh for interactive visual/event confirmation, and ran http-only hardware test 11/11 passing.
+
+### Related Files
+
+- /home/manuel/workspaces/2026-05-27/better-loupedeck-tiles/loupedeck/ttmp/2026/05/31/LDCK-API-001--loupedeck-remote-control-http-api-xgoja-binary/scripts/05-hardware-operator-test.sh — Reusable hardware operator validation script
+- /home/manuel/workspaces/2026-05-27/better-loupedeck-tiles/loupedeck/ttmp/2026/05/31/LDCK-API-001--loupedeck-remote-control-http-api-xgoja-binary/tasks.md — Phase 5 hardware test progress
+
