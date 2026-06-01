@@ -102,7 +102,7 @@ func tryConnect(open func() (*SerialWebSockConn, error), writerOptions WriterOpt
 func doConnect(c *SerialWebSockConn, writerOptions WriterOptions, renderOptions *RenderOptions) (*Loupedeck, error) {
 	dialer := websocket.Dialer{
 		NetDial: func(network, addr string) (net.Conn, error) {
-		log.Info().Msg("Dialing...")
+			log.Info().Msg("Dialing...")
 			return c, nil
 		},
 		HandshakeTimeout: 1 * time.Second,

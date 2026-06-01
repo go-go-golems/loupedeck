@@ -50,7 +50,7 @@ func (s *Surface) Text(text string, opts TextOptions) {
 		lineOpts := opts
 		lineOpts.Y = opts.Y + i*(lineH+gap)
 		lineOpts.Height = lineH + 4 // per-line alpha mask height
-		lineOpts.WrapWidth = 0     // already expanded, don't re-wrap
+		lineOpts.WrapWidth = 0      // already expanded, don't re-wrap
 		if line == "" {
 			continue
 		}

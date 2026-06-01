@@ -23,7 +23,7 @@ func TestSurfaceTextNewlineRendersMultipleLines(t *testing.T) {
 	// Verify that pixels appear both above and below the split point.
 	face := basicfont.Face7x13
 	lineH := face.Metrics().Height.Ceil() // 13
-	separator := lineH // row 13
+	separator := lineH                    // row 13
 
 	topNonZero := 0
 	botNonZero := 0

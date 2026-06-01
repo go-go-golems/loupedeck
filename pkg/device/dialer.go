@@ -102,7 +102,7 @@ func ConnectSerialAuto() (*SerialWebSockConn, error) {
 			// buffer may contain websocket frames from an earlier
 			// connection that would confuse the HTTP handshake.
 			if err := p.ResetInputBuffer(); err != nil {
-			log.Warn().Str("port", port.Name).Err(err).Msg("Unable to reset serial input buffer")
+				log.Warn().Str("port", port.Name).Err(err).Msg("Unable to reset serial input buffer")
 			}
 			conn := &SerialWebSockConn{
 				Name:    port.Name,

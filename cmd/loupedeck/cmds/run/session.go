@@ -163,6 +163,14 @@ func RunAnnotatedVerbScene(ctx context.Context, identity SceneIdentity, opts Ses
 	})
 }
 
+func attachDeckToEnvironment(env *envpkg.LoupeDeckEnvironment, deckConn *device.Loupedeck) {
+	if env == nil || deckConn == nil {
+		return
+	}
+	env.Host.Attach(deckConn)
+	env.DeviceControl = &envpkg.LoupedeckDeviceControl{Deck: deckConn}
+}
+
 func RunSceneSession(ctx context.Context, identity SceneIdentity, opts SessionOptions, runtimeOptions []engine.Option, bootstrap RuntimeBootstrap) (any, error) {
 	writerOptions := device.WriterOptions{QueueSize: opts.QueueSize, SendInterval: opts.SendInterval}
 	renderOptions := device.DefaultRenderOptions
@@ -179,9 +187,9 @@ func RunSceneSession(ctx context.Context, identity SceneIdentity, opts SessionOp
 		return nil, fmt.Errorf("connect: %w", err)
 	}
 	defer func() {
-	log.Debug().Msg("closing loupedeck connection")
+		log.Debug().Msg("closing loupedeck connection")
 		if err := deckConn.Close(); err != nil {
-		log.Warn().Err(err).Msg("close failed")
+			log.Warn().Err(err).Msg("close failed")
 		}
 	}()
 
@@ -200,7 +208,7 @@ func RunSceneSession(ctx context.Context, identity SceneIdentity, opts SessionOp
 	}()
 
 	env := envpkg.Ensure(&envpkg.LoupeDeckEnvironment{Metrics: metrics.NewWithTraceLimit(opts.TraceLimit)})
-	env.Host.Attach(deckConn)
+	attachDeckToEnvironment(env, deckConn)
 	if opts.LogEvents {
 		registerEventLogging(env)
 	}
@@ -260,16 +268,16 @@ func RunSceneSession(ctx context.Context, identity SceneIdentity, opts SessionOp
 		}
 		snap := rt.Env.Metrics.SnapshotAndReset()
 		if opts.LogJSStats {
-		log.Info().Str("script", identity.ScriptPath).Str("verb", identity.Verb).Str("label", label).Str("counters", formatJSCounters(snap)).Str("timings", formatJSTimings(snap)).Msg("js stats")
+			log.Info().Str("script", identity.ScriptPath).Str("verb", identity.Verb).Str("label", label).Str("counters", formatJSCounters(snap)).Str("timings", formatJSTimings(snap)).Msg("js stats")
 		}
 		if opts.LogJSTrace {
 			for _, event := range filterTraceEvents(snap.Trace, false) {
-			log.Info().Str("script", identity.ScriptPath).Str("verb", identity.Verb).Str("label", label).Uint64("seq", event.Seq).Str("event", event.Name).Str("fields", formatTraceFields(event.Fields)).Msg("js trace")
+				log.Info().Str("script", identity.ScriptPath).Str("verb", identity.Verb).Str("label", label).Uint64("seq", event.Seq).Str("event", event.Name).Str("fields", formatTraceFields(event.Fields)).Msg("js trace")
 			}
 		}
 		if opts.LogGoTrace {
 			for _, event := range filterTraceEvents(snap.Trace, true) {
-			log.Info().Str("script", identity.ScriptPath).Str("verb", identity.Verb).Str("label", label).Uint64("seq", event.Seq).Str("event", event.Name).Str("fields", formatTraceFields(event.Fields)).Msg("go trace")
+				log.Info().Str("script", identity.ScriptPath).Str("verb", identity.Verb).Str("label", label).Uint64("seq", event.Seq).Str("event", event.Name).Str("fields", formatTraceFields(event.Fields)).Msg("go trace")
 			}
 		}
 	}
@@ -298,9 +306,11 @@ func RunSceneSession(ctx context.Context, identity SceneIdentity, opts SessionOp
 
 	log.Info().Str("script", identity.ScriptPath).Str("verb", identity.Verb).Dur("duration", opts.Duration).Dur("send_interval", opts.SendInterval).Dur("flush_interval", opts.FlushInterval).Bool("log_render_stats", opts.LogRenderStats).Bool("log_writer_stats", opts.LogWriterStats).Bool("log_js_stats", opts.LogJSStats).Bool("log_js_trace", opts.LogJSTrace).Bool("log_go_trace", opts.LogGoTrace).Int("trace_limit", opts.TraceLimit).Msg("Loupedeck JS live runner started")
 	exitRunner := func(reason string, attrs ...any) error {
-		logAttrs := []any{"reason", reason, "script", identity.ScriptPath, "verb", identity.Verb}
-		logAttrs = append(logAttrs, attrs...)
-		log.Info().Str("reason", reason).Str("script", identity.ScriptPath).Str("verb", identity.Verb).Msg("Loupedeck JS live runner exiting")
+		event := log.Info().Str("reason", reason).Str("script", identity.ScriptPath).Str("verb", identity.Verb)
+		if len(attrs) > 0 {
+			event = event.Str("details", fmt.Sprint(attrs...))
+		}
+		event.Msg("Loupedeck JS live runner exiting")
 		if opts.TraceDumpOnExit {
 			dumpMetricsWindow("final")
 		}
@@ -354,19 +364,19 @@ func registerEventLogging(env *envpkg.LoupeDeckEnvironment) {
 	for _, button := range []device.Button{device.Circle, device.Button1, device.Button2, device.Button3, device.Button4, device.Button5, device.Button6, device.Button7} {
 		button := button
 		env.Host.OnButton(button, func(b device.Button, s device.ButtonStatus) {
-		log.Info().Str("button", b.String()).Str("status", s.String()).Msg("button event")
+			log.Info().Str("button", b.String()).Str("status", s.String()).Msg("button event")
 		})
 	}
 	for _, touch := range []device.TouchButton{device.Touch1, device.Touch2, device.Touch3, device.Touch4, device.Touch5, device.Touch6, device.Touch7, device.Touch8, device.Touch9, device.Touch10, device.Touch11, device.Touch12} {
 		touch := touch
 		env.Host.OnTouch(touch, func(t device.TouchButton, s device.ButtonStatus, x, y uint16) {
-		log.Info().Str("touch", t.String()).Str("status", s.String()).Uint16("x", x).Uint16("y", y).Msg("touch event")
+			log.Info().Str("touch", t.String()).Str("status", s.String()).Uint16("x", x).Uint16("y", y).Msg("touch event")
 		})
 	}
 	for _, knob := range []device.Knob{device.Knob1, device.Knob2, device.Knob3, device.Knob4, device.Knob5, device.Knob6} {
 		knob := knob
 		env.Host.OnKnob(knob, func(k device.Knob, value int) {
-		log.Info().Str("knob", k.String()).Int("value", value).Msg("knob event")
+			log.Info().Str("knob", k.String()).Int("value", value).Msg("knob event")
 		})
 	}
 }

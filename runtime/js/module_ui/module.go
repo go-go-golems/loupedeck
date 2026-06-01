@@ -261,11 +261,10 @@ func displayObject(runtimeServices runtimebridge.RuntimeServices, runtime *goja.
 func tileObject(runtimeServices runtimebridge.RuntimeServices, runtime *goja.Runtime, _ *envpkg.LoupeDeckEnvironment, tile *ui.Tile) *goja.Object {
 	obj := runtime.NewObject()
 	_ = obj.Set("text", func(call goja.FunctionCall) goja.Value {
-		// Parse options from second argument
+		// Parse options from second argument. Always apply the parsed value so
+		// reused tile objects can turn wrapping off after a previous wrapped text.
 		opts := tileTextOptionsFromValue(call.Argument(1), runtime)
-		if opts.wrap {
-			tile.SetWrap(true)
-		}
+		tile.SetWrap(opts.wrap)
 		if fn, ok := goja.AssertFunction(call.Argument(0)); ok {
 			tile.BindText(func() string {
 				result, err := runtimeServices.CallWithCurrentContext(runtime, "ui.tile.text", func(_ context.Context, vm *goja.Runtime) (any, error) {

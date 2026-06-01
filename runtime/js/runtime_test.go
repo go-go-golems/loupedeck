@@ -537,6 +537,40 @@ func TestDisplayCanOwnNamedGfxLayer(t *testing.T) {
 	}
 }
 
+func TestTileTextWrapCanBeResetOnReusedTile(t *testing.T) {
+	rt := NewRuntime(nil)
+	defer func() { _ = rt.Close(context.Background()) }()
+	env := rt.Env
+
+	_, err := rt.RunString(context.Background(), `
+		const ui = require("loupedeck/ui");
+		ui.page("home", page => {
+		  const tile = page.tile(0, 0);
+		  tile.text("wrapped", { wrap: true });
+		  tile.text("plain");
+		});
+		ui.page("home", page => {
+		  const tile = page.tile(1, 0);
+		  tile.text("wrapped", { wrap: true });
+		  tile.text("plain", { wrap: false });
+		});
+	`)
+	if err != nil {
+		t.Fatalf("run script: %v", err)
+	}
+
+	page := env.UI.Page("home")
+	if page == nil {
+		t.Fatal("expected home page")
+	}
+	if tile := page.Tile(0, 0); tile == nil || tile.Wrap() {
+		t.Fatalf("expected omitted text options to reset wrapping, got tile=%#v", tile)
+	}
+	if tile := page.Tile(1, 0); tile == nil || tile.Wrap() {
+		t.Fatalf("expected explicit wrap:false to reset wrapping, got tile=%#v", tile)
+	}
+}
+
 func TestTileCanOwnGfxSurface(t *testing.T) {
 	rt := NewRuntime(nil)
 	defer func() { _ = rt.Close(context.Background()) }()

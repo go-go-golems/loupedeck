@@ -251,23 +251,6 @@ func drawSingleLine(dst draw.Image, text string, baseline int, fg color.Color, f
 	d.DrawString(text)
 }
 
-// drawWrappedLabel renders text centered, word-wrapped to wrapWidth pixels,
-// starting at baseline for the first line and incrementing by lineH for
-// subsequent lines.
-func drawWrappedLabel(dst draw.Image, text string, baseline int, fg color.Color, wrapWidth int) {
-	if text == "" || wrapWidth <= 0 {
-		drawCenteredLabel(dst, text, baseline, fg)
-		return
-	}
-	face := basicfont.Face7x13
-	lineH := face.Metrics().Height.Ceil()
-
-	lines := wrapRendererText(text, face, wrapWidth)
-	for i, line := range lines {
-		drawSingleLine(dst, line, baseline+i*lineH, fg, face)
-	}
-}
-
 // wrapRendererText wraps text to fit within wrapWidth pixels using the given
 // font face. Returns a slice of lines.
 func wrapRendererText(text string, face font.Face, wrapWidth int) []string {
