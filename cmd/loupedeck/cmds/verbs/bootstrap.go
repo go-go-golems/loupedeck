@@ -13,7 +13,7 @@ import (
 
 	"github.com/dop251/goja_nodejs/require"
 	glazedconfig "github.com/go-go-golems/glazed/pkg/config"
-	"github.com/go-go-golems/go-go-goja/engine"
+	"github.com/go-go-golems/go-go-goja/pkg/engine"
 	"github.com/go-go-golems/go-go-goja/pkg/jsverbs"
 	"github.com/go-go-golems/loupedeck/examples"
 	"github.com/spf13/cobra"

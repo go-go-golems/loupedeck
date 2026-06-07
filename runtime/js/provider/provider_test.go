@@ -180,7 +180,7 @@ func hasTopLevelCommand(set *providerapi.CommandSet, name string) bool {
 
 func loadModule(t *testing.T, mod providerapi.Module) *goja.Object {
 	t.Helper()
-	loader, err := mod.New(providerapi.ModuleContext{Name: mod.Name, As: mod.DefaultAs})
+	loader, err := mod.New(providerapi.ModuleSetupContext{Name: mod.Name, As: mod.DefaultAs})
 	if err != nil {
 		t.Fatalf("create loader: %v", err)
 	}

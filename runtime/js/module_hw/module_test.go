@@ -8,7 +8,7 @@ import (
 
 	"github.com/dop251/goja"
 	"github.com/dop251/goja_nodejs/require"
-	"github.com/go-go-golems/go-go-goja/engine"
+	"github.com/go-go-golems/go-go-goja/pkg/engine"
 	"github.com/go-go-golems/loupedeck/pkg/device"
 	envpkg "github.com/go-go-golems/loupedeck/runtime/js/env"
 )
@@ -38,7 +38,7 @@ type testModuleSpec struct {
 }
 
 func (s testModuleSpec) ID() string { return "test:loupedeck-hw" }
-func (s testModuleSpec) RegisterRuntimeModule(ctx *engine.RuntimeModuleContext, reg *require.Registry) error {
+func (s testModuleSpec) RegisterRuntimeModule(ctx *engine.RuntimeModuleRegistrationContext, reg *require.Registry) error {
 	envpkg.Store(ctx.VM, s.env)
 	Register(reg)
 	return ctx.AddCloser(func(context.Context) error {

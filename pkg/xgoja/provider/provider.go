@@ -7,6 +7,6 @@ import (
 
 const PackageID = jsprovider.PackageID
 
-func Register(registry *providerapi.Registry) error {
+func Register(registry *providerapi.ProviderRegistry) error {
 	return jsprovider.Register(registry)
 }

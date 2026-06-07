@@ -14,7 +14,7 @@ import (
 	"github.com/go-go-golems/glazed/pkg/cmds"
 	"github.com/go-go-golems/glazed/pkg/cmds/runner"
 	"github.com/go-go-golems/glazed/pkg/cmds/values"
-	"github.com/go-go-golems/go-go-goja/engine"
+	"github.com/go-go-golems/go-go-goja/pkg/engine"
 	"github.com/go-go-golems/go-go-goja/pkg/jsdoc/batch"
 	jsdocexport "github.com/go-go-golems/go-go-goja/pkg/jsdoc/export"
 	jsdocmodel "github.com/go-go-golems/go-go-goja/pkg/jsdoc/model"
