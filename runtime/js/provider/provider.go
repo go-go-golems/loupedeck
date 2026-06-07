@@ -12,14 +12,12 @@ import (
 	"strings"
 	"time"
 
-	"github.com/dop251/goja"
 	"github.com/dop251/goja_nodejs/require"
 	"github.com/go-go-golems/glazed/pkg/cli"
 	"github.com/go-go-golems/glazed/pkg/cmds"
 	"github.com/go-go-golems/glazed/pkg/cmds/fields"
 	"github.com/go-go-golems/glazed/pkg/cmds/schema"
 	"github.com/go-go-golems/glazed/pkg/cmds/values"
-	"github.com/go-go-golems/go-go-goja/pkg/engine"
 	"github.com/go-go-golems/go-go-goja/pkg/jsverbs"
 	"github.com/go-go-golems/go-go-goja/pkg/xgoja/providerapi"
 	"github.com/go-go-golems/go-go-goja/pkg/xgoja/providerutil"
@@ -146,14 +144,11 @@ func xgojaSceneInvokerFactory(providerCtx providerapi.CommandSetContext) verbscm
 				}
 				opts = append(opts, require.WithGlobalFolders(folders...))
 			}
-			rt, err := providerCtx.RuntimeFactory.NewRuntime(ctx, opts...)
+			rt, err := providerCtx.RuntimeFactory.NewRuntimeFromSections(ctx, parsedValues, opts...)
 			if err != nil {
 				return nil, err
 			}
 			defer func() { _ = rt.Close(context.Background()) }()
-			if err := providerutil.InitRuntimeFromSections(ctx, parsedValues, runtimeHandle{rt: rt}, providerCtx.SelectedModules); err != nil {
-				return nil, err
-			}
 			return registry.InvokeInRuntime(ctx, rt, verb, parsedValues)
 		}
 	}
@@ -171,35 +166,6 @@ func appendSections(commands []cmds.Command, sections []schema.Section) {
 			command.Description().SetSections(section)
 		}
 	}
-}
-
-type runtimeHandle struct {
-	rt *engine.Runtime
-}
-
-func (h runtimeHandle) Runtime() *goja.Runtime {
-	if h.rt == nil {
-		return nil
-	}
-	return h.rt.VM
-}
-
-func (h runtimeHandle) EngineRuntime() *engine.Runtime {
-	return h.rt
-}
-
-func (h runtimeHandle) Close(ctx context.Context) error {
-	if h.rt == nil {
-		return nil
-	}
-	return h.rt.Close(ctx)
-}
-
-func (h runtimeHandle) AddCloser(fn func(context.Context) error) error {
-	if h.rt == nil {
-		return fmt.Errorf("runtime is nil")
-	}
-	return h.rt.AddCloser(fn)
 }
 
 func moduleEntry(name, description string, loader func() require.ModuleLoader) providerapi.Module {
@@ -374,6 +340,5 @@ func clearDisplays(displays map[string]*device.Display) {
 	time.Sleep(100 * time.Millisecond)
 }
 
-var _ providerapi.RuntimeInitializerHandle = runtimeHandle{}
 var _ providerapi.GlazedConfigSectionCapability = (*hardwareCapability)(nil)
 var _ providerapi.RuntimeInitializerCapability = (*hardwareCapability)(nil)
