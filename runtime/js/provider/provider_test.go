@@ -14,7 +14,7 @@ import (
 )
 
 func TestRegisterProvider(t *testing.T) {
-	registry := providerapi.NewRegistry()
+	registry := providerapi.NewProviderRegistry()
 	if err := Register(registry); err != nil {
 		t.Fatalf("register provider: %v", err)
 	}
@@ -57,7 +57,7 @@ func TestGfxLoaderInstallsExports(t *testing.T) {
 }
 
 func TestRegisterScenesCommandProvider(t *testing.T) {
-	registry := providerapi.NewRegistry()
+	registry := providerapi.NewProviderRegistry()
 	if err := Register(registry); err != nil {
 		t.Fatalf("register provider: %v", err)
 	}
@@ -71,7 +71,7 @@ func TestRegisterScenesCommandProvider(t *testing.T) {
 }
 
 func TestRegisterProviderHelpSource(t *testing.T) {
-	registry := providerapi.NewRegistry()
+	registry := providerapi.NewProviderRegistry()
 	if err := Register(registry); err != nil {
 		t.Fatalf("register provider: %v", err)
 	}
@@ -93,12 +93,11 @@ func TestRegisterProviderHelpSource(t *testing.T) {
 
 func TestScenesCommandProviderBuildsRunCommand(t *testing.T) {
 	provider := resolveCommandProvider(t, "scenes")
-	set, err := provider.New(providerapi.CommandSetContext{
-		Context:        context.Background(),
-		PackageID:      PackageID,
-		Name:           "scenes",
-		Mount:          "loupe",
-		RuntimeProfile: "main",
+	set, err := provider.NewCommandSet(providerapi.CommandSetContext{
+		Context:   context.Background(),
+		PackageID: PackageID,
+		Name:      "scenes",
+		Mount:     "loupe",
 	})
 	if err != nil {
 		t.Fatalf("create command set: %v", err)
@@ -117,13 +116,12 @@ func TestScenesCommandProviderCanDisableRunCommand(t *testing.T) {
 	if err != nil {
 		t.Fatalf("marshal config: %v", err)
 	}
-	set, err := provider.New(providerapi.CommandSetContext{
-		Context:        context.Background(),
-		PackageID:      PackageID,
-		Name:           "scenes",
-		Mount:          "loupe",
-		RuntimeProfile: "main",
-		Config:         config,
+	set, err := provider.NewCommandSet(providerapi.CommandSetContext{
+		Context:   context.Background(),
+		PackageID: PackageID,
+		Name:      "scenes",
+		Mount:     "loupe",
+		Config:    config,
 	})
 	if err != nil {
 		t.Fatalf("create command set: %v", err)
@@ -138,7 +136,7 @@ func TestScenesCommandProviderCanDisableRunCommand(t *testing.T) {
 
 func resolveModule(t *testing.T, name string) providerapi.Module {
 	t.Helper()
-	registry := providerapi.NewRegistry()
+	registry := providerapi.NewProviderRegistry()
 	if err := Register(registry); err != nil {
 		t.Fatalf("register provider: %v", err)
 	}
@@ -151,7 +149,7 @@ func resolveModule(t *testing.T, name string) providerapi.Module {
 
 func resolveCommandProvider(t *testing.T, name string) providerapi.CommandSetProvider {
 	t.Helper()
-	registry := providerapi.NewRegistry()
+	registry := providerapi.NewProviderRegistry()
 	if err := Register(registry); err != nil {
 		t.Fatalf("register provider: %v", err)
 	}
@@ -180,7 +178,7 @@ func hasTopLevelCommand(set *providerapi.CommandSet, name string) bool {
 
 func loadModule(t *testing.T, mod providerapi.Module) *goja.Object {
 	t.Helper()
-	loader, err := mod.New(providerapi.ModuleContext{Name: mod.Name, As: mod.DefaultAs})
+	loader, err := mod.NewModuleFactory(providerapi.ModuleSetupContext{Name: mod.Name, As: mod.DefaultAs})
 	if err != nil {
 		t.Fatalf("create loader: %v", err)
 	}

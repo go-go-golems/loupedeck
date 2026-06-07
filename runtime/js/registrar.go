@@ -6,7 +6,7 @@ import (
 
 	"github.com/dop251/goja"
 	"github.com/dop251/goja_nodejs/require"
-	"github.com/go-go-golems/go-go-goja/engine"
+	"github.com/go-go-golems/go-go-goja/pkg/engine"
 	"github.com/go-go-golems/loupedeck/pkg/jsmetrics"
 	envpkg "github.com/go-go-golems/loupedeck/runtime/js/env"
 	"github.com/go-go-golems/loupedeck/runtime/js/module_anim"
@@ -30,7 +30,7 @@ func (r Registrar) ID() string {
 	return "loupedeck-runtime"
 }
 
-func (r Registrar) RegisterRuntimeModule(ctx *engine.RuntimeModuleContext, reg *require.Registry) error {
+func (r Registrar) RegisterRuntimeModule(ctx *engine.RuntimeModuleRegistrationContext, reg *require.Registry) error {
 	if ctx == nil {
 		return fmt.Errorf("runtime module context is nil")
 	}
@@ -59,12 +59,6 @@ func (r Registrar) RegisterRuntimeModule(ctx *engine.RuntimeModuleContext, reg *
 	module_present.Register(reg)
 	jsmetrics.RegisterModules(reg, "loupedeck")
 	return nil
-}
-
-// RegisterRuntimeModules preserves compatibility with older loupedeck call
-// sites that used the pre-xgoja plural registrar name.
-func (r Registrar) RegisterRuntimeModules(ctx *engine.RuntimeModuleContext, reg *require.Registry) error {
-	return r.RegisterRuntimeModule(ctx, reg)
 }
 
 func installMetadataSentinels(vm *goja.Runtime) error {

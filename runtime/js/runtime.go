@@ -5,7 +5,7 @@ import (
 	"fmt"
 
 	"github.com/dop251/goja"
-	"github.com/go-go-golems/go-go-goja/engine"
+	"github.com/go-go-golems/go-go-goja/pkg/engine"
 	envpkg "github.com/go-go-golems/loupedeck/runtime/js/env"
 )
 
@@ -16,7 +16,7 @@ type Runtime struct {
 
 func OpenRuntime(ctx context.Context, env *envpkg.LoupeDeckEnvironment, opts ...engine.Option) (*Runtime, error) {
 	env = envpkg.Ensure(env)
-	builder := engine.NewBuilder(opts...).
+	builder := engine.NewRuntimeFactoryBuilder(opts...).
 		WithModules(NewRegistrar(env)).
 		// Raw Loupedeck scene commands normally install only the Loupedeck
 		// runtime modules. When the Loupedeck provider is used from a generated

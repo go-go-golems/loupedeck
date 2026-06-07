@@ -12,14 +12,12 @@ import (
 	"strings"
 	"time"
 
-	"github.com/dop251/goja"
 	"github.com/dop251/goja_nodejs/require"
 	"github.com/go-go-golems/glazed/pkg/cli"
 	"github.com/go-go-golems/glazed/pkg/cmds"
 	"github.com/go-go-golems/glazed/pkg/cmds/fields"
 	"github.com/go-go-golems/glazed/pkg/cmds/schema"
 	"github.com/go-go-golems/glazed/pkg/cmds/values"
-	"github.com/go-go-golems/go-go-goja/engine"
 	"github.com/go-go-golems/go-go-goja/pkg/jsverbs"
 	"github.com/go-go-golems/go-go-goja/pkg/xgoja/providerapi"
 	"github.com/go-go-golems/go-go-goja/pkg/xgoja/providerutil"
@@ -48,7 +46,7 @@ type scenesCommandProviderConfig struct {
 	Repositories []string `json:"repositories,omitempty"`
 }
 
-func Register(registry *providerapi.Registry) error {
+func Register(registry *providerapi.ProviderRegistry) error {
 	hardware := newHardwareCapability()
 	return registry.Package(PackageID,
 		moduleEntry(module_anim.ModuleName, "Animation loop and timeline helpers for Loupedeck scenes.", module_anim.Loader),
@@ -68,10 +66,10 @@ func Register(registry *providerapi.Registry) error {
 		},
 		providerapi.WithPackageCapability(hardware),
 		providerapi.CommandSetProvider{
-			Name:         "scenes",
-			DefaultMount: "loupedeck",
-			Description:  "Run Loupedeck JavaScript scenes and annotated scene verbs",
-			New:          newScenesCommandSet,
+			Name:          "scenes",
+			DefaultMount:  "loupedeck",
+			Description:   "Run Loupedeck JavaScript scenes and annotated scene verbs",
+			NewCommandSet: newScenesCommandSet,
 		},
 	)
 }
@@ -83,9 +81,8 @@ func newScenesCommandSet(ctx providerapi.CommandSetContext) (*providerapi.Comman
 			return nil, fmt.Errorf("decode loupedeck scenes command provider config: %w", err)
 		}
 	}
-	sections, err := providerutil.CollectConfigSections(ctx.SelectedModules, providerapi.SectionContext{
+	sections, err := providerutil.CollectGlazedConfigSections(ctx.SelectedModules, providerapi.SectionRequest{
 		CommandProviderID: ctx.Name,
-		RuntimeProfile:    ctx.RuntimeProfile,
 	}, map[string]string{schema.DefaultSlug: "loupedeck scene command schema"})
 	if err != nil {
 		return nil, err
@@ -132,10 +129,6 @@ func xgojaSceneInvokerFactory(providerCtx providerapi.CommandSetContext) verbscm
 			if providerCtx.RuntimeFactory == nil {
 				return nil, fmt.Errorf("xgoja runtime factory is nil")
 			}
-			profile := strings.TrimSpace(providerCtx.RuntimeProfile)
-			if profile == "" {
-				return nil, fmt.Errorf("xgoja runtime profile is empty")
-			}
 			if registry == nil {
 				registry = repo.Registry
 			}
@@ -151,14 +144,11 @@ func xgojaSceneInvokerFactory(providerCtx providerapi.CommandSetContext) verbscm
 				}
 				opts = append(opts, require.WithGlobalFolders(folders...))
 			}
-			rt, err := providerCtx.RuntimeFactory.NewRuntime(ctx, profile, opts...)
+			rt, err := providerCtx.RuntimeFactory.NewRuntimeFromSections(ctx, parsedValues, opts...)
 			if err != nil {
 				return nil, err
 			}
 			defer func() { _ = rt.Close(context.Background()) }()
-			if err := providerutil.InitRuntimeFromSections(ctx, parsedValues, runtimeHandle{rt: rt}, providerCtx.SelectedModules); err != nil {
-				return nil, err
-			}
 			return registry.InvokeInRuntime(ctx, rt, verb, parsedValues)
 		}
 	}
@@ -178,37 +168,12 @@ func appendSections(commands []cmds.Command, sections []schema.Section) {
 	}
 }
 
-type runtimeHandle struct {
-	rt *engine.Runtime
-}
-
-func (h runtimeHandle) Runtime() *goja.Runtime {
-	if h.rt == nil {
-		return nil
-	}
-	return h.rt.VM
-}
-
-func (h runtimeHandle) Close(ctx context.Context) error {
-	if h.rt == nil {
-		return nil
-	}
-	return h.rt.Close(ctx)
-}
-
-func (h runtimeHandle) AddCloser(fn func(context.Context) error) error {
-	if h.rt == nil {
-		return fmt.Errorf("runtime is nil")
-	}
-	return h.rt.AddCloser(fn)
-}
-
 func moduleEntry(name, description string, loader func() require.ModuleLoader) providerapi.Module {
 	return providerapi.Module{
 		Name:        name,
 		DefaultAs:   name,
 		Description: description,
-		New: func(providerapi.ModuleContext) (require.ModuleLoader, error) {
+		NewModuleFactory: func(providerapi.ModuleSetupContext) (require.ModuleLoader, error) {
 			return loader(), nil
 		},
 	}
@@ -228,7 +193,7 @@ func newHardwareCapability() *hardwareCapability { return &hardwareCapability{} 
 
 func (c *hardwareCapability) CapabilityID() string { return "loupedeck.hardware" }
 
-func (c *hardwareCapability) ConfigSections(providerapi.SectionContext) ([]schema.Section, error) {
+func (c *hardwareCapability) GlazedConfigSections(providerapi.SectionRequest) ([]schema.Section, error) {
 	section, err := schema.NewSection(
 		"loupedeck-hardware",
 		"Loupedeck hardware",
@@ -248,8 +213,8 @@ func (c *hardwareCapability) ConfigSections(providerapi.SectionContext) ([]schem
 	return []schema.Section{section}, nil
 }
 
-func (c *hardwareCapability) InitRuntimeFromSections(ctx context.Context, vals *values.Values, handle providerapi.RuntimeHandle) error {
-	if handle == nil || handle.Runtime() == nil {
+func (c *hardwareCapability) InitRuntimeFromSections(ctx context.Context, vals *values.Values, handle providerapi.RuntimeInitializerHandle) error {
+	if handle == nil || handle.EngineRuntime().VM == nil {
 		return fmt.Errorf("loupedeck hardware runtime handle is nil")
 	}
 	settings := hardwareSettings{Enabled: true, QueueSize: 256, SendInterval: "35ms", FlushInterval: device.DefaultRenderOptions.FlushInterval.String()}
@@ -260,11 +225,11 @@ func (c *hardwareCapability) InitRuntimeFromSections(ctx context.Context, vals *
 	}
 
 	environment := env.Ensure(&env.LoupeDeckEnvironment{Metrics: metrics.New()})
-	env.Store(handle.Runtime(), environment)
+	env.Store(handle.EngineRuntime().VM, environment)
 
 	closers := []func(context.Context) error{
 		func(context.Context) error {
-			env.Delete(handle.Runtime())
+			env.Delete(handle.EngineRuntime().VM)
 			return nil
 		},
 	}
@@ -307,18 +272,19 @@ func (c *hardwareCapability) InitRuntimeFromSections(ctx context.Context, vals *
 		}, closers...)
 	}
 
-	if closerRegistry, ok := handle.(providerapi.RuntimeCloserRegistry); ok {
-		return closerRegistry.AddCloser(func(ctx context.Context) error {
-			var ret error
-			for _, closer := range closers {
-				if err := closer(ctx); err != nil && ret == nil {
-					ret = err
-				}
-			}
-			return ret
-		})
+	engineRuntime := handle.EngineRuntime()
+	if engineRuntime == nil {
+		return fmt.Errorf("loupedeck hardware engine runtime is nil")
 	}
-	return nil
+	return engineRuntime.AddCloser(func(ctx context.Context) error {
+		var ret error
+		for _, closer := range closers {
+			if err := closer(ctx); err != nil && ret == nil {
+				ret = err
+			}
+		}
+		return ret
+	})
 }
 
 func connectHardware(settings hardwareSettings) (*device.Loupedeck, map[string]*device.Display, error) {
@@ -374,6 +340,5 @@ func clearDisplays(displays map[string]*device.Display) {
 	time.Sleep(100 * time.Millisecond)
 }
 
-var _ providerapi.RuntimeHandle = runtimeHandle{}
-var _ providerapi.ConfigSectionCapability = (*hardwareCapability)(nil)
+var _ providerapi.GlazedConfigSectionCapability = (*hardwareCapability)(nil)
 var _ providerapi.RuntimeInitializerCapability = (*hardwareCapability)(nil)
