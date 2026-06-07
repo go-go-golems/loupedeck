@@ -49,7 +49,7 @@ func (s testModuleSpec) RegisterRuntimeModule(ctx *engine.RuntimeModuleRegistrat
 
 func newTestRuntime(t *testing.T, env *envpkg.LoupeDeckEnvironment) *engine.Runtime {
 	t.Helper()
-	factory, err := engine.NewBuilder(
+	factory, err := engine.NewRuntimeFactoryBuilder(
 		engine.WithImplicitDefaultRegistryModules(false),
 		engine.WithDataOnlyDefaultRegistryModules(false),
 	).WithModules(testModuleSpec{env: env}).Build()

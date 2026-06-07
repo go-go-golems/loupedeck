@@ -68,9 +68,9 @@ func Register(registry *providerapi.ProviderRegistry) error {
 		},
 		providerapi.WithPackageCapability(hardware),
 		providerapi.CommandSetProvider{
-			Name:         "scenes",
-			DefaultMount: "loupedeck",
-			Description:  "Run Loupedeck JavaScript scenes and annotated scene verbs",
+			Name:          "scenes",
+			DefaultMount:  "loupedeck",
+			Description:   "Run Loupedeck JavaScript scenes and annotated scene verbs",
 			NewCommandSet: newScenesCommandSet,
 		},
 	)
@@ -306,7 +306,19 @@ func (c *hardwareCapability) InitRuntimeFromSections(ctx context.Context, vals *
 		}, closers...)
 	}
 
-	return nil
+	engineRuntime := handle.EngineRuntime()
+	if engineRuntime == nil {
+		return fmt.Errorf("loupedeck hardware engine runtime is nil")
+	}
+	return engineRuntime.AddCloser(func(ctx context.Context) error {
+		var ret error
+		for _, closer := range closers {
+			if err := closer(ctx); err != nil && ret == nil {
+				ret = err
+			}
+		}
+		return ret
+	})
 }
 
 func connectHardware(settings hardwareSettings) (*device.Loupedeck, map[string]*device.Display, error) {
